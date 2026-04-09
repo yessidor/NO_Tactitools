@@ -8,6 +8,7 @@ namespace NO_Tactitools.UI.MFD;
 [HarmonyPatch(typeof(MainMenu), "Start")]
 class WeaponDisplayPlugin {
     private static bool initialized = false;
+
     static void Postfix() {
         if (!initialized) {
             Plugin.Log($"[WD] Weapon Display plugin starting !");
@@ -20,7 +21,7 @@ class WeaponDisplayPlugin {
                 onLongPress: HandleDisplayToggle
             );
             initialized = true;
-            Plugin.Log("[WD] Weapon Display plugin succesfully started !");
+            Plugin.Log("[WD] Weapon Display plugin successfully started !");
         }
     }
 
@@ -54,16 +55,24 @@ public class WeaponDisplayComponent {
 
         static public void Update() {
             if (GameBindings.Player.Aircraft.GetAircraft() == null) return;
-            InternalState.isFlareSelected = GameBindings.Player.Aircraft.Countermeasures.IsFlareSelected();
-            InternalState.isJammerSelected = !InternalState.isFlareSelected;
-            InternalState.flareAmmo01 = Mathf.Clamp01(
-                (float)GameBindings.Player.Aircraft.Countermeasures.GetIRFlareAmmo() / GameBindings.Player.Aircraft.Countermeasures.GetIRFlareMaxAmmo());
-            if (GameBindings.Player.Aircraft.Countermeasures.HasJammer())
+            if (GameBindings.Player.Aircraft.Countermeasures.HasIRFlare()) {
+                InternalState.isFlareSelected = GameBindings.Player.Aircraft.Countermeasures.IsFlareSelected();
+                InternalState.flareAmmo01 = Mathf.Clamp01(
+                    (float)GameBindings.Player.Aircraft.Countermeasures.GetIRFlareAmmo() /
+                    GameBindings.Player.Aircraft.Countermeasures.GetIRFlareMaxAmmo());
+            }
+
+            if (GameBindings.Player.Aircraft.Countermeasures.HasJammer()) {
+                InternalState.isJammerSelected = !InternalState.isFlareSelected;
                 InternalState.jammerAmmo01 = Mathf.Clamp01(
                     (float)GameBindings.Player.Aircraft.Countermeasures.GetJammerAmmo() / 100f);
-            if (InternalState.hasStations) { // WRITE WEAPON STATE ONLY IF THE PLAYER HAS WEAPON STATIONS
+            }
+
+            if (InternalState.hasStations) {
+                // WRITE WEAPON STATE ONLY IF THE PLAYER HAS WEAPON STATIONS
                 InternalState.isOutOfAmmo = GameBindings.Player.Aircraft.Weapons.GetActiveStationAmmo() == 0;
-                InternalState.reduceWeaponFontSize = GameBindings.Player.Aircraft.Weapons.GetActiveStationAmmoString().Contains("/");
+                InternalState.reduceWeaponFontSize =
+                    GameBindings.Player.Aircraft.Weapons.GetActiveStationAmmoString().Contains("/");
                 if (GameBindings.Player.Aircraft.Weapons.GetActiveStationReloadProgress() > 0f)
                     InternalState.isReloading = true;
                 else
@@ -87,17 +96,19 @@ public class WeaponDisplayComponent {
         static public bool vanillaUIEnabled = true; // true by default since we need to check this value elsewhere
         static public Color mainColor = Color.green;
         static public Color textColor = Color.green;
-
     }
 
     static class DisplayEngine {
         static public void Init() {
-            if (InternalState.hasIRFlare) { // In reality, this checks if the player's plane has spawned
+            if (InternalState.hasIRFlare) {
+                // In reality, this checks if the player's plane has spawned
                 InternalState.weaponDisplay = new WeaponDisplay();
                 if (!InternalState.vanillaUIEnabled) UIBindings.Game.HideWeaponPanel();
                 else UIBindings.Game.ShowWeaponPanel();
             }
-            Plugin.Log("[WD] Display Engine initialized for platform " + GameBindings.Player.Aircraft.GetPlatformName());
+
+            Plugin.Log("[WD] Display Engine initialized for platform " +
+                       GameBindings.Player.Aircraft.GetPlatformName());
         }
 
         static public void Update() {
@@ -106,15 +117,23 @@ public class WeaponDisplayComponent {
                 UIBindings.Game.GetCombatHUDTransform() == null)
                 return; // do not refresh anything if the game is paused or the player aircraft is not available
             // REFRESH WEAPON
-            if (InternalState.hasStations) { // do not refresh weapon info if the player has no weapon stations
-                InternalState.weaponDisplay.weaponNameLabel.SetText(GameBindings.Player.Aircraft.Weapons.GetActiveStationName());
+            if (InternalState.hasStations) {
+                // do not refresh weapon info if the player has no weapon stations
+                InternalState.weaponDisplay.weaponNameLabel.SetText(GameBindings.Player.Aircraft.Weapons
+                    .GetActiveStationName());
                 if (InternalState.isReloading)
-                    InternalState.weaponDisplay.weaponAmmoLabel.SetText(((int)(100f - GameBindings.Player.Aircraft.Weapons.GetActiveStationReloadProgress() * 100f)).ToString() + "%");
+                    InternalState.weaponDisplay.weaponAmmoLabel.SetText(
+                        ((int)(100f - GameBindings.Player.Aircraft.Weapons.GetActiveStationReloadProgress() * 100f))
+                        .ToString() + "%");
                 else
-                    InternalState.weaponDisplay.weaponAmmoLabel.SetText(GameBindings.Player.Aircraft.Weapons.GetActiveStationAmmoString().Replace(" ", ""));
+                    InternalState.weaponDisplay.weaponAmmoLabel.SetText(GameBindings.Player.Aircraft.Weapons
+                        .GetActiveStationAmmoString().Replace(" ", ""));
                 InternalState.weaponDisplay.weaponAmmoLabel.SetFontSize(
-                    InternalState.weaponDisplay.originalWeaponAmmoFontSize + (InternalState.reduceWeaponFontSize ? -15 : 0));
-                InternalState.weaponDisplay.weaponAmmoLabel.SetColor(InternalState.isOutOfAmmo ? Color.red : InternalState.textColor);
+                    InternalState.weaponDisplay.originalWeaponAmmoFontSize +
+                    (InternalState.reduceWeaponFontSize ? -15 : 0));
+                InternalState.weaponDisplay.weaponAmmoLabel.SetColor(InternalState.isOutOfAmmo
+                    ? Color.red
+                    : InternalState.textColor);
 
                 Image cloneImg = InternalState.weaponDisplay.weaponImageClone.GetComponent<Image>();
                 Image srcImg = GameBindings.Player.Aircraft.Weapons.GetActiveStationImage();
@@ -122,17 +141,30 @@ public class WeaponDisplayComponent {
                 cloneImg.color = InternalState.isOutOfAmmo ? Color.red : InternalState.mainColor;
                 // TODO : ENCAPSULATE IMAGES IN MY OWN CODE
             }
+
             // REFRESH FLARE (ALWAYS, BECAUSE EVERYONE HAS FLARES   )
-            InternalState.weaponDisplay.flareLabel.SetText("IR:" + GameBindings.Player.Aircraft.Countermeasures.GetIRFlareAmmo().ToString());
-            InternalState.weaponDisplay.flareLabel.SetFontStyle(InternalState.isFlareSelected ? FontStyle.Bold : FontStyle.Normal);
-            InternalState.weaponDisplay.flareLabel.SetFontSize(InternalState.weaponDisplay.originalFlareFontSize + (InternalState.isFlareSelected ? 10 : 0));
-            InternalState.weaponDisplay.flareLabel.SetColor(Color.Lerp(Color.red, InternalState.textColor, InternalState.flareAmmo01));
+            InternalState.weaponDisplay.flareLabel.SetText("IR:" + GameBindings.Player.Aircraft.Countermeasures
+                .GetIRFlareAmmo().ToString());
+            InternalState.weaponDisplay.flareLabel.SetFontStyle(InternalState.isFlareSelected
+                ? FontStyle.Bold
+                : FontStyle.Normal);
+            InternalState.weaponDisplay.flareLabel.SetFontSize(InternalState.weaponDisplay.originalFlareFontSize +
+                                                               (InternalState.isFlareSelected ? 10 : 0));
+            InternalState.weaponDisplay.flareLabel.SetColor(Color.Lerp(Color.red, InternalState.textColor,
+                InternalState.flareAmmo01));
             // REFRESH JAMMER
             if (InternalState.hasJammer) {
-                InternalState.weaponDisplay.jammerLabel.SetText("EW:" + GameBindings.Player.Aircraft.Countermeasures.GetJammerAmmo().ToString() + "%");
-                InternalState.weaponDisplay.jammerLabel.SetFontStyle(InternalState.isJammerSelected ? FontStyle.Bold : FontStyle.Normal);
-                InternalState.weaponDisplay.jammerLabel.SetFontSize(InternalState.weaponDisplay.originalJammerFontSize + (InternalState.isJammerSelected ? 10 : 0)); ;
-                InternalState.weaponDisplay.jammerLabel.SetColor(Color.Lerp(Color.red, InternalState.textColor, InternalState.jammerAmmo01));
+                InternalState.weaponDisplay.jammerLabel.SetText("EW:" +
+                                                                GameBindings.Player.Aircraft.Countermeasures
+                                                                    .GetJammerAmmo().ToString() + "%");
+                InternalState.weaponDisplay.jammerLabel.SetFontStyle(InternalState.isJammerSelected
+                    ? FontStyle.Bold
+                    : FontStyle.Normal);
+                InternalState.weaponDisplay.jammerLabel.SetFontSize(InternalState.weaponDisplay.originalJammerFontSize +
+                                                                    (InternalState.isJammerSelected ? 10 : 0));
+                ;
+                InternalState.weaponDisplay.jammerLabel.SetColor(Color.Lerp(Color.red, InternalState.textColor,
+                    InternalState.jammerAmmo01));
             }
         }
     }
@@ -144,31 +176,34 @@ public class WeaponDisplayComponent {
         public UIBindings.Draw.UILine MFD_systemsLine;
         public UIBindings.Draw.UILabel weaponNameLabel;
         public UIBindings.Draw.UILabel weaponAmmoLabel;
+
         public GameObject weaponImageClone;
+
         // Store original font sizes
         public int originalFlareFontSize;
         public int originalJammerFontSize;
+
         public int originalWeaponAmmoFontSize;
+
         //Store the main color for the MFD, can be set by the MFDColorPlugin
         public bool removeOriginalMFDContent = true; // by default, we remove the original MFD content
 
 
         public WeaponDisplay() {
             static Transform Get(string path) {
-                return UIBindings.Game.GetTacScreenTransform().Find(path)?.transform;
+                return UIBindings.Game.GetTacScreenTransform().Find(path).transform;
             }
+
             string platformName = GameBindings.Player.Aircraft.GetPlatformName();
+            Plugin.Log($"Platform name: {platformName.ToString()}");
             Transform destination = platformName switch {
-                "T/A-30 Compass" or "FS-12 Revoker" or
-                "FS-20 Vortex" or "KR-67 Ifrit" or
-                "UH-80 Ibis" or "A-19 Brawler"
-                or "FQ-106 Kestrel" or "FS-3 Ternion" => Get("SystemStatus"),
                 "EW-1 Medusa" => Get("engPanel1"),
                 "CI-22 Cricket" => Get("EngPanel"),
                 "SAH-46 Chicane" => Get("BasicFlightInstrument"),
                 "VL-49 Tarantula" => Get("RightScreenBorder/WeaponPanel"),
                 "SFB-81" => Get("weaponPanel"),
-                _ => null
+                "F-16M King Viper" => Get("SystemsPanel"),
+                _ => Get("SystemStatus") // all the others
             };
             weaponDisplay_transform = destination;
             // Default settings for the weapon display
@@ -333,7 +368,22 @@ public class WeaponDisplayComponent {
                     weaponNameFont = 25;
                     weaponAmmoFont = 40;
                     break;
+                case "F-16M King Viper":
+                    flarePos = new Vector2(60, 20);
+                    jammerPos = new Vector2(60, -20);
+                    lineStart = new Vector2(5, -50);
+                    lineEnd = new Vector2(5, 50);
+                    weaponNamePos = new Vector2(-60, 10);
+                    weaponAmmoPos = new Vector2(-60, -20);
+                    weaponImagePos = new Vector2(-60, 40);
+                    flareFont = 20;
+                    jammerFont = 20;
+                    weaponNameFont = 20;
+                    weaponAmmoFont = 30;
+                    imageScaleFactor = 0.5f;
+                    break;
                 case "FQ-106 Kestrel":
+                default:
                     flarePos = new Vector2(0, -40);
                     jammerPos = new Vector2(0, -80);
                     lineStart = new Vector2(-60, -7);
@@ -346,20 +396,8 @@ public class WeaponDisplayComponent {
                     weaponNameFont = 25;
                     weaponAmmoFont = 45;
                     break;
-                default:
-                    flarePos = new Vector2(0, -40);
-                    jammerPos = new Vector2(0, -80);
-                    lineStart = new Vector2(-60, 0);
-                    lineEnd = new Vector2(60, 0);
-                    weaponNamePos = new Vector2(0, 60);
-                    weaponAmmoPos = new Vector2(0, 30);
-                    weaponImagePos = new Vector2(0, 80);
-                    flareFont = 30;
-                    jammerFont = 30;
-                    weaponNameFont = 18;
-                    weaponAmmoFont = 30;
-                    break;
             }
+
             // Store original font sizes
             originalFlareFontSize = flareFont;
             originalJammerFontSize = jammerFont;
@@ -369,12 +407,14 @@ public class WeaponDisplayComponent {
             if (removeOriginalMFDContent) {
                 UIBindings.Generic.HideChildren(destination);
             }
+
             UIBindings.Generic.KillLayout(destination);
             // rotate the destination canvas 90 degrees clockwise if Darkreach
             if (platformName == "SFB-81") {
                 destination.localRotation = Quaternion.Euler(0, 0, -90);
                 destination.GetComponent<Image>().enabled = false; // hide the background image
             }
+
             // move the BasicFlightInstruments higher on Chicane screen
             if (platformName == "SAH-46 Chicane") {
                 Transform toMove;
@@ -452,7 +492,9 @@ public class WeaponDisplayComponent {
             weaponAmmoLabel.SetText("");
             // Clone the weapon image and set it as a child of the systems MFD
             if (GameBindings.Player.Aircraft.Weapons.GetStationCount() != 0)
-                weaponImageClone = GameObject.Instantiate(GameBindings.Player.Aircraft.Weapons.GetActiveStationImage().gameObject, destination);
+                weaponImageClone =
+                    GameObject.Instantiate(GameBindings.Player.Aircraft.Weapons.GetActiveStationImage().gameObject,
+                        destination);
             else
                 weaponImageClone = new UIBindings.Draw.UIRectangle(
                     "empty_texture",
@@ -482,6 +524,7 @@ public class WeaponDisplayComponent {
                     weaponDisplay_transform.GetComponent<Image>().enabled = true;
                 }
             }
+
             LayoutGroup lg = weaponDisplay_transform.GetComponent<LayoutGroup>();
             if (lg != null)
                 lg.enabled = !lg.enabled;
@@ -494,6 +537,7 @@ public class WeaponDisplayComponent {
             }
         }
     }
+
     // INIT AND REFRESH LOOP
     [HarmonyPatch(typeof(TacScreen), "Initialize")]
     public static class OnPlatformStart {
@@ -511,5 +555,3 @@ public class WeaponDisplayComponent {
         }
     }
 }
-
-
