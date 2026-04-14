@@ -14,3 +14,4 @@ A-19 Brawler
 //FS-20 Vortex
 //KR-67 Ifrit
 //FQ-106 Kestrel
+// FastBomber1

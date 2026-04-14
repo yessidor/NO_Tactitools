@@ -251,8 +251,23 @@ public class LoadoutPreviewComponent {
                 case "A-19 Brawler":
                     verticalOffset = 70;
                     break;
+                case "Alkyon AB-4":
+                case "AB-4 Alkyon":
+                case "FastBomber1":
+                    horizontalOffset = -180;
+                    verticalOffset = 60;
+                    break;
+                //modded planes
                 case "FQ-106 Kestrel":
                     verticalOffset = 75;
+                    break;
+                case "MiG-15":
+                    horizontalOffset = -250;
+                    verticalOffset = 120;
+                    fontSize = 20;
+                    break;
+                case "F-16M King Viper":
+                    verticalOffset = 80;
                     break;
                 case "HMD":
                     horizontalOffset = 0;

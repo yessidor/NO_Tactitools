@@ -1,7 +1,7 @@
 using BepInEx.Bootstrap;
 using HarmonyLib;
 using UnityEngine;
-using NOAutopilot; // Reference from .csproj
+using NOAutopilot.Core; // Reference from .csproj
 using Plugin = NO_Tactitools.Core.Plugin;
 using NO_Tactitools.Core;
 using System.Collections.Generic;
@@ -203,7 +203,7 @@ public static class NOAutopilotControlPlugin {
                 APData.AllowExtremeThrottle = !APData.AllowExtremeThrottle;
                 UIBindings.Game.DisplayToast(APData.AllowExtremeThrottle ? "Autopilot : Extreme throttle <b>ON</b>" : "Autopilot : Extreme throttle <b>OFF</b>");
             }
-            NOAutopilot.Plugin.SyncMenuValues();
+            NOAutopilot.Core.Plugin.SyncMenuValues();
             UIBindings.Sound.PlaySound("beep_scroll");
             return;
         }
@@ -597,6 +597,22 @@ public class NOAutopilotComponent {
                 case "A-19 Brawler":
                     yOffset = 70;
                     break;
+                case "Alkyon AB-4":
+                case "AB-4 Alkyon":
+                case "FastBomber1":
+                    xOffset = -180;
+                    yOffset = 60;
+                    break;
+                //modded planes
+                case "MiG-15":
+                    xOffset = -260;
+                    yOffset = 110;
+                    fontSize = 25;
+                    break;
+                case "F-16M King Viper":
+                    xOffset = 0;
+                    yOffset = 70;
+                    break;
                 case "FQ-106 Kestrel":
                     yOffset = 75;
                     break;
@@ -837,7 +853,7 @@ public class NOAutopilotComponent {
                 // Engage Bar
                 if (selectedCol == 0) {
                     APData.Enabled = !APData.Enabled;
-                    NOAutopilot.Plugin.SyncMenuValues();
+                    NOAutopilot.Core.Plugin.SyncMenuValues();
                     if (!APData.Enabled)
                         UIBindings.Sound.PlaySound("beep_autopilot");
                     return;
@@ -873,15 +889,15 @@ public class NOAutopilotComponent {
                     APData.Enabled = !APData.Enabled;
                     if (!APData.Enabled)
                         UIBindings.Sound.PlaySound("beep_autopilot");
-                    NOAutopilot.Plugin.SyncMenuValues();
+                    NOAutopilot.Core.Plugin.SyncMenuValues();
                 }
                 else if (selectedCol == 1) { // AJ
                     APData.AutoJammerActive = !APData.AutoJammerActive;
-                    NOAutopilot.Plugin.SyncMenuValues();
+                    NOAutopilot.Core.Plugin.SyncMenuValues();
                 }
                 else if (selectedCol == 2) { // GCAS
                     APData.GCASEnabled = !APData.GCASEnabled;
-                    NOAutopilot.Plugin.SyncMenuValues();
+                    NOAutopilot.Core.Plugin.SyncMenuValues();
                 }
                 else if (selectedCol == 5) {
                     ApplyStagedValues();
@@ -937,7 +953,7 @@ public class NOAutopilotComponent {
 
             ApplyStagedValues(autoEngage: false);
             APData.Enabled = false;
-            NOAutopilot.Plugin.SyncMenuValues();
+            NOAutopilot.Core.Plugin.SyncMenuValues();
             UIBindings.Game.DisplayToast("Autopilot: <b>RESET & STOPPED</b>");
         }
 
@@ -1012,7 +1028,7 @@ public class NOAutopilotComponent {
             if (autoEngage && !APData.Enabled) {
                 APData.Enabled = true;
             }
-            NOAutopilot.Plugin.SyncMenuValues();
+            NOAutopilot.Core.Plugin.SyncMenuValues();
             Plugin.Log("[AP] Values Applied.");
         }
 

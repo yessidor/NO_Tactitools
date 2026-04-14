@@ -202,6 +202,8 @@ public class WeaponDisplayComponent {
                 "SAH-46 Chicane" => Get("BasicFlightInstrument"),
                 "VL-49 Tarantula" => Get("RightScreenBorder/WeaponPanel"),
                 "SFB-81" => Get("weaponPanel"),
+                "FastBomber1" or "AB-4 Alkyon" or "Alkyon AB-4" => Get("weaponPanel/frontProfile"),
+                "MiG-15" => Get("StatusGauges/FrontView"),
                 "F-16M King Viper" => Get("SystemsPanel"),
                 _ => Get("SystemStatus") // all the others
             };
@@ -368,6 +370,22 @@ public class WeaponDisplayComponent {
                     weaponNameFont = 25;
                     weaponAmmoFont = 40;
                     break;
+                case "Alkyon AB-4":
+                case "AB-4 Alkyon":
+                case "FastBomber1":
+                    flarePos = new Vector2(0, -160);
+                    jammerPos = new Vector2(0, -300);
+                    lineStart = new Vector2(-320, -40);
+                    lineEnd = new Vector2(320, -40);
+                    weaponNamePos = new Vector2(0, 180);
+                    weaponAmmoPos = new Vector2(0, 60);
+                    weaponImagePos = new Vector2(0, 300);
+                    flareFont = 120;
+                    jammerFont = 120;
+                    weaponNameFont = 100;
+                    weaponAmmoFont = 160;
+                    imageScaleFactor = 2.0f;
+                    break;
                 case "F-16M King Viper":
                     flarePos = new Vector2(60, 20);
                     jammerPos = new Vector2(60, -20);
@@ -381,6 +399,20 @@ public class WeaponDisplayComponent {
                     weaponNameFont = 20;
                     weaponAmmoFont = 30;
                     imageScaleFactor = 0.5f;
+                    break;
+                case "MiG-15":
+                    flarePos = new Vector2(80, 30);
+                    jammerPos = new Vector2(80, -40);
+                    lineStart = new Vector2(5, -70);
+                    lineEnd = new Vector2(5, 70);
+                    weaponNamePos = new Vector2(-90, 0);
+                    weaponAmmoPos = new Vector2(-90, -40);
+                    weaponImagePos = new Vector2(-90, 40);
+                    flareFont = 30;
+                    jammerFont = 30;
+                    weaponNameFont = 30;
+                    weaponAmmoFont = 40;
+                    imageScaleFactor = 0.75f;
                     break;
                 case "FQ-106 Kestrel":
                 default:
@@ -412,6 +444,14 @@ public class WeaponDisplayComponent {
             // rotate the destination canvas 90 degrees clockwise if Darkreach
             if (platformName == "SFB-81") {
                 destination.localRotation = Quaternion.Euler(0, 0, -90);
+                destination.GetComponent<Image>().enabled = false; // hide the background image
+            }
+
+            if (platformName == "MiG-15") {
+                destination.GetComponent<Image>().enabled = false; // hide the background image
+            }
+            
+            if (platformName == "FastBomber1") {
                 destination.GetComponent<Image>().enabled = false; // hide the background image
             }
 
@@ -451,7 +491,7 @@ public class WeaponDisplayComponent {
                 flareFont,
                 0f
             );
-            flareLabel.SetText("");
+            flareLabel.SetText("⇌");
             jammerLabel = new(
                 "radarLabel",
                 jammerPos,
@@ -523,6 +563,13 @@ public class WeaponDisplayComponent {
                     weaponDisplay_transform.localRotation = Quaternion.Euler(0, 0, 0);
                     weaponDisplay_transform.GetComponent<Image>().enabled = true;
                 }
+            }
+            if (GameBindings.Player.Aircraft.GetPlatformName() == "MiG-15") {
+                    weaponDisplay_transform.GetComponent<Image>().enabled = !weaponDisplay_transform.GetComponent<Image>().enabled;
+            }
+            
+            if (GameBindings.Player.Aircraft.GetPlatformName() == "FastBomber1") {
+                weaponDisplay_transform.GetComponent<Image>().enabled = !weaponDisplay_transform.GetComponent<Image>().enabled;
             }
 
             LayoutGroup lg = weaponDisplay_transform.GetComponent<LayoutGroup>();
