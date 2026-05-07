@@ -1,5 +1,7 @@
 # ☢️ Nuclear Option Tactical Tools ☢️
 
+Original README content follows, see below for [Additional features](#additional-features) .
+
 ---
 
 ## About
@@ -355,3 +357,110 @@ Restart the game, **I BEG YOU**.
 ## FAQ
 
 *Coming soon*
+
+---
+
+## Additional features
+
+### Active target selection
+
+Cycling through target list (with `MFD NAV Left/Right` keys) makes the currently focused target active, just like if it was added to target list last. This allows, for example, to easily select specific target for gun attack without first clearing the target list.  
+
+Feature state is controlled by `Target List Controller - Switch Current Target - Enabled` setting in plugin settings.  
+
+*Known issue*: when new active target is selected, tooltips for all selected targets are briefly flashed on the minimap. This is because the list of selected targets is essentially cleared, modified, and loaded again. Have not figured out how to disable this, and this is not a big inconvenience anyway.
+
+### Additional target lists
+
+Extra target lists were added in addition to the default target list saved and restored by `MFD NAV Up` key.  
+
+Number of extra target lists is defined by `MFD Nav - Extra Key - Number` setting (restart the game to apply changes).  
+
+Long press the corresponding `MFD Nav - Extra Key #` to save target list, short press to restore it.
+
+### Target filter presets
+
+This feature allows to save and load presets for target filter configuration (a window opened by by **"TGT"** button on the right side of the maximized map). Loading filter preset when some targets are already selected will deselect not matching targets.  
+
+Feature state is controlled by `Target Filter Preset - Enabled` setting in plugin settings.  
+
+Number of target filter presets is defined by `Target Filter Preset - Number` setting (restart the game to apply changes). Keys are bound in `"Target Filter Preset - Slot #"` settings.  
+
+Presets are persistent: they are saved to config file `TargetFilterPreset.cfg` when modified and loaded on mission load.
+
+### Maximizing markers of targetable units
+
+If this option is enabled, markers of units eligible for targeting by target filter configuration will be always maximized regardless of HUD settings.
+
+Feature state is controlled by `Target Filter Preset - Maximize Targetable Markers - Enabled` setting in plugin settings.  
+
+### Filtering targets tracked or not tracked by deliverables
+
+This is an add-on to **Ammo Conservation indicator** and allows to remove targets that are either tracked or untracked from the selected targets list.  
+
+Short press on the key bound to `MFD Nav - Backspace` removes tracked targets, long press removes untracked targets.
+
+### Ammo Conservation indicator extended
+
+This feature allows to recolor HMD markers of selected targets that are being tracked by deliverables. MFD box markers of selected targets can also be painted with a different color if those targets are being tracked. In addition to that, it's possible to turn of the dot markers under MFD boxes of tracked targets.
+
+Feature state is controlled by `Ammo Conservation Indicator - HMD Markers Color - Enabled` setting. Colors are controlled by color settings under `Ammo Conservation Indicator` section.
+
+### MFD Target camera mode toggle
+
+MFD Target camera can be toggled between looking at all selected targets (the default behaviour) and looking at active target only.
+
+Feature state is controlled by `Target Cam Mode - Enabled` setting, mode toggle key is bound to `Target Cam Mode - Toggle Mode Key`.
+
+### Hide objectives and airbase markers with text on HMD
+
+If this option is enabled, turning off **"OBJ"** button in HUD settings (window opened by **"HUD"** button on the left side of maximized map) turns off objectives and airbase markers and text on HMD, in addition to hiding objective marker and text on the map.
+
+Feature state is controlled by `Hide Objectives - Enabled` setting.
+
+### Better Virtual Joystick
+
+#### 3 modes of operation
+
+This feature enables **Virtual Joystick** to operate in 3 modes:
+
+ * game default `roll` mode, when mouse `x` axis input controlls `roll` axis,
+ * `yaw` mode, when mouse `x` axis input controls `yaw` axis,
+ * `roll&yaw` mode, when mouse `x` axis controls both `roll` and `yaw` axes.
+
+mouse `y` controls `pitch` axis in all modes.
+
+Feature state is controlled by `Virtual Joystick Extender - Enabled` setting.
+If enabled, state is toggled by `Virtual Joystick Extender - Toggle Key`.
+Switching to `yaw` mode is done by `Virtual Joystick Extender - Yaw Mode Key`; switching to `roll&yaw` mode - by `Virtual Joystick Extender - Roll&Yaw Mode Key`.  
+If `Virtual Joystick Extender - Toggle Mode - Enabled` setting is disabled, `yaw` and `roll&yaw` modes are temporarily enabled by respective key press and `roll` mode is restored when key is released; if this setting is enabled, modes are toggled between a corresponding mode and `roll` mode by key press.
+Default mode is set by `Virtual Joystick Extender - Default Mode` option.
+
+In `yaw` mode the output to `yaw` axis is multiplied by value set by `Virtual Joystick Extender - Yaw Mode Multiplier` setting, in `roll&yaw` mode - by `Virtual Joystick Extender - Roll&Yaw Mode Multiplier` setting.
+
+#### Axis response curves
+
+This feature also adds response curves for `yaw`, `pitch` and `roll` axes.
+
+Shape of these response curves are defined by so-called depressed cubic equation of the form y = Curvature\*x<sup>3</sup> + (1 - Curvature)\*x .
+
+`Curvature` parameters for respective axes are controlled by `Virtual Joystick Extender - Yaw Curvature`, `Virtual Joystick Extender - Pitch Curvature` and `Virtual Joystick Extender - Roll Curvature` settings.
+
+### Better axis control with keys
+
+All axes -- `pitch`, `roll`, `yaw`, `brakes`, `throttle`, `custom axis 1` -- can be controlled by key-controlled response curves.
+
+State of this feature is controlled by `Key Axes - Enabled` setting. Key bindings and curves settings are under `Key Axes` section.
+
+Each axis is assigned a pair of keys, pressing one key will decrease axis value, pressing the other will increase it, both at the base `Build-Up speed` modified by response curves (see below). If both keys are pressed, the currently attained axis value is maintained. When both keys are released, if `Decay Speed` parameter (see below) is greater than 0, the axis value will decay to `Default Value`, otherwise the attained axis value is maintained until further input. 
+
+Each axis is assigned so-called `Dynamic` and `Static` response curves. Shapes of these response curves are defined by so-called depressed cubic equation of the form y = Curvature\*x<sup>3</sup> + (1 - Curvature)\*x + DefaultValue .  
+`Dynamic` curve basically determines the acceleration of axis value change: the higher is the `Dynamic Curvature` the slower the axis value changes initially.  
+`Static` curve determites how fast the axis value changes around `Default Value`: the higher is the `Static Curvature`, the slower.
+
+ *Note:* for `throttle` axis, the same controlling keys must be bound in the game controls menu in order to control `throttle` axis in hover mode.
+
+
+## Compatibility
+
+Updated mod was tested under Nuclear Option 0.33.3. Works with NO Autopilot, compatibility with other mods was not tested.

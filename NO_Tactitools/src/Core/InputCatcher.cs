@@ -11,6 +11,7 @@ namespace NO_Tactitools.Core;
 public class InputRegistration {
     public RewiredInputConfig config;
     public float longPressThreshold;
+    public System.Action onPress;
     public System.Action onShortPress;
     public System.Action onHold;
     public System.Action onLongPress;
@@ -26,6 +27,7 @@ public class InputCatcher {
     public static void RegisterNewInput(
         RewiredInputConfig config,
         float longPressThreshold = 0.2f,
+        System.Action onPress = null,
         System.Action onRelease = null,
         System.Action onHold = null,
         System.Action onLongPress = null
@@ -34,6 +36,7 @@ public class InputCatcher {
         InputRegistration reg = new() {
             config = config,
             longPressThreshold = longPressThreshold,
+            onPress = onPress,
             onShortPress = onRelease,
             onHold = onHold,
             onLongPress = onLongPress
@@ -161,7 +164,7 @@ public class ControllerInput {
         this.buttonPressTime = Time.time;
         this.longPressHandled = true; // Assume it's already handled if they're holding it down on registration
         this.holdLongHandled = true;
-        if (registration.onShortPress == null && registration.onLongPress == null && registration.onHold == null) {
+        if (registration.onPress == null && registration.onShortPress == null && registration.onLongPress == null && registration.onHold == null) {
             Plugin.Logger.LogError("[IC] No actions provided for button " + buttonNumber);
         }
         else {
@@ -198,6 +201,7 @@ class ControllerInputInterceptionPatch {
                             button.buttonPressTime = Time.time;
                             button.longPressHandled = false;
                             button.holdLongHandled = false;
+                            button.registration.onPress?.Invoke();
                         }
                         else if (button.previousButtonState && button.currentButtonState) {
                             // Button is being held down

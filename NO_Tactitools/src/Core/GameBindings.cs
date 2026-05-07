@@ -361,17 +361,46 @@ public class GameBindings {
                 try {
                     CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
                     Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
-                    AudioClip selectSound = _selectSoundCache.GetValue(currentCombatHUD);
                     List<Unit> currentTargets = [.. units];
                     currentTargets.Reverse();
                     foreach (Unit t_unit in currentTargets) {
-                        if (markerLookup.ContainsKey(t_unit)) {
-                            markerLookup[t_unit].SelectMarker();
+                        if (markerLookup.TryGetValue(t_unit, out var marker)) {
+                            marker.SelectMarker();
                             GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(t_unit);
                         }
                     }
-                    if (!muteSound)
+                    if (!muteSound) {
+                        AudioClip selectSound = _selectSoundCache.GetValue(currentCombatHUD);
                         SoundManager.PlayInterfaceOneShot(selectSound);
+                    }
+                    //Might be useful later
+                    /*
+                    List<PersistentID> units2ids(List<Unit> units) => units.ConvertAll(x => x.persistentID);
+                    Plugin.Log(
+                      string.Format(
+                        "AddTargets: units = {0}; currentTargets = {1}; retrieved = {2}",
+                        string.Join(",", units2ids(units)),
+                        string.Join(",", units2ids(currentTargets)),
+                        string.Join(",", units2ids(_targetListCache.GetValue(SceneSingleton<CombatHUD>.i)))
+                      )
+                    );
+                    */
+                }
+                catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+            }
+
+            public static void AddTarget(Unit unit, bool muteSound = false) {
+                try {
+                    CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
+                    Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
+                    if (markerLookup.TryGetValue(unit, out var marker)) {
+                        marker.SelectMarker();
+                        GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(unit);
+                    }
+                    if (!muteSound) {
+                        AudioClip selectSound = _selectSoundCache.GetValue(currentCombatHUD);
+                        SoundManager.PlayInterfaceOneShot(selectSound);
+                    }
                 }
                 catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
             }

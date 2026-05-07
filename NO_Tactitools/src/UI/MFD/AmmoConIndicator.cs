@@ -16,6 +16,21 @@ class AmmoConIndicatorPlugin {
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnPlatformUpdate));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnMissileStart));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnMissileSetTarget));
+            Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnHUDUnitMarkerUpdateColor));
+            Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnCombatHUDShowTargetInfo));
+
+            var bindings = new BindingHelper.Binding[] {
+                new (typeof(AmmoConIndicatorComponent.InternalState), "ColorHMDMarker", Plugin.AmmoConIndicator.ColorHMDMarker),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "ColorMFDBox", Plugin.AmmoConIndicator.ColorMFDBox),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "DrawMFDDot", Plugin.AmmoConIndicator.DrawMFDDot),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "HMDTrackedMarkerColor", Plugin.AmmoConIndicator.HMDTrackedMarkerColor),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "HMDDefaultMarkerColor", Plugin.AmmoConIndicator.HMDDefaultMarkerColor),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "MFDTrackedBoxColor", Plugin.AmmoConIndicator.MFDTrackedBoxColor),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "MFDDefaultBoxColor", Plugin.AmmoConIndicator.MFDDefaultBoxColor),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "MFDTrackedDotColor", Plugin.AmmoConIndicator.MFDTrackedDotColor)
+            };
+            BindingHelper.ApplyBindings(bindings);
+
             initialized = true;
             Plugin.Log("[AC] Ammo Conservation Indicator plugin successfully started !");
         }
@@ -23,6 +38,10 @@ class AmmoConIndicatorPlugin {
 }
 
 class AmmoConIndicatorComponent {
+    static public List<Unit> GetTrackedTargets() {
+        return InternalState.trackedTargets;
+    }
+
     static public class LogicEngine {
         public static void Init() {
             InternalState.activeMissiles.Clear();
@@ -75,7 +94,20 @@ class AmmoConIndicatorComponent {
 
     static public class InternalState {
         static public Dictionary<Missile, Unit> activeMissiles = [];
-        public static readonly TraverseCache<TargetScreenUI, List<Image>> _targetBoxesCache = new("targetBoxes");
+        static public readonly TraverseCache<TargetScreenUI, List<Image>> _targetBoxesCache = new("targetBoxes");
+        static public readonly TraverseCache<CombatHUD, Dictionary<Unit, HUDUnitMarker>> _markerLookupCache = new("markerLookup");
+        static public readonly TraverseCache<CombatHUD, Text> _targetInfoCache = new("targetInfo");
+        static public List<Unit> trackedTargets = [];
+        static public List<HUDUnitMarker> trackedMarkers = [];
+        static public HUDUnitMarker? activeTrackedMarker = null;
+        static public bool ColorHMDMarker = true;
+        static public bool ColorMFDBox = true;
+        static public bool DrawMFDDot = true;
+        static public Color HMDTrackedMarkerColor = Color.yellow;
+        static public Color HMDDefaultMarkerColor = Color.green;
+        static public Color MFDTrackedBoxColor = Color.yellow;
+        static public Color MFDDefaultBoxColor = Color.white;
+        static public Color MFDTrackedDotColor = new Color(0f, 1f, 0f, 0.95f);
     }
 
     static public class DisplayEngine {
@@ -95,21 +127,72 @@ class AmmoConIndicatorComponent {
 
             List<Unit> targets = GameBindings.Player.TargetList.GetTargets();
             List<Image> targetIcons = InternalState._targetBoxesCache.GetValue(targetScreen);
+            HashSet<Unit> trackedUnits = new HashSet<Unit> (InternalState.activeMissiles.Values);
 
             if (targetIcons == null || targetIcons.Count < targets.Count) return;
 
-            for (int i = 0; i < targets.Count; i++) {
-                bool isTracked = InternalState.activeMissiles.ContainsValue(targets[i]);
+            Dictionary<Unit, HUDUnitMarker>? markerLookup = null;
+            CombatHUD currentCombatHUD;
+            if (InternalState.ColorHMDMarker) {
+                currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
+                markerLookup = InternalState._markerLookupCache.GetValue(currentCombatHUD);
+                InternalState.trackedTargets.Clear();
+                InternalState.trackedMarkers.Clear();
+                InternalState.activeTrackedMarker = null;
+            }
 
-                UIBindings.Draw.UIRectangle trackerDot = new(
-                    "TrackerDot",
-                    new Vector2(-5, -30),
-                    new Vector2(5, -40),
-                    fillColor: new Color(0f, 1f, 0f, 0.95f),
-                    UIParent: targetIcons[i].rectTransform
-                );
-                trackerDot.GetGameObject().SetActive(isTracked);
-                trackerDot.GetImageComponent().raycastTarget = false;
+            //'targetIcons' is indexed by i, so have to walk 'targets' list
+            for (int i = 0; i < targets.Count; i++) {
+                bool isTracked = trackedUnits.Contains(targets[i]);
+
+                if (isTracked)
+                    InternalState.trackedTargets.Add(targets[i]);
+
+                if (InternalState.DrawMFDDot) {
+                    UIBindings.Draw.UIRectangle trackerDot = new(
+                        "TrackerDot",
+                        new Vector2(-5, -30),
+                        new Vector2(5, -40),
+                        fillColor: InternalState.MFDTrackedDotColor,
+                        UIParent: targetIcons[i].rectTransform
+                    );
+                    trackerDot.GetGameObject().SetActive(isTracked);
+                    trackerDot.GetImageComponent().raycastTarget = false;
+                }
+
+                if (InternalState.ColorMFDBox)
+                    targetIcons[i].color = isTracked ? InternalState.MFDTrackedBoxColor : InternalState.MFDDefaultBoxColor;
+
+                if (InternalState.ColorHMDMarker) {
+                    HUDUnitMarker? marker = null;
+                    if (isTracked && markerLookup is not null && (bool)markerLookup?.TryGetValue(targets[i], out marker)) {
+                        marker.image.color = InternalState.HMDTrackedMarkerColor;
+                        InternalState.trackedMarkers.Add(marker);
+                        if (i == 0) InternalState.activeTrackedMarker = marker;
+                    }
+                }
+            }
+        }
+
+        public static void OnHUDUnitMarkerUpdateColor(HUDUnitMarker marker) {
+            if (InternalState.ColorHMDMarker && marker.selected && InternalState.trackedMarkers.Contains(marker))
+                marker.image.color = InternalState.HMDTrackedMarkerColor;
+        }
+
+        public static void OnCombatHUDShowTargetInfo(CombatHUD combatHUD) {
+            Text targetInfo = InternalState._targetInfoCache.GetValue(combatHUD);
+            if (InternalState.ColorHMDMarker) {
+                HUDUnitMarker? activeTrackedMarker = InternalState.activeTrackedMarker;
+                if (activeTrackedMarker != null) {
+                    activeTrackedMarker?.image.color = InternalState.HMDTrackedMarkerColor;
+                    targetInfo.color = InternalState.HMDTrackedMarkerColor;
+                }
+                else {
+                    targetInfo.color = InternalState.HMDDefaultMarkerColor;
+                }
+            }
+            else {
+                targetInfo.color = InternalState.HMDDefaultMarkerColor;
             }
         }
     }
@@ -142,6 +225,20 @@ class AmmoConIndicatorComponent {
         static void Postfix() {
             LogicEngine.Update();
             DisplayEngine.Update();
+        }
+    }
+
+    [HarmonyPatch(typeof(HUDUnitMarker), "UpdateColor")]
+    public static class OnHUDUnitMarkerUpdateColor {
+        static void Postfix(HUDUnitMarker __instance) {
+            DisplayEngine.OnHUDUnitMarkerUpdateColor(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(CombatHUD), "ShowTargetInfo")]
+    public static class OnCombatHUDShowTargetInfo {
+        static void Postfix(CombatHUD __instance) {
+            DisplayEngine.OnCombatHUDShowTargetInfo(__instance);
         }
     }
 }

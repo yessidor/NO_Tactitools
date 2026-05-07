@@ -13,28 +13,87 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.george.NO_Tactitools", "NOTT", "0.7.1.1")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.2.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public static RewiredInputConfig MFDNavEnter;
+        public static RewiredInputConfig MFDNavBack;
         public static RewiredInputConfig MFDNavUp;
         public static RewiredInputConfig MFDNavDown;
         public static RewiredInputConfig MFDNavLeft;
         public static RewiredInputConfig MFDNavRight;
         public static RewiredInputConfig MFDNavToggle;
+        public static ConfigEntry<int> MFDNavExtraKeysNum;
+        public static List<RewiredInputConfig> MFDNavExtraKeys;
         public static ConfigEntry<bool> targetListControllerEnabled;
+        public static ConfigEntry<bool> tlcSwitchCurrentTargetEnabled;
         public static ConfigEntry<bool> interceptionVectorEnabled;
         public static ConfigEntry<bool> countermeasureControlsEnabled;
         public static RewiredInputConfig countermeasureControlsFlare;
         public static RewiredInputConfig countermeasureControlsJammer;
         public static ConfigEntry<bool> weaponSwitcherEnabled;
-        public static ConfigEntry<bool> ammoConIndicatorEnabled;
+        public class AmmoConIndicator {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<bool> ColorHMDMarker;
+            public static ConfigEntry<bool> ColorMFDBox;
+            public static ConfigEntry<bool> DrawMFDDot;
+            public static ConfigEntry<Color> HMDTrackedMarkerColor;
+            public static ConfigEntry<Color> HMDDefaultMarkerColor;
+            public static ConfigEntry<Color> MFDTrackedBoxColor;
+            public static ConfigEntry<Color> MFDDefaultBoxColor;
+            public static ConfigEntry<Color> MFDTrackedDotColor;
+        };
         public static RewiredInputConfig weaponSwitcher0;
         public static RewiredInputConfig weaponSwitcher1;
         public static RewiredInputConfig weaponSwitcher2;
         public static RewiredInputConfig weaponSwitcher3;
         public static RewiredInputConfig weaponSwitcher4;
         public static RewiredInputConfig weaponSwitcher5;
+        public static ConfigEntry<bool> targetFilterPresetEnabled;
+        public static ConfigEntry<int> targetFilterPresetNum;
+        public static List<RewiredInputConfig> targetFilterPresets;
+        public static ConfigEntry<bool> targetFilterPresetMaximizeTargetable;
+        // Virtual Joystick Extender
+        public static ConfigEntry<bool> virtualJoystickExtenderEnabled;
+        public static ConfigEntry<VirtualJoystickExtender.Modes> virtualJoystickExtenderDefaultMode;
+        public static ConfigEntry<bool> virtualJoystickExtenderToggleMode;
+        public static RewiredInputConfig virtualJoystickExtenderToggleStateKey;
+        public static RewiredInputConfig virtualJoystickExtenderYawKey;
+        public static RewiredInputConfig virtualJoystickExtenderRollYawKey;
+        public static ConfigEntry<float> virtualJoystickExtenderYawMultiplier;
+        public static ConfigEntry<float> virtualJoystickExtenderRollYawMultiplier;
+        public static ConfigEntry<float> virtualJoystickExtenderYawCurvature;
+        public static ConfigEntry<float> virtualJoystickExtenderPitchCurvature;
+        public static ConfigEntry<float> virtualJoystickExtenderRollCurvature;
+        // Key axes
+        public class KeyAxisData {
+            public RewiredInputConfig IncKey;
+            public RewiredInputConfig DecKey;
+            public ConfigEntry<float> BuildUpSpeed;
+            public ConfigEntry<float> DecaySpeed;
+            public ConfigEntry<float> DynamicCurvature;
+            public ConfigEntry<float> StaticCurvature;
+            public ConfigEntry<float> StaticOffset;
+            public string Name;
+            public string IncKeyName;
+            public string DecKeyName;
+            public float Min;
+            public float Max;
+
+            public KeyAxisData (string name, string incKeyName, string decKeyName, float min, float max) {
+                Name = name;
+                IncKeyName = incKeyName;
+                DecKeyName = decKeyName;
+                Min = min;
+                Max = max;
+            }
+        };
+        public static ConfigEntry<bool> keyAxesEnabled;
+        public static KeyAxisData[] keyAxes;
+        // Target Cam Mode
+        public static ConfigEntry<bool> targetCamModeEnabled;
+        public static RewiredInputConfig targetCamModeToggleKey;
+        //
         public static ConfigEntry<bool> weaponDisplayEnabled;
         public static ConfigEntry<bool> weaponDisplayVanillaUIEnabled;
         public static ConfigEntry<bool> unitDistanceEnabled;
@@ -56,6 +115,7 @@ namespace NO_Tactitools.Core {
         public static ConfigEntry<float> bankIndicatorTransparency;
         public static ConfigEntry<int> bankIndicatorPositionX;
         public static ConfigEntry<int> bankIndicatorPositionY;
+        public static ConfigEntry<bool> hideObjectivesEnabled;
         public static ConfigEntry<bool> slipIndicatorEnabled;
         public static ConfigEntry<float> slipIndicatorTransparency;
         public static ConfigEntry<int> slipIndicatorPositionX;
@@ -91,13 +151,26 @@ namespace NO_Tactitools.Core {
 
         private void Awake() {
             Instance = this;
+            int order = 100;
             // MFD Nav
-            MFDNavEnter = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Enter", "Input you want to assign for MFD Nav - Enter", 0);
-            MFDNavUp = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Up", "Input you want to assign for MFD Nav - Up", -1);
-            MFDNavDown = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Down", "Input you want to assign for MFD Nav - Down", -2);
-            MFDNavLeft = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Left", "Input you want to assign for MFD Nav - Left", -3);
-            MFDNavRight = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Right", "Input you want to assign for MFD Nav - Right", -4);
-            MFDNavToggle = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Toggle Screens", "Input you want to assign for toggling MFD screens", 1);
+            MFDNavEnter = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Enter", "Input you want to assign for MFD Nav - Enter", order--);
+            MFDNavBack = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Backspace", "Input you want to assign for MFD Nav - Backspace", order--);
+            MFDNavUp = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Up", "Input you want to assign for MFD Nav - Up", order--);
+            MFDNavDown = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Down", "Input you want to assign for MFD Nav - Down", order--);
+            MFDNavLeft = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Left", "Input you want to assign for MFD Nav - Left", order--);
+            MFDNavRight = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Right", "Input you want to assign for MFD Nav - Right", order--);
+            MFDNavToggle = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Toggle Screens", "Input you want to assign for toggling MFD screens", order--);
+            MFDNavExtraKeysNum = Config.Bind("MFD Nav",
+                "MFD Nav - Extra Key - Number",
+                10,
+                new ConfigDescription(
+                    "Number of MFD Nav extra keys (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            MFDNavExtraKeys = new ();
+            for (int i = 0; i < MFDNavExtraKeysNum.Value; i++) {
+                MFDNavExtraKeys.Add(new RewiredInputConfig(Config, "MFD Nav", $"MFD Nav - Extra Key {i.ToString()}", "", order--));
+            }
 
             // Target Recall settings
             targetListControllerEnabled = Config.Bind("Target List Controller", //Category
@@ -108,6 +181,15 @@ namespace NO_Tactitools.Core {
                     null,
                     new ConfigurationManagerAttributes {
                         Order = 2
+                    })); // Description of the setting
+            tlcSwitchCurrentTargetEnabled = Config.Bind("Target List Controller", //Category
+                "Target List Controller - Switch Current Target - Enabled", // Setting name
+                true, // Default value
+                new ConfigDescription(
+                    "Enable or disable cycling current target in Target List Controller.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = 1
                     })); // Description of the setting
             // Interception Vector settings
             interceptionVectorEnabled = Config.Bind("Interception Vector",
@@ -147,8 +229,199 @@ namespace NO_Tactitools.Core {
             weaponSwitcher3 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 3", "Input for slot 3", 2);
             weaponSwitcher4 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 4", "Input for slot 4", 1);
             weaponSwitcher5 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 5", "Input for slot 5", 0);
+            // Target Filter Preset settings
+            order = 100;
+            targetFilterPresetEnabled = Config.Bind("Target Filter Preset",
+                "Target Filter Preset - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the Target Filter Preset feature.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            targetFilterPresetNum = Config.Bind("Target Filter Preset",
+                "Target Filter Preset - Number",
+                10,
+                new ConfigDescription(
+                    "Number of target filter presets (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            targetFilterPresets = new();
+            for (int i = 0; i < targetFilterPresetNum.Value; i++)
+            {
+                string name = string.Format("Target Filter Preset - Slot {0}", i);
+                string description = string.Format("Input for slot {0} (Long press to save, short press to restore)", i);
+                targetFilterPresets.Add(new RewiredInputConfig(Config, "Target Filter Preset", name, description, order--));
+            }
+            targetFilterPresetMaximizeTargetable = Config.Bind("Target Filter Preset",
+                "Target Filter Preset - Maximize Targetable Markers - Enabled",
+                true,
+                new ConfigDescription(
+                    "If enabled, maximize markers of targetable units regardless of HUD settings",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            // Virtual Joystick Extender
+            order = 0;
+            virtualJoystickExtenderEnabled = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Enabled",
+                true, 
+                new ConfigDescription(
+                    "Enable or disable the Virtual Joystick Extender feature.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            virtualJoystickExtenderDefaultMode = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Default Mode",
+                VirtualJoystickExtender.Modes.Roll, 
+                new ConfigDescription(
+                    "Virtual Joystick Extender default mode.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            virtualJoystickExtenderToggleMode = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Toggle Mode - Enabled",
+                true, 
+                new ConfigDescription(
+                    "Enable or disable Virtual Joystick Extender mode toggle.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            virtualJoystickExtenderToggleStateKey = new RewiredInputConfig(Config,
+                "Virtual Joystick Extender",
+                "Virtual Joystick Extender - Toggle Key",
+                "Key to turn on/off",
+                order--);
+            virtualJoystickExtenderYawKey = new RewiredInputConfig(Config,
+                "Virtual Joystick Extender",
+                "Virtual Joystick Extender - Yaw Mode Key",
+                "Key to toggle/switch to yaw mode",
+                order--);
+            virtualJoystickExtenderRollYawKey = new RewiredInputConfig(Config,
+                "Virtual Joystick Extender",
+                "Virtual Joystick Extender - Roll&Yaw Mode Key",
+                "Key to toggle/switch to roll&yaw mode",
+                order--);
+            virtualJoystickExtenderYawMultiplier = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Yaw Mode Multiplier",
+                1.0f,
+                new ConfigDescription(
+                    "Multiplier of yaw axis value in yaw mode.",
+                    new AcceptableValueRange<float>(-10.0f, 10.0f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            virtualJoystickExtenderRollYawMultiplier = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Roll&Yaw Mode Multiplier",
+                0.5f,
+                new ConfigDescription(
+                    "Multiplier of yaw axis value in roll&yaw mode.",
+                    new AcceptableValueRange<float>(-10.0f, 10.0f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            virtualJoystickExtenderYawCurvature = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Yaw Curvature",
+                0.2f,
+                new ConfigDescription(
+                    "Curvature of yaw axis response curve",
+                    new AcceptableValueRange<float>(0.0f, 0.99f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            virtualJoystickExtenderPitchCurvature = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Pitch Curvature",
+                0.2f,
+                new ConfigDescription(
+                    "Curvature of pitch axis response curve",
+                    new AcceptableValueRange<float>(0.0f, 0.99f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            virtualJoystickExtenderRollCurvature = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Roll Curvature",
+                0.2f,
+                new ConfigDescription(
+                    "Curvature of roll axis response curve",
+                    new AcceptableValueRange<float>(0.0f, 0.99f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            // Keyboard-controlled axes
+            keyAxes = new KeyAxisData[6] {
+                new ("Pitch", "Down", "Up", -0.999f, 0.999f),
+                new ("Roll", "Right", "Left", -0.999f, 0.999f),
+                new ("Yaw", "Right", "Left", -0.999f, 0.999f),
+                new ("Throttle", "Up", "Down", 0.0f, 0.999f),
+                new ("Brake", "Apply", "Release", 0.0f, 0.999f),
+                new ("CustomAxis1", "Up", "Down", 0.0f, 0.999f)
+            };
+            keyAxesEnabled = Config.Bind("Key Axes",
+                "Key Axes - Enabled",
+                true, 
+                new ConfigDescription(
+                    "Enable or disable the Key Axes feature.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            for (int i = 0; i < keyAxes.Length; i++) {
+                var vars = keyAxes[i];
+                var name = vars.Name;
+                vars.IncKey = new RewiredInputConfig(Config, "Key Axes", string.Format("Key Axes - {0} {1} Key", vars.Name, vars.IncKeyName), "Key binding", order--);
+                vars.DecKey= new RewiredInputConfig(Config, "Key Axes", string.Format("Key Axes - {0} {1} Key", vars.Name, vars.DecKeyName), "Key binding", order--);
+                vars.BuildUpSpeed = Config.Bind("Key Axes",
+                    string.Format("Key Axes - {0} - Build-Up Speed", name),
+                    1.0f,
+                    new ConfigDescription(
+                        "How fast the axis value changes when either of controlled keys is pressed",
+                        new AcceptableValueRange<float>(0.0f, 10.0f),
+                        new ConfigurationManagerAttributes {
+                            Order = order--
+                        }));
+                vars.DecaySpeed = Config.Bind("Key Axes",
+                    string.Format("Key Axes - {0} - Decay Speed", name),
+                    1.0f,
+                    new ConfigDescription(
+                        "How fast the axis value returns to Default Value if neither key is pressed",
+                        new AcceptableValueRange<float>(0.0f, 10.0f),
+                        new ConfigurationManagerAttributes {
+                            Order = order--
+                        }));
+                vars.DynamicCurvature = Config.Bind("Key Axes",
+                    string.Format("Key Axes - {0} - Dynamic Curvature", name),
+                    0.0f,
+                    new ConfigDescription(
+                        "How fast the axis value accelerates when either of controlled keys is pressed",
+                        new AcceptableValueRange<float>(0.0f, 0.99f),
+                        new ConfigurationManagerAttributes {
+                            Order = order--
+                        }));
+                vars.StaticCurvature = Config.Bind("Key Axes",
+                    string.Format("Key Axes - {0} - Static Curvature", name),
+                    0.0f,
+                    new ConfigDescription(
+                        "How fast the axis value changes near Default Value when either of controlled keys is pressed",
+                        new AcceptableValueRange<float>(0.0f, 0.99f),
+                        new ConfigurationManagerAttributes {
+                            Order = order--
+                        }));
+                vars.StaticOffset = Config.Bind("Key Axes",
+                    string.Format("Key Axes - {0} - Default Value", name),
+                    0.0f,
+                    new ConfigDescription(
+                        "The value axis value will decay to if neither key is pressed and Decay Speed is not 0",
+                        new AcceptableValueRange<float>(vars.Min, vars.Max),
+                        new ConfigurationManagerAttributes {
+                            Order = order--
+                        }));
+            }
+            // Target Cam Mode
+            targetCamModeEnabled = Config.Bind("Target Cam Mode",
+                "Target Cam Mode - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the Target Cam Mode feature.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -4
+                    }));
+            targetCamModeToggleKey = new RewiredInputConfig(Config, "Target Cam Mode", "Target Cam Mode - Toggle Mode Key", "", -5);
             // Ammo Conservation Indicator settings
-            ammoConIndicatorEnabled = Config.Bind("Ammo Conservation Indicator",
+            AmmoConIndicator.Enabled = Config.Bind("Ammo Conservation Indicator",
                 "Ammo Conservation Indicator - Enabled",
                 true,
                 new ConfigDescription(
@@ -156,6 +429,78 @@ namespace NO_Tactitools.Core {
                     null,
                     new ConfigurationManagerAttributes {
                         Order = 0
+                    }));
+            AmmoConIndicator.ColorHMDMarker = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - HMD Markers Color - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable coloring HMD markers of attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -1
+                    }));
+            AmmoConIndicator.ColorMFDBox = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - MFD Box Color - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable coloring MFD Boxes of attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -2
+                    }));
+            AmmoConIndicator.DrawMFDDot = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - MFD Dot - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable drawing MFD dots under the boxes of attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -3
+                    }));
+            AmmoConIndicator.HMDTrackedMarkerColor = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - HMD Tracked Marker Color - Color",
+                Color.yellow,
+                new ConfigDescription(
+                    "Color of HMD markers of attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -4
+                    }));
+            AmmoConIndicator.HMDDefaultMarkerColor = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - HMD Default Marker Color - Color",
+                Color.green,
+                new ConfigDescription(
+                    "Color of HMD markers of non-attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -5
+                    }));
+            AmmoConIndicator.MFDTrackedBoxColor = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - MFD Tracked Box Color - Color",
+                Color.yellow,
+                new ConfigDescription(
+                    "Color of MFD boxes of attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -6
+                    }));
+            AmmoConIndicator.MFDDefaultBoxColor = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - MFD Default Box Color - Color",
+                Color.white,
+                new ConfigDescription(
+                    "Color of MFD boxes of non-attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -7
+                    }));
+            AmmoConIndicator.MFDTrackedDotColor = Config.Bind("Ammo Conservation Indicator",
+                "Ammo Conservation Indicator - MFD Tracked Dot Color - Color",
+                new Color(0.0f, 1.0f, 0.0f, 0.95f),
+                new ConfigDescription(
+                    "Color of MFD dots of attacked targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -8
                     }));
             // Weapon Display settings
             weaponDisplayEnabled = Config.Bind("CM & Weapon Display",
@@ -353,6 +698,16 @@ namespace NO_Tactitools.Core {
                     new AcceptableValueRange<int>(-1000, 1000),
                     new ConfigurationManagerAttributes {
                         Order = -4
+                    }));
+            //Hide Objectives settings
+            hideObjectivesEnabled = Config.Bind("Hide Objectives",
+                "Hide Objectives - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the Hide Objectives feature.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = 1
                     }));
             // Slip/Skid Indicator settings
             slipIndicatorEnabled = Config.Bind("Slip/Skid Indicator",
@@ -591,6 +946,7 @@ namespace NO_Tactitools.Core {
                 Log($"Target Recall is enabled, patching...");
                 harmony.PatchAll(typeof(TargetListControllerPlugin));
             }
+            TargetListControllerPlugin.switchCurrentTarget = tlcSwitchCurrentTargetEnabled.Value;
             // Patch Countermeasure Controls
             if (countermeasureControlsEnabled.Value) {
                 Log($"Countermeasure Controls is enabled, patching...");
@@ -600,6 +956,11 @@ namespace NO_Tactitools.Core {
             if (weaponSwitcherEnabled.Value) {
                 Log($"Weapon Switcher is enabled, patching...");
                 harmony.PatchAll(typeof(WeaponSwitcherPlugin));
+            }
+            // Patch Target Filter Preset
+            if (targetFilterPresetEnabled.Value) {
+                Log($"Target Filter Preset is enabled, patching...");
+                harmony.PatchAll(typeof(TargetFilterPresetPlugin));
             }
             // COCKPIT DISPLAY PATCHES
             // Patch Interception Vector
@@ -623,7 +984,7 @@ namespace NO_Tactitools.Core {
                 harmony.PatchAll(typeof(DeliveryCheckerPlugin));
             }
             // Patch Ammo Conservation Indicator
-            if (ammoConIndicatorEnabled.Value) {
+            if (AmmoConIndicator.Enabled.Value) {
                 Log("Ammo Conservation Indicator is enabled, patching...");
                 harmony.PatchAll(typeof(AmmoConIndicatorPlugin));
             }
@@ -643,6 +1004,11 @@ namespace NO_Tactitools.Core {
             if (artificialHorizonEnabled.Value) {
                 Log($"Artificial Horizon is enabled, patching...");
                 harmony.PatchAll(typeof(ArtificialHorizonPlugin));
+            }
+            // Patch Hide Objectives
+            if (hideObjectivesEnabled.Value) {
+              Log($"Hide Objectives Plugin is enabled, patching...");
+              harmony.PatchAll(typeof(HideObjectivesPlugin));
             }
             // HUD DISPLAY PATCHES
             // Patch ILS
@@ -676,6 +1042,21 @@ namespace NO_Tactitools.Core {
             if (autopilotMenuEnabled.Value) {
                 Log($"Autopilot Menu is enabled, patching...");
                 harmony.PatchAll(typeof(NOAutopilotControlPlugin));
+            }
+            // VIRTUAL JOYSTICK EXTENDER PATCHES
+            if (virtualJoystickExtenderEnabled.Value) {
+                Log($"Virtual Joystick Extender is enabled, patching...");
+                harmony.PatchAll(typeof(VirtualJoystickExtenderPlugin));
+            }
+            // KEY AXES PATCHES
+            if (keyAxesEnabled.Value) {
+                Log($"Key Axes are enabled, patching...");
+                harmony.PatchAll(typeof(KeyAxesPlugin));
+            }
+            // TARGET CAM MODE PATCHES
+            if (targetCamModeEnabled.Value) {
+                Log($"Target Cam Mode Plugin is enabled, patching...");
+                harmony.PatchAll(typeof(TargetCamModePlugin));
             }
             //Finished patching
             //Load audio assets
