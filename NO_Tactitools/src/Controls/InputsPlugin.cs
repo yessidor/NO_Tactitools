@@ -354,7 +354,6 @@ class KeyAxesComponent {
     [HarmonyPatch(typeof(PilotPlayerState), "PlayerAxisControls")]
     public class OnPilotPlayerStatePlayerAxisControls {
         static void Postfix(ref PilotPlayerState __instance, ref ControlInputs ___controlInputs, ref Pilot ___pilot) {
-            Plugin.Log("KeyAxesComponent.OnPilotPlayerStatePlayerAxisControls.Postfix()");
             ProcessPrimaryInputs(ref __instance, ref ___controlInputs, ref ___pilot);
         }
     }
