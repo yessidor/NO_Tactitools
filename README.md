@@ -400,6 +400,15 @@ This is an add-on to **Ammo Conservation indicator** and allows to remove target
 
 Short press on the key bound to `MFD Nav - Backspace` removes tracked targets, long press removes untracked targets.
 
+### Incoming missiles targeting
+
+This feature enables fast targeting of incoming missiles, both in manual and automated mode.
+
+Short press on key bound to `MFD Nav - Missile Targeting System` saves currently selected targets and targets all incoming missiles sorted by increasing distance, so the closest missile becomes the active target. Another short press on the same key restores previous targets. Previous targets are also automatically restored when the last missile is defeated.  
+Long press on the controlling key toggles the automated incoming missile targeting: it is engaged when a missile is registered as a threat. Like in the manual mode, previous targets (if any) are automatically restored when the last missile is defeated.
+
+Edge case: targets selected while incoming missile targeting is active, will be deselected when the incoming missiles list is updated.
+
 ### Ammo Conservation indicator extended
 
 This feature allows to recolor HMD markers of selected targets that are being tracked by deliverables. MFD box markers of selected targets can also be painted with a different color if those targets are being tracked. In addition to that, it's possible to turn of the dot markers under MFD boxes of tracked targets.
@@ -408,7 +417,7 @@ Feature state is controlled by `Ammo Conservation Indicator - HMD Markers Color 
 
 ### MFD Target camera mode toggle
 
-MFD Target camera can be toggled between looking at all selected targets (the default behaviour) and looking at active target only.
+MFD Target camera can be toggled between looking at all selected targets (the default behavior) and looking at active target only.
 
 Feature state is controlled by `Target Cam Mode - Enabled` setting, mode toggle key is bound to `Target Cam Mode - Toggle Mode Key`.
 
@@ -424,7 +433,7 @@ Feature state is controlled by `Hide Objectives - Enabled` setting.
 
 This feature enables **Virtual Joystick** to operate in 3 modes:
 
- * game default `roll` mode, when mouse `x` axis input controlls `roll` axis,
+ * game default `roll` mode, when mouse `x` axis input controls `roll` axis,
  * `yaw` mode, when mouse `x` axis input controls `yaw` axis,
  * `roll&yaw` mode, when mouse `x` axis controls both `roll` and `yaw` axes.
 
@@ -456,7 +465,7 @@ Each axis is assigned a pair of keys, pressing one key will decrease axis value,
 
 Each axis is assigned so-called `Dynamic` and `Static` response curves. Shapes of these response curves are defined by so-called depressed cubic equation of the form y = Curvature\*x<sup>3</sup> + (1 - Curvature)\*x + DefaultValue .  
 `Dynamic` curve basically determines the acceleration of axis value change: the higher is the `Dynamic Curvature` the slower the axis value changes initially.  
-`Static` curve determites how fast the axis value changes around `Default Value`: the higher is the `Static Curvature`, the slower.
+`Static` curve determines how fast the axis value changes around `Default Value`: the higher is the `Static Curvature`, the slower.
 
  *Note:* for `throttle` axis, the same controlling keys must be bound in the game controls menu in order to control `throttle` axis in hover mode.
 

@@ -24,6 +24,8 @@ class TargetListControllerPlugin {
             var unitRecallListsNum = Plugin.MFDNavExtraKeys.Count + 1;
             TargetListControllerComponent.InternalState.unitRecallLists = new List<Unit> [unitRecallListsNum];
 
+            TargetListControllerComponent.InternalState.mtsSavedTargets = new List<Unit> ();
+
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavUp,
                 0.2f,
@@ -62,6 +64,11 @@ class TargetListControllerPlugin {
                 0.2f,
                 onRelease: KeepUntrackedTargets,
                 onLongPress: KeepTrackedTargets);
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavMissileTargetingSystem,
+                0.2f,
+                onRelease: MtsToggle,
+                onLongPress: () => MtsSetAutoSelectMode(null));
             initialized = true;
             Plugin.Log("[TC] Target List Controller plugin succesfully started !");
         }
@@ -149,34 +156,10 @@ class TargetListControllerPlugin {
             }
         }
         if (dataLinkedTargets.Count >= 0) {
-            GameBindings.Player.TargetList.DeselectAll();
-            GameBindings.Player.TargetList.AddTargets(dataLinkedTargets);
-            if (switchCurrentTarget) {
-                TargetListControllerComponent.InternalState.targetIndex = 0;
-            }
-            else {
-                TargetListControllerComponent.InternalState.resetIndex = true;
-            }
-            TargetListControllerComponent.InternalState.updateDisplay = true;
-            UIBindings.Game.DisplayToast($"Kept <b>{dataLinkedTargets.Count.ToString()}</b> data linked target" + (dataLinkedTargets.Count > 1 ? "s" : ""), 3f);
+            replaceTargets(dataLinkedTargets);
+            string report = string.Format("Kept <b>{0}</b> data linked {1}", dataLinkedTargets.Count, singularOrPlural(dataLinkedTargets.Count, "target", "targets"));
+            UIBindings.Game.DisplayToast(report, 3f);
         }
-    }
-
-    private static void SortTargetsByDistanceWorker(List<Unit> targets) {
-        var playerAircraft = GameBindings.Player.Aircraft.GetAircraft();
-        var playerPosition = playerAircraft.transform.position.ToGlobalPosition().AsVector3();
-        float calcDistanceTo(Unit unit) {
-          Vector3? unitPosition = playerAircraft.NetworkHQ.GetKnownPosition(unit)?.AsVector3();
-          if (unitPosition is null)
-            return float.PositiveInfinity;
-          float distance = Vector3.Distance(playerPosition, (Vector3)unitPosition);
-          return distance;
-        }
-        targets.Sort((a, b) => {
-            float distanceA = calcDistanceTo(a);
-            float distanceB = calcDistanceTo(b);
-            return distanceA.CompareTo(distanceB);
-        });
     }
 
     private static void KeepClosestTargetsBasedOnAmmo() {
@@ -187,23 +170,16 @@ class TargetListControllerPlugin {
         }
         List<Unit> currentTargets = GameBindings.Player.TargetList.GetTargets();
         List<Unit> sortedTargets = [.. currentTargets];
-        SortTargetsByDistanceWorker(sortedTargets);
+        sortTargetsByDistance(sortedTargets);
         int activeStationAmmo = GameBindings.Player.Aircraft.Weapons.GetActiveStationAmmo();
         List<Unit> closestTargets = sortedTargets.GetRange(0, Mathf.Min(activeStationAmmo, sortedTargets.Count));
         //Probably needed to keep the relative order of targets in closestTargets as it is in currentTargets ?
         List<Unit> targetsToKeep = [.. currentTargets.Where(closestTargets.Contains)];
 
         if (targetsToKeep.Count >= 0) {
-            if (switchCurrentTarget) {
-                TargetListControllerComponent.InternalState.targetIndex = 0;
-            }
-            else {
-                TargetListControllerComponent.InternalState.resetIndex = true;
-            }
-            GameBindings.Player.TargetList.DeselectAll();
-            GameBindings.Player.TargetList.AddTargets(targetsToKeep);
-            TargetListControllerComponent.InternalState.updateDisplay = true;
-            UIBindings.Game.DisplayToast($"Kept <b>{targetsToKeep.Count.ToString()}</b> closest targets based on ammo", 3f);
+            replaceTargets(targetsToKeep);
+            string report = string.Format("Kept <b>{0}</b> closest {1} based on ammo", targetsToKeep.Count, singularOrPlural(targetsToKeep.Count, "target", "targets"));
+            UIBindings.Game.DisplayToast(report, 3f);
         }
     }
 
@@ -216,7 +192,7 @@ class TargetListControllerPlugin {
                 return;
             }
             TargetListControllerComponent.InternalState.unitRecallLists[i] = targets;
-            string report = string.Format("Saved <b>{0}</b> {1} to list <b>{2}</b>", targets.Count, targets.Count == 1 ? "target" : "targets", i);
+            string report = string.Format("Saved <b>{0}</b> {1} to list <b>{2}</b>", targets.Count, singularOrPlural(targets.Count, "target", "targets"), i);
             UIBindings.Game.DisplayToast(report, 3f);
             UIBindings.Sound.PlaySound("beep_remember");
         }
@@ -228,17 +204,8 @@ class TargetListControllerPlugin {
         List<Unit> unitRecallList = TargetListControllerComponent.InternalState.unitRecallLists[i];
         if (unitRecallList != null) {
             if (unitRecallList.Count > 0) {
-                GameBindings.Player.TargetList.DeselectAll();
-                GameBindings.Player.TargetList.AddTargets(unitRecallList);
-                var targets = GameBindings.Player.TargetList.GetTargets();
-                string report = string.Format("Recalled <b>{0}</b> {1} from list <b>{2}</b>", targets.Count, targets.Count == 1 ? "target" : "targets", i);
-                if (switchCurrentTarget) {
-                    TargetListControllerComponent.InternalState.targetIndex = 0;
-                }
-                else {
-                    TargetListControllerComponent.InternalState.resetIndex = true;
-                }
-                TargetListControllerComponent.InternalState.updateDisplay = true;
+                int targetCount = replaceTargets(unitRecallList, muteSound : false);
+                string report = string.Format("Recalled <b>{0}</b> {1} from list <b>{2}</b>", targetCount, singularOrPlural(targetCount, "target", "targets"), i);
                 UIBindings.Game.DisplayToast(report, 3f);
             }
         }
@@ -252,7 +219,7 @@ class TargetListControllerPlugin {
         }
         List<Unit> currentTargets = GameBindings.Player.TargetList.GetTargets();
         List<Unit> sortedTargets = [.. currentTargets];
-        SortTargetsByDistanceWorker(sortedTargets);
+        sortTargetsByDistance(sortedTargets);
         if (switchCurrentTarget) {
             TargetListControllerComponent.InternalState.targetIndex = 0;
         }
@@ -263,7 +230,7 @@ class TargetListControllerPlugin {
         GameBindings.Player.TargetList.DeselectAll();
         GameBindings.Player.TargetList.AddTargets(sortedTargets, muteSound: true);
         TargetListControllerComponent.InternalState.updateDisplay = true;
-        string report = $"Sorted <b>{sortedTargets.Count.ToString()}</b> targets by <b>distance</b>";
+        string report = string.Format("Sorted <b>{0}</b> {1} by <b>distance</b>", sortedTargets.Count, singularOrPlural(sortedTargets.Count, "target", "targets"));
         UIBindings.Game.DisplayToast(report, 3f);
         UIBindings.Sound.PlaySound("beep_sort");
     }
@@ -288,8 +255,8 @@ class TargetListControllerPlugin {
         }
         GameBindings.Player.TargetList.DeselectAll();
         GameBindings.Player.TargetList.AddTargets(sortedTargets, muteSound: true);
-        string report = $"Sorted <b>{sortedTargets.Count.ToString()}</b> targets by <b>name</b>";
         TargetListControllerComponent.InternalState.updateDisplay = true;
+        string report = string.Format("Sorted <b>{0}</b> {1} by <b>name</b>", sortedTargets.Count, singularOrPlural(sortedTargets.Count, "target", "targets"));
         UIBindings.Game.DisplayToast(report, 3f);
         UIBindings.Sound.PlaySound("beep_sort");
     }
@@ -300,8 +267,8 @@ class TargetListControllerPlugin {
         var trackedTargets = AmmoConIndicatorComponent.GetTrackedTargets();
         GameBindings.Player.TargetList.DeselectAll();
         GameBindings.Player.TargetList.AddTargets(trackedTargets, muteSound: true);
-        string report = $"Kept <b>{trackedTargets.Count.ToString()}</b> tracked targets";
         TargetListControllerComponent.InternalState.updateDisplay = true;
+        string report = string.Format("Kept <b>{0}</b> tracked {1}", trackedTargets.Count, singularOrPlural(trackedTargets.Count, "target", "targets"));
         UIBindings.Game.DisplayToast(report, 3f);
         UIBindings.Sound.PlaySound("beep_sort");
     }
@@ -314,10 +281,133 @@ class TargetListControllerPlugin {
         currentTargets = currentTargets.FindAll(unit => !trackedTargets.Contains(unit));
         GameBindings.Player.TargetList.DeselectAll();
         GameBindings.Player.TargetList.AddTargets(currentTargets, muteSound: true);
-        string report = $"Kept <b>{currentTargets.Count.ToString()}</b> untracked targets";
         TargetListControllerComponent.InternalState.updateDisplay = true;
+        string report = string.Format("Kept <b>{0}</b> untracked {1}", currentTargets.Count, singularOrPlural(currentTargets.Count, "target", "targets"));
         UIBindings.Game.DisplayToast(report, 3f);
         UIBindings.Sound.PlaySound("beep_sort");
+    }
+
+    private static void MtsSetAutoSelectMode(bool? m = null) {
+        if (m == null)
+            TargetListControllerComponent.InternalState.mtsAutoActive = !TargetListControllerComponent.InternalState.mtsAutoActive;
+        else
+            TargetListControllerComponent.InternalState.mtsAutoActive = (bool)m;
+
+        string report = string.Format("Missile autoselection: <b>{0}</b>", TargetListControllerComponent.InternalState.mtsAutoActive ? "on" : "off");
+        UIBindings.Game.DisplayToast(report, 3f);
+
+        if (TargetListControllerComponent.InternalState.mtsAutoActive == true) {
+            SelectIncomingMissiles();
+        }
+    }
+
+    private static void MtsToggle() {
+        if (TargetListControllerComponent.InternalState.mtsActive)
+            DeselectIncomingMissiles();
+        else
+            SelectIncomingMissiles();
+    }
+
+    private static int SelectIncomingMissiles(bool mute = false) {
+        Plugin.Log("SelectIncomingMissiles");
+
+        List<Unit> targets = TargetListControllerComponent.InternalState.missileWarningSystem?.knownMissiles?.ConvertAll(m => (Unit)m);
+        if (targets == null || targets.Count == 0)
+            return 0;
+
+        if (!TargetListControllerComponent.InternalState.mtsActive) {
+            TargetListControllerComponent.InternalState.mtsSavedTargets = GameBindings.Player.TargetList.GetTargets();
+            TargetListControllerComponent.InternalState.mtsActive = true;
+        }
+        
+        sortAndReplaceTargets(targets, muteSound : mute);
+
+        if (!mute) {
+            string report = string.Format("Selected <b>{0}</b> {1}", targets.Count, singularOrPlural(targets.Count, "missile", "missiles"));
+            UIBindings.Game.DisplayToast(report, 3f);
+        }
+
+        return targets.Count;
+    }
+
+    private static void DeselectIncomingMissiles() {
+        Plugin.Log("DeselectIncomingMissiles");
+
+        if (!TargetListControllerComponent.InternalState.mtsActive)
+            return;
+        TargetListControllerComponent.InternalState.mtsActive = false;
+
+        var targets = TargetListControllerComponent.InternalState.mtsSavedTargets;
+        int targetCount = replaceTargets(targets, muteSound : false);
+
+        string report = string.Format("Recalled <b>{0}</b> {1}", targetCount, singularOrPlural(targetCount, "target", "targets"));
+        UIBindings.Game.DisplayToast(report, 3f);
+    }
+
+    private static void TargetListController_OnMissileWarning(MissileWarning.OnMissileWarning e) {
+        if (TargetListControllerComponent.InternalState.mtsActive || TargetListControllerComponent.InternalState.mtsAutoActive) {
+            bool mute = !TargetListControllerComponent.InternalState.mtsActive && TargetListControllerComponent.InternalState.mtsAutoActive;
+            SelectIncomingMissiles(mute : mute);
+        }
+    }
+
+    private static void TargetListController_OffMissileWarning(MissileWarning.OffMissileWarning e) {
+        if (!TargetListControllerComponent.InternalState.mtsActive)
+            return;
+        var missileCount = SelectIncomingMissiles(mute : true);
+        if (missileCount == 0)
+            DeselectIncomingMissiles();
+    }
+
+    public static void UpdateMissileWarningSystem() {
+        var missileWarningSystem = GameBindings.Player.Aircraft.GetAircraft()?.GetMissileWarningSystem();
+        if (missileWarningSystem != null && missileWarningSystem != TargetListControllerComponent.InternalState.missileWarningSystem) {
+          missileWarningSystem.onMissileWarning += TargetListController_OnMissileWarning;
+          missileWarningSystem.offMissileWarning += TargetListController_OffMissileWarning;
+          TargetListControllerComponent.InternalState.missileWarningSystem = missileWarningSystem;
+        }
+    }
+
+    private static void sortTargetsByDistance(List<Unit> targets) {
+        var playerAircraft = GameBindings.Player.Aircraft.GetAircraft();
+        var playerPosition = playerAircraft.transform.position.ToGlobalPosition().AsVector3();
+        float calcDistanceTo(Unit unit) {
+          Vector3? unitPosition = playerAircraft.NetworkHQ.GetKnownPosition(unit)?.AsVector3();
+          if (unitPosition is null)
+            return float.PositiveInfinity;
+          float distance = Vector3.Distance(playerPosition, (Vector3)unitPosition);
+          return distance;
+        }
+        targets.Sort((a, b) => {
+            float distanceA = calcDistanceTo(a);
+            float distanceB = calcDistanceTo(b);
+            return distanceA.CompareTo(distanceB);
+        });
+    }
+
+    private static int replaceTargets(List<Unit> targets, bool muteSound = false) {
+        GameBindings.Player.TargetList.DeselectAll();
+        GameBindings.Player.TargetList.AddTargets(targets, muteSound : muteSound);
+        targets = GameBindings.Player.TargetList.GetTargets();
+        if (switchCurrentTarget) {
+            TargetListControllerComponent.InternalState.targetIndex = 0;
+        }
+        else {
+            TargetListControllerComponent.InternalState.resetIndex = true;
+        }
+        TargetListControllerComponent.InternalState.updateDisplay = true;
+        return targets.Count;
+    }
+
+    private static int sortAndReplaceTargets(List<Unit> targets, bool muteSound = false) {
+        sortTargetsByDistance(targets);
+        if (!switchCurrentTarget)
+            targets.Reverse(); //for behaviour consistency
+        return replaceTargets(targets, muteSound);
+    }
+
+    private static string singularOrPlural(int i, string singular, string plural) {
+        return (i % 10 == 1 && i % 100 != 11) ? singular : plural;
     }
 }
 
@@ -367,6 +457,10 @@ public static class TargetListControllerComponent {
         public static bool updateDisplay = false;
         public static bool resetIndex = false;
         public static int targetIndex = 0;
+        public static List<Unit> mtsSavedTargets;
+        public static bool mtsActive = false;
+        public static bool mtsAutoActive = false;
+        public static MissileWarning missileWarningSystem = null;
         public static readonly TraverseCache<TargetScreenUI, FactionHQ> _hqCache = new("hq");
         public static readonly TraverseCache<TargetScreenUI, Text> _typeTextCache = new("typeText");
         public static readonly TraverseCache<TargetScreenUI, Text> _headingCache = new("heading");
@@ -509,6 +603,7 @@ public static class TargetListControllerComponent {
         static void Postfix() {
             LogicEngine.Init();
             DisplayEngine.Init();
+            TargetListControllerPlugin.UpdateMissileWarningSystem();
         }
     }
 

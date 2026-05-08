@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.2.1")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.3.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public static RewiredInputConfig MFDNavEnter;
@@ -23,6 +23,7 @@ namespace NO_Tactitools.Core {
         public static RewiredInputConfig MFDNavLeft;
         public static RewiredInputConfig MFDNavRight;
         public static RewiredInputConfig MFDNavToggle;
+        public static RewiredInputConfig MFDNavMissileTargetingSystem;
         public static ConfigEntry<int> MFDNavExtraKeysNum;
         public static List<RewiredInputConfig> MFDNavExtraKeys;
         public static ConfigEntry<bool> targetListControllerEnabled;
@@ -171,8 +172,12 @@ namespace NO_Tactitools.Core {
             for (int i = 0; i < MFDNavExtraKeysNum.Value; i++) {
                 MFDNavExtraKeys.Add(new RewiredInputConfig(Config, "MFD Nav", $"MFD Nav - Extra Key {i.ToString()}", "", order--));
             }
-
             // Target Recall settings
+            MFDNavMissileTargetingSystem = new RewiredInputConfig(Config,
+              "MFD Nav",
+              "MFD Nav - Missile Targeting System",
+              "Input you want to assign for selecting or deselecting incoming missiles",
+              order--);
             targetListControllerEnabled = Config.Bind("Target List Controller", //Category
                 "Target List Controller - Enabled", // Setting name
                 true, // Default value
@@ -180,16 +185,16 @@ namespace NO_Tactitools.Core {
                     "Enable or disable the Target Recall feature.",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = 2
+                        Order = order--
                     })); // Description of the setting
             tlcSwitchCurrentTargetEnabled = Config.Bind("Target List Controller", //Category
                 "Target List Controller - Switch Current Target - Enabled", // Setting name
                 true, // Default value
                 new ConfigDescription(
-                    "Enable or disable cycling current target in Target List Controller.",
+                    "Enable or disable switching current (active) target when iterating over selected targets in Target List Controller.",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = 1
+                        Order = order--
                     })); // Description of the setting
             // Interception Vector settings
             interceptionVectorEnabled = Config.Bind("Interception Vector",
@@ -199,7 +204,7 @@ namespace NO_Tactitools.Core {
                     "Enable or disable the Interception Vector feature.",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = 0
+                        Order = order--
                     }));
             // Countermeasure Controls settings
             countermeasureControlsEnabled = Config.Bind("Countermeasures",
