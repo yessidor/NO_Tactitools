@@ -65,6 +65,11 @@ class TargetListControllerPlugin {
                 onRelease: KeepUntrackedTargets,
                 onLongPress: KeepTrackedTargets);
             InputCatcher.RegisterNewInput(
+                Plugin.MFDNavPoptByUnitName,
+                0.2f,
+                onRelease: () => PopTargetsByUnitName(asCurrentTarget: false),
+                onLongPress: () => PopTargetsByUnitName(asCurrentTarget: true));
+            InputCatcher.RegisterNewInput(
                 Plugin.MFDNavMissileTargetingSystem,
                 0.2f,
                 onRelease: MtsToggle,
@@ -283,6 +288,30 @@ class TargetListControllerPlugin {
         GameBindings.Player.TargetList.AddTargets(currentTargets, muteSound: true);
         TargetListControllerComponent.InternalState.updateDisplay = true;
         string report = string.Format("Kept <b>{0}</b> untracked {1}", currentTargets.Count, singularOrPlural(currentTargets.Count, "target", "targets"));
+        UIBindings.Game.DisplayToast(report, 3f);
+        UIBindings.Sound.PlaySound("beep_sort");
+    }
+
+    private static void PopTargetsByUnitName(bool asCurrentTarget) {
+        string getName(Unit target) => (target is Aircraft) ? target.definition.unitName : target.unitName;
+        if (NOAutopilotComponent.InternalState.showMenu) return;
+        Plugin.Log($"[TC] SelectUnitsWithSameName");
+        List<Unit> targets = GameBindings.Player.TargetList.GetTargets();
+        if (targets.Count == 0)
+            return;
+        Unit target = targets[TargetListControllerComponent.InternalState.targetIndex];
+        int targetCount = targets.Count;
+        string targetName = getName(target);
+        targets.RemoveAll(unit => { bool r = getName(unit) == targetName; if (asCurrentTarget) r = !r; return r; });
+        int removedCount = targetCount - targets.Count;
+        replaceTargets(targets);
+        targetCount = asCurrentTarget ? targets.Count : removedCount;
+        string report = string.Format(
+            "{0} <b>{1}</b> {2} named <b>{3}</b>",
+            asCurrentTarget ? "Kept" : "Removed",
+            targetCount,
+            singularOrPlural(targetCount, "target", "targets"),
+            targetName);
         UIBindings.Game.DisplayToast(report, 3f);
         UIBindings.Sound.PlaySound("beep_sort");
     }

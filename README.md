@@ -1,6 +1,6 @@
-# ☢️ Nuclear Option Tactical Tools ☢️
+# ☢️  Nuclear Option Tactical Tools (plus) ☢️
 
-Original README content follows, see below for [Additional features](#additional-features) .
+**Original NOTT README.md content follows, see below for [Additional features](#additional-features) .**
 
 ---
 
@@ -399,6 +399,10 @@ Feature state is controlled by `Target Filter Preset - Maximize Targetable Marke
 This is an add-on to **Ammo Conservation indicator** and allows to remove targets that are either tracked or untracked from the selected targets list.  
 
 Short press on the key bound to `MFD Nav - Backspace` removes tracked targets, long press removes untracked targets.
+
+### Filtering targets based on the unit name of the current target
+
+Short press on the key bound to  `MFD Nav - Select Targets By Unit Name` deselects targets which have the same unit name as the currently acitve target (including the active target itself). Long press on the same key removes targets which unit names *differ* from active target unit name.
 
 ### Incoming missiles targeting
 

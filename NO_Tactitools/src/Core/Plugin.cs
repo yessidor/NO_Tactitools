@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.3.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.4.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public static RewiredInputConfig MFDNavEnter;
@@ -23,6 +23,7 @@ namespace NO_Tactitools.Core {
         public static RewiredInputConfig MFDNavLeft;
         public static RewiredInputConfig MFDNavRight;
         public static RewiredInputConfig MFDNavToggle;
+        public static RewiredInputConfig MFDNavPoptByUnitName;
         public static RewiredInputConfig MFDNavMissileTargetingSystem;
         public static ConfigEntry<int> MFDNavExtraKeysNum;
         public static List<RewiredInputConfig> MFDNavExtraKeys;
@@ -173,6 +174,11 @@ namespace NO_Tactitools.Core {
                 MFDNavExtraKeys.Add(new RewiredInputConfig(Config, "MFD Nav", $"MFD Nav - Extra Key {i.ToString()}", "", order--));
             }
             // Target Recall settings
+            MFDNavPoptByUnitName = new RewiredInputConfig(Config,
+              "MFD Nav",
+              "MFD Nav - Select Targets By Unit Name",
+              "Input you want to assign for deselecting targets based on the unit name of current target",
+              order--);
             MFDNavMissileTargetingSystem = new RewiredInputConfig(Config,
               "MFD Nav",
               "MFD Nav - Missile Targeting System",
