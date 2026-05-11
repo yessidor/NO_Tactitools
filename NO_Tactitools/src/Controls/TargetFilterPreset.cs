@@ -212,7 +212,8 @@ class TargetFilterPresetComponent {
                             marker.alwaysMaximized = alwaysMaximized;
                     }
                     else {
-                        prevAlwaysMaximized[marker] = marker.alwaysMaximized;
+                        if (!prevAlwaysMaximized.TryGetValue(marker, out bool _))
+                            prevAlwaysMaximized[marker] = marker.alwaysMaximized;
                         marker.alwaysMaximized = true;
                     }
                 }

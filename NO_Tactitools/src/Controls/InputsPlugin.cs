@@ -111,10 +111,10 @@ public class KeyboardAxis {
                 }
                 //decaying
                 else {
+                    initial = 0.0f;
+                    intermediate = 0.0f;
                     var accumulatedDelta = (accumulated < 0.0f ? 1.0f : -1.0f) * timeDelta * DecaySpeed;
                     if (Math.Abs(accumulated) < Math.Abs(accumulatedDelta)) {
-                        initial = 0.0f;
-                        intermediate = 0.0f;
                         accumulated = 0.0f;
                         result = StaticCurve.ResultOffset;
                         prevTime = null;
