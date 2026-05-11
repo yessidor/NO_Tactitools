@@ -88,9 +88,7 @@ class TargetListControllerPlugin {
                 List<Unit> currentTargets = GameBindings.Player.TargetList.GetTargets();
                 currentTargets.Add(currentTargets[0]);
                 currentTargets.RemoveAt(0);
-                GameBindings.Player.TargetList.DeselectAll();
-                GameBindings.Player.TargetList.AddTargets(currentTargets, muteSound: true);
-                TargetListControllerComponent.InternalState.targetIndex = 0;
+                replaceTargets(currentTargets, muteSound: true);
             }
             else {
                 TargetListControllerComponent.InternalState.targetIndex = (TargetListControllerComponent.InternalState.targetIndex - 1 + targetCount) % targetCount;
@@ -111,9 +109,7 @@ class TargetListControllerPlugin {
                 currentTargets.Insert(0, currentTargets[lastIndex]);
                 //After inserting new element to the beginning of list the size of list has increased by 1 and index of last element == targetCount
                 currentTargets.RemoveAt(targetCount);
-                GameBindings.Player.TargetList.DeselectAll();
-                GameBindings.Player.TargetList.AddTargets(currentTargets, muteSound: true);
-                TargetListControllerComponent.InternalState.targetIndex = 0;
+                replaceTargets(currentTargets, muteSound: true);
             }
             else {
                 TargetListControllerComponent.InternalState.targetIndex = (TargetListControllerComponent.InternalState.targetIndex + 1) % targetCount;

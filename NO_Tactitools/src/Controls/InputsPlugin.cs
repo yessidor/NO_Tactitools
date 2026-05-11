@@ -3,6 +3,7 @@ using System;
 using System.Reflection;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using UnityEngine;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.Controls;
@@ -48,7 +49,7 @@ public class KeyboardAxis {
     public bool IncKeyPressed { set; private get; } = false;
     public bool DecKeyPressed { set; private get; } = false;
 
-    private DateTime? prevDateTime = null;
+    private float? prevTime = null;
     private float initial = 0.0f;
     private float intermediate = 0.0f;
     private float accumulated = 0.0f;
@@ -62,23 +63,23 @@ public class KeyboardAxis {
 
     public float Compute() {
         if (!IncKeyPressed && !DecKeyPressed && (DecaySpeed == 0.0f || accumulated == 0.0f)) {
-            prevDateTime = null;
+            prevTime = null;
             state = State.idle;
         }
         else if (IncKeyPressed && DecKeyPressed) {
-            prevDateTime = null;
+            prevTime = null;
             state = State.paused;
         }
         else {
             //accumulating or decaying
             //in either case need to compute timeDelta
             var timeDelta = 0.0f;
-            if (prevDateTime is null)
-                prevDateTime = DateTime.Now;
+            if (prevTime is null)
+                prevTime = Time.time;
             else {
-                var now = DateTime.Now;
-                timeDelta = (float)(now - (DateTime)prevDateTime).TotalSeconds;
-                prevDateTime = now;
+                var now = Time.time;
+                timeDelta = now - (float)prevTime;
+                prevTime = now;
             }
 
             //skips the first iteration where timeDelta == 0.0f
@@ -114,7 +115,7 @@ public class KeyboardAxis {
                         intermediate = 0.0f;
                         accumulated = 0.0f;
                         result = StaticCurve.ResultOffset;
-                        prevDateTime = null;
+                        prevTime = null;
                         state = State.idle;
                     }
                     else {

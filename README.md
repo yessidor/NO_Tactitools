@@ -394,6 +394,14 @@ If this option is enabled, markers of units eligible for targeting by target fil
 
 Feature state is controlled by `Target Filter Preset - Maximize Targetable Markers - Enabled` setting in plugin settings.  
 
+### Alternative target selection
+
+Targeting in NO does not always produce expected results, so a more simplier algorithm was added.  
+In single target selection mode (with target selection key clicked) it selects the closest target that passes target filters and is within target selection cone centered around direction the camera is looking.  
+In "paint" mode (with target selection key held) it will not account for distances and will select all targets that pass filters and fall into the target selection cone.
+
+`Alternative Target Selection - Enabled` setting controls the state of the feature, and `Alternative Target Selection - Camera FOV Fraction` sets the fraction that is multiplied by camera vertical FOV to get the apex angle (aperture) of selection cone.
+
 ### Filtering targets tracked or not tracked by deliverables
 
 This is an add-on to **Ammo Conservation indicator** and allows to remove targets that are either tracked or untracked from the selected targets list.  
@@ -430,6 +438,12 @@ Feature state is controlled by `Target Cam Mode - Enabled` setting, mode toggle 
 If this option is enabled, turning off **"OBJ"** button in HUD settings (window opened by **"HUD"** button on the left side of maximized map) turns off objectives and airbase markers and text on HMD, in addition to hiding objective marker and text on the map.
 
 Feature state is controlled by `Hide Objectives - Enabled` setting.
+
+### HMD unit marker recoloring
+
+A small convenience feature that allows to recolor HMD unit markers.
+
+`HMD Unit Markers Recolor - Enabled` controls the state, `HMD Unit Markers Recolor - Friendly|Enemy|Neutral Unit Color` control respective colors.
 
 ### Better Virtual Joystick
 

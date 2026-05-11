@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.4.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.5.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public static RewiredInputConfig MFDNavEnter;
@@ -95,6 +95,11 @@ namespace NO_Tactitools.Core {
         // Target Cam Mode
         public static ConfigEntry<bool> targetCamModeEnabled;
         public static RewiredInputConfig targetCamModeToggleKey;
+        // Alternative Target Selection
+        public class AltTargetSelection {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<float> FOVFraction;
+        }
         //
         public static ConfigEntry<bool> weaponDisplayEnabled;
         public static ConfigEntry<bool> weaponDisplayVanillaUIEnabled;
@@ -108,6 +113,12 @@ namespace NO_Tactitools.Core {
         public static ConfigEntry<bool> MFDAlternativeAttitudeEnabled;
         public static ConfigEntry<bool> unitIconRecolorEnabled;
         public static ConfigEntry<Color> unitIconRecolorEnemyColor;
+        public class HMDUnitMarkerRecolor {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<Color> FriendlyColor;
+            public static ConfigEntry<Color> EnemyColor;
+            public static ConfigEntry<Color> NeutralColor;
+        };
         public static ConfigEntry<bool> bootScreenEnabled;
         public static ConfigEntry<bool> artificialHorizonEnabled;
         public static ConfigEntry<float> artificialHorizonTransparency;
@@ -431,6 +442,26 @@ namespace NO_Tactitools.Core {
                         Order = -4
                     }));
             targetCamModeToggleKey = new RewiredInputConfig(Config, "Target Cam Mode", "Target Cam Mode - Toggle Mode Key", "", -5);
+            // Alternative Target Selection
+            AltTargetSelection.Enabled = Config.Bind("Alternative Target Selection",
+                "Alternative Target Selection - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable the Alternative Target Selection feature (restart the game to apply change).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = -4
+                    }));
+            AltTargetSelection.FOVFraction = Config.Bind("Alternative Target Selection",
+                "Alternative Target Selection - Camera FOV Fraction",
+                0.15f,
+                new ConfigDescription(
+                    "Fraction multiplied by camera vertical FOV to get apex angle of selection cone.",
+                    new AcceptableValueRange<float>(0.0f, 0.999f),
+                    new ConfigurationManagerAttributes {
+                        Order = -5
+                    }));
+            targetCamModeToggleKey = new RewiredInputConfig(Config, "Target Cam Mode", "Target Cam Mode - Toggle Mode Key", "", -5);
             // Ammo Conservation Indicator settings
             AmmoConIndicator.Enabled = Config.Bind("Ammo Conservation Indicator",
                 "Ammo Conservation Indicator - Enabled",
@@ -625,6 +656,44 @@ namespace NO_Tactitools.Core {
                     null,
                     new ConfigurationManagerAttributes {
                         Order = 0
+                    }));
+            // HMD Unit Marker Recolor settings
+            order = 100;
+            HMDUnitMarkerRecolor.Enabled = Config.Bind("HMD Unit Markers Recolor",
+                "HMD Unit Markers Recolor - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable the HMD Unit Markers Recolor feature.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDUnitMarkerRecolor.FriendlyColor = Config.Bind("HMD Unit Markers Recolor",
+                "HMD Unit Markers Recolor - Friendly Unit Color",
+                new Color(0.0f, 0.0f, 1.0f, 1.0f),
+                new ConfigDescription(
+                    "Friendly unit marker color in RGBA format.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDUnitMarkerRecolor.EnemyColor = Config.Bind("HMD Unit Markers Recolor",
+                "HMD Unit Markers Recolor - Enemy Unit Color",
+                new Color(1.0f, 0.0f, 0.0f, 1.0f),
+                new ConfigDescription(
+                    "Enemy unit marker color in RGBA format.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDUnitMarkerRecolor.NeutralColor = Config.Bind("HMD Unit Markers Recolor",
+                "HMD Unit Markers Recolor - Neutral Unit Color",
+                new Color(0.5f, 0.5f, 0.5f, 1.0f),
+                new ConfigDescription(
+                    "Neutral unit marker color in RGBA format.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
                     }));
             // Boot Screen settings
             bootScreenEnabled = Config.Bind("Boot Screen Animation",
@@ -1043,6 +1112,11 @@ namespace NO_Tactitools.Core {
                 Log($"Unit Icon Recolor is enabled, patching...");
                 harmony.PatchAll(typeof(UnitIconRecolorPlugin));
             }
+            // Patch HMD Unit Marker Recolor
+            if (HMDUnitMarkerRecolor.Enabled.Value) {
+                Log($"HMD Unit Marker Recolor is enabled, patching...");
+                harmony.PatchAll(typeof(HMDUnitMarkerRecolorPlugin));
+            }
             // CAMERA TWEAKS PATCHES
             // Patch Camera Tweaks
             if (cameraTweaksEnabled.Value) {
@@ -1068,6 +1142,11 @@ namespace NO_Tactitools.Core {
             if (targetCamModeEnabled.Value) {
                 Log($"Target Cam Mode Plugin is enabled, patching...");
                 harmony.PatchAll(typeof(TargetCamModePlugin));
+            }
+            // ALTERNATIVE TARGET SELECTION PATCHES
+            if (AltTargetSelection.Enabled.Value) {
+                Log($"Alternative Target Selection Plugin is enabled, patching...");
+                harmony.PatchAll(typeof(AltTargetSelectionPlugin));
             }
             //Finished patching
             //Load audio assets
