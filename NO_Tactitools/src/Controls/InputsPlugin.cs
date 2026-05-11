@@ -49,6 +49,8 @@ public class KeyboardAxis {
     public bool IncKeyPressed { set; private get; } = false;
     public bool DecKeyPressed { set; private get; } = false;
 
+    public float Result { private set; get { return result; } }
+
     private float? prevTime = null;
     private float initial = 0.0f;
     private float intermediate = 0.0f;
@@ -134,7 +136,7 @@ public class KeyboardAxis {
         if (result == r)
             return result;
         result = Math.Clamp(r, Min, Max);
-        accumulated = DynamicCurve.CalcArg(result, Min, Max);
+        accumulated = StaticCurve.CalcArg(result, Min, Max);
         return result;
     }
 };
@@ -180,12 +182,12 @@ public class VirtualJoystickExtender {
 
         if (Mode == Modes.Yaw) {
             controlInputs.yaw = controlInputs.roll * YawMultiplier;
+            controlInputs.yaw = YawCurve.Calc(controlInputs.yaw);
             controlInputs.roll = 0.0f;
         }
         else if (Mode == Modes.RollYaw) {
             controlInputs.yaw = controlInputs.roll * RollYawMultiplier;
         }
-        controlInputs.yaw = YawCurve.Calc(controlInputs.yaw);
         controlInputs.pitch = PitchCurve.Calc(controlInputs.pitch);
         controlInputs.roll = RollCurve.Calc(controlInputs.roll);
     }
@@ -332,9 +334,22 @@ class KeyAxesComponent {
 
     public static void ProcessSecondaryInputs(ref PilotPlayerState instance, ref ControlInputs controlInputs, ref Pilot pilot) {
         float min = 0.0f, max = 1.0f;
-        if (pilot.aircraft.IsAutoHoverEnabled())
-          return;
-        controlInputs.throttle = Math.Clamp(keyboardControlledAxes[(int)KeyboardAxisID.Throttle].Compute(), min, max);
+
+        bool hover = pilot.aircraft.IsAutoHoverEnabled();
+        bool leftHover = !hover && prevHover;
+        prevHover = hover;
+
+        if (hover)
+            return;
+        else if (leftHover) {
+            float simulatedThrottle = (float)simulatedThrottle_.GetValue(instance);
+            var throttleKeyAxis = keyboardControlledAxes[(int)KeyboardAxisID.Throttle];
+            Plugin.Log(string.Format("[KA] Left hover mode; simulated throttle = {0}; throttle = {1}", simulatedThrottle, throttleKeyAxis.Result));
+            throttleKeyAxis.SetResult(Math.Clamp(simulatedThrottle, min, max));
+        }
+        else
+            controlInputs.throttle = Math.Clamp(keyboardControlledAxes[(int)KeyboardAxisID.Throttle].Compute(), min, max);
+
         controlInputs.customAxis1 = Math.Clamp(keyboardControlledAxes[(int)KeyboardAxisID.CustomAxis1].Compute(), min, max);
     }
 
@@ -367,8 +382,9 @@ class KeyAxesComponent {
         }
     }
 
+    private static bool initialized = false;
     private enum KeyboardAxisID { Pitch, Roll, Yaw, Throttle, Brake, CustomAxis1 };
     private static KeyboardAxis[] keyboardControlledAxes = new KeyboardAxis[6] { new(), new(), new(), new(), new(), new() };
-    private static bool initialized = false;
     private static FieldInfo simulatedThrottle_ = AccessTools.Field(typeof(PilotPlayerState), "simulatedThrottle");
+    private static bool prevHover = false;
 };
