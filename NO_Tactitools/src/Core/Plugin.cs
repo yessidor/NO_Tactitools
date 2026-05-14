@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.5.2")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.5.3")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public static RewiredInputConfig MFDNavEnter;
@@ -1148,8 +1148,6 @@ namespace NO_Tactitools.Core {
                 Log($"Alternative Target Selection Plugin is enabled, patching...");
                 harmony.PatchAll(typeof(AltTargetSelectionPlugin));
             }
-            // vel ind
-            harmony.PatchAll(typeof(VelocityIndicatorPlugin));
             //Finished patching
             //Load audio assets
             Log("Loading audio assets...");

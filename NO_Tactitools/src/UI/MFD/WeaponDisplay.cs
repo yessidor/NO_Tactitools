@@ -1,4 +1,5 @@
 using HarmonyLib;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using NO_Tactitools.Core;
@@ -82,7 +83,7 @@ public class WeaponDisplayComponent {
     }
 
     public static class InternalState {
-        static public WeaponDisplay weaponDisplay;
+        static public WeaponDisplay weaponDisplay = null;
         static public bool hasJammer;
         static public bool hasIRFlare;
         static public bool hasStations;
@@ -102,7 +103,13 @@ public class WeaponDisplayComponent {
         static public void Init() {
             if (InternalState.hasIRFlare) {
                 // In reality, this checks if the player's plane has spawned
-                InternalState.weaponDisplay = new WeaponDisplay();
+                try {
+                    InternalState.weaponDisplay = new WeaponDisplay();
+                }
+                catch (NullReferenceException e) {
+                    Plugin.Log(string.Format("[WD] Got exception: {0}", e));
+                    InternalState.weaponDisplay = null;
+                }
                 if (!InternalState.vanillaUIEnabled) UIBindings.Game.HideWeaponPanel();
                 else UIBindings.Game.ShowWeaponPanel();
             }
@@ -114,7 +121,8 @@ public class WeaponDisplayComponent {
         static public void Update() {
             if (GameBindings.GameState.IsGamePaused() ||
                 GameBindings.Player.Aircraft.GetAircraft() == null ||
-                UIBindings.Game.GetCombatHUDTransform() == null)
+                UIBindings.Game.GetCombatHUDTransform() == null ||
+                InternalState.weaponDisplay == null)
                 return; // do not refresh anything if the game is paused or the player aircraft is not available
             // REFRESH WEAPON
             if (InternalState.hasStations) {
@@ -191,7 +199,7 @@ public class WeaponDisplayComponent {
 
         public WeaponDisplay() {
             static Transform Get(string path) {
-                return UIBindings.Game.GetTacScreenTransform().Find(path).transform;
+                return UIBindings.Game.GetTacScreenTransform()?.Find(path)?.transform;
             }
 
             string platformName = GameBindings.Player.Aircraft.GetPlatformName();
@@ -207,6 +215,8 @@ public class WeaponDisplayComponent {
                 "F-16M King Viper" => Get("SystemsPanel"),
                 _ => Get("SystemStatus") // all the others
             };
+            if (destination == null)
+                throw new NullReferenceException (string.Format("Cannot get transform for {0}", platformName));
             weaponDisplay_transform = destination;
             // Default settings for the weapon display
             bool rotateWeaponImage = false;
