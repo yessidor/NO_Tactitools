@@ -213,6 +213,7 @@ public class WeaponDisplayComponent {
                 "FastBomber1" or "AB-4 Alkyon" or "Alkyon AB-4" => Get("weaponPanel/frontProfile"),
                 "MiG-15" => Get("StatusGauges/FrontView"),
                 "F-16M King Viper" => Get("SystemsPanel"),
+                "MC-260 Chimera" => Get("SystemsPanel"),
                 _ => Get("SystemStatus") // all the others
             };
             if (destination == null)
@@ -423,6 +424,20 @@ public class WeaponDisplayComponent {
                     weaponNameFont = 30;
                     weaponAmmoFont = 40;
                     imageScaleFactor = 0.75f;
+                    break;
+                case "MC-260 Chimera":
+                    flarePos = new Vector2(0, -40);
+                    jammerPos = new Vector2(0, -80);
+                    lineStart = new Vector2(-55, -7);
+                    lineEnd = new Vector2(55, -7);
+                    weaponNamePos = new Vector2(0, 50);
+                    weaponAmmoPos = new Vector2(0, 17);
+                    weaponImagePos = new Vector2(0, 82);
+                    flareFont = 28;
+                    jammerFont = 28;
+                    weaponNameFont = 18;
+                    weaponAmmoFont = 40;
+                    imageScaleFactor = 0.45f; // Scale the image for MC-260 Chimera
                     break;
                 case "FQ-106 Kestrel":
                 default:

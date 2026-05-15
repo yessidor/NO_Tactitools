@@ -269,6 +269,11 @@ public class LoadoutPreviewComponent {
                 case "F-16M King Viper":
                     verticalOffset = 80;
                     break;
+                case "MC-260 Chimera":
+                    horizontalOffset = -160;
+                    verticalOffset = 150;
+                    fontSize = 40;
+                    break;
                 case "HMD":
                     horizontalOffset = 0;
                     verticalOffset = 0;
