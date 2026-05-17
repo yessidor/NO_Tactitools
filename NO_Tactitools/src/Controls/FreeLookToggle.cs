@@ -59,8 +59,6 @@ class FreeLookToggleComponent {
     public class OnPlayerGetButton {
         public static void Postfix(ref bool __result, ref string actionName, Player __instance) {
             if (actionName == "Free Look") {
-                Plugin.Log("[FLT] GetButton: Free Look");
-
                 //Returning true when Player.GetButton("Free Look") is called from inside of CameraCockpitState.UpdateState()
                 //avoids setting CameraCockpitState.panView and .tiltView to 0
                 //(it will be done by Player.GetAxis() patch)

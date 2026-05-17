@@ -219,6 +219,10 @@ public class LoadoutPreviewComponent {
                     verticalOffset = 80;
                     break;
                 case "FS-3 Ternion":
+                    horizontalOffset = -215;
+                    verticalOffset = 80;
+                    fontSize = 34;
+                    break;
                 case "FS-12 Revoker":
                     horizontalOffset = 0;
                     verticalOffset = 75;

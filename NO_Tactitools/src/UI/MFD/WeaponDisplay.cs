@@ -269,6 +269,19 @@ public class WeaponDisplayComponent {
                     weaponAmmoFont = 40;
                     break;
                 case "FS-3 Ternion":
+                    flarePos = new Vector2(0, 50);
+                    jammerPos = new Vector2(0, 10);
+                    lineStart = new Vector2(0, 0);
+                    lineEnd = new Vector2(0, 1);
+                    weaponNamePos = new Vector2(0, -20);
+                    weaponAmmoPos = new Vector2(0, -50);
+                    weaponImagePos = new Vector2(0, -20);
+                    flareFont = 30;
+                    jammerFont = 30;
+                    weaponNameFont = 25;
+                    weaponAmmoFont = 35;
+                    imageScaleFactor = 0.8f;
+                    break;
                 case "FS-12 Revoker":
                     flarePos = new Vector2(0, -40);
                     jammerPos = new Vector2(0, -80);
