@@ -49,7 +49,7 @@ public class KeyboardAxis {
     public bool IncKeyPressed { set; private get; } = false;
     public bool DecKeyPressed { set; private get; } = false;
 
-    public float Result { private set; get { return result; } }
+    public float Result { private set { result = value; } get { return result; } }
 
     private float? prevTime = null;
     private float initial = 0.0f;

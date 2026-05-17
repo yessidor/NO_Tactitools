@@ -445,6 +445,29 @@ A small convenience feature that allows to recolor HMD unit markers.
 
 `HMD Unit Markers Recolor - Enabled` controls the state, `HMD Unit Markers Recolor - Friendly|Enemy|Neutral Unit Color` control respective colors.
 
+### Minimap zoom
+
+Allows to change zoom level of the minimap.
+
+`MiniMap Zoom - Enabled` controls the state. `MiniMap Zoom - Zoom levels` is a semicolon-separated list of zoom levels with dot (.) acting as fraction separator. Default in-game minimap zoom level is 2.0. `MiniMap Zoom - Offset` is an offset from center of the minimap to player aircraft in meters for default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Key` cycles zoom levels, long press restores default zoom level. If `MiniMap Zoom - Report` is enabled, minimap zoom level changes are reported on HMD.
+
+### Target velocity indicator
+
+When enabled, the marker on HMD shows velocity vector of the current (active) target relative to current cockpit view. This vector is represented by a marker placed at the offset from marker of the current target. "x" marker means target moves toward the player aircraft, "o" - away from it. The size of offset depends only on the lateral movement of target and is not scaled by distance.
+
+`Target Velocity Indicator - Enabled` controls the state. `Target Velocity Indicator - Max Speed` is the maximum speed (velocity magnitude; in km/h) for maximum offset of marker. `Target Velocity Indicator - Max Length` is the maximum offset of velocity marker (in pixels) for maximum speed. `Target Velocity Indicator - Dot Step` is distance between the dots connecting target and velocity markers.
+
+### Togglable free look
+
+Allows to toggle the free look mode and adds some view-related actions.
+
+This feature uses keys bound to `Free Look` and `Center View` in game control bindings menu. Virtual Joystick is assumed to be enabled. `Target Padlock` option in Gameplay settings tab is also supposed to be enabled.
+
+Clicking `Free Look` key toggles free look mode on (when mouse controls camera) and off (when mouse controls player aircraft). Holding `Free Look` key temporarily sets view to forward and disables free look on press and restores previous free look state and view on release.  
+Clicking `Center view` key switches between target padlock mode and previous view (if `Target Padlock` option in Gameplay settings tab is enabled, otherwise does nothing). Holding `Center view` key sets view to forward.
+
+In the mod settings, `Free Look Toggle - Enabled` controls the state of the feature. If `Free Look Toggle - Disable Free Look In Padlock` is enabled, free look mode is automatically disabled in padlock mode. If `Free Look Toggle - Report` is enabled, free look and padlock state changes are reported on HMD.
+
 ### Better Virtual Joystick
 
 #### 3 modes of operation

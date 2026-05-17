@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.5.4")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.6.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public static RewiredInputConfig MFDNavEnter;
@@ -92,15 +92,30 @@ namespace NO_Tactitools.Core {
         };
         public static ConfigEntry<bool> keyAxesEnabled;
         public static KeyAxisData[] keyAxes;
-        // Target Cam Mode
         public static ConfigEntry<bool> targetCamModeEnabled;
         public static RewiredInputConfig targetCamModeToggleKey;
-        // Alternative Target Selection
         public class AltTargetSelection {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<float> FOVFraction;
         }
-        //
+        public class TargetVelocityIndicator {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<float> MaxSpeed;
+            public static ConfigEntry<float> MaxLength;
+            public static ConfigEntry<float> DotStep;
+        };
+        public class MiniMapZoom {
+            public static ConfigEntry<bool> Enabled;
+            public static RewiredInputConfig CycleKey;
+            public static ConfigEntry<string> Zooms;
+            public static ConfigEntry<float> Offset;
+            public static ConfigEntry<bool> Report;
+        };
+        public class FreeLookToggle {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<bool> Report;
+            public static ConfigEntry<bool> DisableFreeLookInPadlock;
+        }
         public static ConfigEntry<bool> weaponDisplayEnabled;
         public static ConfigEntry<bool> weaponDisplayVanillaUIEnabled;
         public static ConfigEntry<bool> unitDistanceEnabled;
@@ -287,7 +302,7 @@ namespace NO_Tactitools.Core {
                 "Virtual Joystick Extender - Enabled",
                 true, 
                 new ConfigDescription(
-                    "Enable or disable the Virtual Joystick Extender feature.",
+                    "Enable or disable the Virtual Joystick Extender feature (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
             virtualJoystickExtenderDefaultMode = Config.Bind("Virtual Joystick Extender",
@@ -377,7 +392,7 @@ namespace NO_Tactitools.Core {
                 "Key Axes - Enabled",
                 true, 
                 new ConfigDescription(
-                    "Enable or disable the Key Axes feature.",
+                    "Enable or disable the Key Axes feature (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
             for (int i = 0; i < keyAxes.Length; i++) {
@@ -447,7 +462,7 @@ namespace NO_Tactitools.Core {
                 "Alternative Target Selection - Enabled",
                 false,
                 new ConfigDescription(
-                    "Enable or disable the Alternative Target Selection feature (restart the game to apply change).",
+                    "Enable or disable the Alternative Target Selection feature (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes {
                         Order = -4
@@ -462,6 +477,119 @@ namespace NO_Tactitools.Core {
                         Order = -5
                     }));
             targetCamModeToggleKey = new RewiredInputConfig(Config, "Target Cam Mode", "Target Cam Mode - Toggle Mode Key", "", -5);
+            // Target Velocity Indicator settings
+            order = 100;
+            TargetVelocityIndicator.Enabled = Config.Bind("Target Velocity Indicator",
+                "Target Velocity Indicator - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable the Target Velocity Indicator feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            TargetVelocityIndicator.MaxSpeed = Config.Bind("Target Velocity Indicator",
+                "Target Velocity Indicator - Max Speed",
+                1000.0f,
+                new ConfigDescription(
+                    "Max speed (kph)",
+                    new AcceptableValueRange<float>(0.0f, 10000.0f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            TargetVelocityIndicator.MaxLength = Config.Bind("Target Velocity Indicator",
+                "Target Velocity Indicator - Max Length",
+                200.0f,
+                new ConfigDescription(
+                    "Max indicator offset length (pixels)",
+                    new AcceptableValueRange<float>(0.0f, 10000.0f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            TargetVelocityIndicator.DotStep = Config.Bind("Target Velocity Indicator",
+                "Target Velocity Indicator - Dot Step",
+                10.0f,
+                new ConfigDescription(
+                    "Dot step (pixels)",
+                    new AcceptableValueRange<float>(0.0f, 100.0f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            // MiniMap Zoom
+            order = 100;
+            MiniMapZoom.Enabled = Config.Bind("MiniMap Zoom",
+                "MiniMap Zoom - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable the MiniMap Zoom feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MiniMapZoom.Zooms = Config.Bind("MiniMap Zoom",
+                "MiniMap Zoom - Zoom levels",
+                "0.5;1.0;2.0;4.0;6.0;8.0",
+                new ConfigDescription(
+                    "List of minimap zoom levels separated by \";\", fraction separator is \".\"",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MiniMapZoom.Offset = Config.Bind(
+                "MiniMap Zoom",
+                "MiniMap Zoom - Offset",
+                4000.0f,
+                new ConfigDescription(
+                    "Offset from center to aircraft marker (in meters). The greater, the lower is aircraft marker.",
+                    new AcceptableValueRange<float>(0.0f, 10000.0f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MiniMapZoom.Report = Config.Bind(
+                "MiniMap Zoom",
+                "MiniMap Zoom - Report",
+                true,
+                new ConfigDescription(
+                    "Should zoom change be reported on HMD.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MiniMapZoom.CycleKey = new RewiredInputConfig(
+                Config,
+                "MiniMap Zoom",
+                "MiniMap Zoom - Cycle Zoom Key",
+                "Cycle through zoom levels on short press, reset to default zoom level on long press",
+                order--);
+            // Free Look Toggle
+            order = 100;
+            FreeLookToggle.Enabled = Config.Bind("Free Look Toggle",
+                "Free Look Toggle - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable the Free Look Toggle feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            FreeLookToggle.Report = Config.Bind("Free Look Toggle",
+                "Free Look Toggle - Report",
+                false,
+                new ConfigDescription(
+                    "Enable or disable reports of the free look and padlock state changes.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            FreeLookToggle.DisableFreeLookInPadlock = Config.Bind("Free Look Toggle",
+                "Free Look Toggle - Disable Free Look In Padlock",
+                false,
+                new ConfigDescription(
+                    "Automatically disable free look state in padlock mode (so the mouse controls aircraft).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             // Ammo Conservation Indicator settings
             AmmoConIndicator.Enabled = Config.Bind("Ammo Conservation Indicator",
                 "Ammo Conservation Indicator - Enabled",
@@ -1147,6 +1275,21 @@ namespace NO_Tactitools.Core {
             if (AltTargetSelection.Enabled.Value) {
                 Log($"Alternative Target Selection Plugin is enabled, patching...");
                 harmony.PatchAll(typeof(AltTargetSelectionPlugin));
+            }
+            // TARGET VELOCITY INDICATOR PATCHES
+            if (TargetVelocityIndicator.Enabled.Value) {
+                Log($"Target Velocity Indicator is enabled, patching...");
+                harmony.PatchAll(typeof(TargetVelocityIndicatorPlugin));
+            }
+            // MINIMAP ZOOM
+            if (MiniMapZoom.Enabled.Value) {
+                Log($"Minimap Zoom is enabled, patching...");
+                harmony.PatchAll(typeof(MiniMapZoomPlugin));
+            }
+            // FREE LOOK TOGGLE
+            if (FreeLookToggle.Enabled.Value) {
+                Log($"Free Look toggle is enabled, patching...");
+                harmony.PatchAll(typeof(FreeLookTogglePlugin));
             }
             //Finished patching
             //Load audio assets
