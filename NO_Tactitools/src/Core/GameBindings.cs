@@ -1,3 +1,4 @@
+using HarmonyLib;
 using System;
 using System.Collections;
 using UnityEngine;
@@ -5,6 +6,21 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 
 namespace NO_Tactitools.Core;
+
+[HarmonyPatch(typeof(MainMenu), "Start")]
+public class GameBindingsPlugin {
+    private static bool initialized = false;
+    static void Postfix() {
+        if (!initialized) {
+            Plugin.Log($"[GB] Initializing GameBindings");
+
+            Plugin.harmony.PatchAll(typeof(GameBindings.Player.TargetList.OnTargetListSelectorCheckExclusions));
+
+            initialized = true;
+            Plugin.Log($"[GB] Initialized GameBindings");
+        }
+    }
+}
 
 public class GameBindings {
     public class Units {
@@ -359,6 +375,11 @@ public class GameBindings {
             
             public static void AddTargets(List<Unit> units, bool muteSound = false) {
                 try {
+                    /* marker.SelectMarker() calls SceneSingleton<DynamicMap>.i.SelectIcon(unit) where unit is marker.unit,
+                       which in turn calls SceneSingleton<TargetListSelector>.i.CheckExclusions(unit).
+                       So the map icon won't be selected if its unit does not pass current target filters. 
+                       So a hook with a flag is added to bypass filters and select map icon anyway. */
+                    checkExclusionsResult = false;
                     CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
                     Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
                     List<Unit> currentTargets = [.. units];
@@ -387,10 +408,12 @@ public class GameBindings {
                     */
                 }
                 catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+                finally { checkExclusionsResult = null; }
             }
 
             public static void AddTarget(Unit unit, bool muteSound = false) {
                 try {
+                    checkExclusionsResult = false;
                     CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
                     Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
                     if (markerLookup.TryGetValue(unit, out var marker)) {
@@ -403,6 +426,7 @@ public class GameBindings {
                     }
                 }
                 catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+                finally { checkExclusionsResult = null; }
             }
 
             public static void DeselectAll() {
@@ -426,6 +450,20 @@ public class GameBindings {
                     return [.. targetList];
                 }
                 catch (NullReferenceException e) { Plugin.Log(e.ToString()); return []; }
+            }
+
+            private static bool? checkExclusionsResult = null;
+
+            [HarmonyPatch(typeof(TargetListSelector), "CheckExclusions")]
+            public class OnTargetListSelectorCheckExclusions {
+                public static bool Prefix(ref bool __result) {
+                    if (checkExclusionsResult != null) {
+                        __result = (bool)checkExclusionsResult;
+                        return false;
+                    }
+                    else
+                        return true;
+                }
             }
         }
     }

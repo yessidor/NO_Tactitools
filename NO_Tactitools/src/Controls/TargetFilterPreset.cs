@@ -15,12 +15,14 @@ class TargetFilterPresetPlugin {
             Plugin.Log($"[TFP] Target Filter Preset plugin starting !");
             Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorStart));
             Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorCheckExclusions));
+            Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnHUDUnitMarkerSetNew));
+            Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorToggleButtonCheckFactions));
 
-            for (int i = 0; i < Plugin.targetFilterPresetNum.Value; i++)
+            for (int i = 0; i < Plugin.TargetFilterPreset.PresetsNum.Value; i++)
             {
               int j = i;
               InputCatcher.RegisterNewInput(
-                  Plugin.targetFilterPresets[i],
+                  Plugin.TargetFilterPreset.Presets[i],
                   TargetFilterPresetComponent.longPressDelay,
                   onRelease: () => TargetFilterPresetComponent.Recall(j),
                   onLongPress: () => TargetFilterPresetComponent.Remember(j)
@@ -29,7 +31,7 @@ class TargetFilterPresetPlugin {
 
             BindingHelper.ApplyBindings(
                 new BindingHelper.Binding(
-                    typeof(TargetFilterPresetComponent), "MaximizeTargetableMarkers", Plugin.targetFilterPresetMaximizeTargetable));
+                    typeof(TargetFilterPresetComponent), "MaximizeTargetableMarkers", Plugin.TargetFilterPreset.MaximizeTargetable));
 
             initialized = true;
             Plugin.Log($"[TFP] Target Filter Preset plugin successfully started !");
@@ -50,6 +52,8 @@ class TargetFilterPresetComponent {
         }
         get;
     } = false;
+    public static bool NeutralsAreFriendly = true;
+
     public static float longPressDelay = 0.2f;
     public static float reportDelay = 2f;
     public static string configName = "TargetFilterPreset.cfg";
@@ -175,6 +179,49 @@ class TargetFilterPresetComponent {
           return string.Join(", ", targetables);
     }
 
+    private static void ProcessMarker(HUDUnitMarker marker) {
+        var unit = marker.unit;
+        if (unit == null)
+            return;
+        var targetListSelector = SceneSingleton<TargetListSelector>.i;
+        if (targetListSelector.CheckExclusions(unit)) {
+            if (prevAlwaysMaximized.TryGetValue(marker, out bool alwaysMaximized))
+                marker.alwaysMaximized = alwaysMaximized;
+        }
+        else {
+            if (!prevAlwaysMaximized.TryGetValue(marker, out bool _))
+                prevAlwaysMaximized[marker] = marker.alwaysMaximized;
+            marker.alwaysMaximized = true;
+        }
+    }
+
+    private static void ProcessMarkers() {
+        try {
+            if (!MaximizeTargetableMarkers || inProcess)
+                return;
+
+            inProcess = true;
+
+            List<HUDUnitMarker> toDelete = new ();
+            foreach (HUDUnitMarker marker in prevAlwaysMaximized.Keys)
+                if (marker == null)
+                    toDelete.Add(marker);
+            foreach (var marker in toDelete)
+                prevAlwaysMaximized.Remove(marker);
+
+            var combatHUD = UIBindings.Game.GetCombatHUDComponent();
+            if (combatHUD == null)
+                return;
+            List<HUDUnitMarker> markers = markersCache.GetValue(combatHUD);
+            foreach (var marker in markers) {
+                ProcessMarker(marker);
+            }
+        }
+        finally {
+            inProcess = false;
+        }
+    }
+
     [HarmonyPatch(typeof(TargetListSelector), "Start")]
     public class OnTargetListSelectorStart {
         public static void Postfix() {
@@ -184,42 +231,30 @@ class TargetFilterPresetComponent {
 
     [HarmonyPatch(typeof(TargetListSelector), "CheckAllExclusions")]
     public class OnTargetListSelectorCheckExclusions {
-        public static void Postfix(ref TargetListSelector __instance) {
-            try {
-                Plugin.Log("[TFP] CheckAllExclusions");
-                if (!MaximizeTargetableMarkers || inProcess)
-                    return;
+        public static void Postfix() {
+            Plugin.Log("[TFP] CheckAllExclusions");
+            ProcessMarkers();
+        }
+    }
 
-                inProcess = true;
+    [HarmonyPatch(typeof(HUDUnitMarker), "SetNew")]
+    public class OnHUDUnitMarkerSetNew {
+        public static void Postfix(ref HUDUnitMarker __instance) {
+            Plugin.Log("[TFP] SetNew");
+            ProcessMarker(__instance);
+        }
+    }
 
-                List<HUDUnitMarker> toDelete = new ();
-                foreach (HUDUnitMarker marker in prevAlwaysMaximized.Keys)
-                    if (marker == null)
-                        toDelete.Add(marker);
-                foreach (var marker in toDelete)
-                    prevAlwaysMaximized.Remove(marker);
-
-                var combatHUD = UIBindings.Game.GetCombatHUDComponent();
-                if (combatHUD == null)
-                    return;
-                List<HUDUnitMarker> markers = markersCache.GetValue(combatHUD);
-                foreach (var marker in markers) {
-                    var unit = marker.unit;
-                    if (unit == null)
-                        continue;
-                    if (__instance.CheckExclusions(unit)) {
-                        if (prevAlwaysMaximized.TryGetValue(marker, out bool alwaysMaximized))
-                            marker.alwaysMaximized = alwaysMaximized;
-                    }
-                    else {
-                        if (!prevAlwaysMaximized.TryGetValue(marker, out bool _))
-                            prevAlwaysMaximized[marker] = marker.alwaysMaximized;
-                        marker.alwaysMaximized = true;
-                    }
-                }
-            }
-            finally {
-                inProcess = false;
+    [HarmonyPatch(typeof(TargetListSelector_ToggleButton), "CheckFactions")]
+    public class OnTargetListSelectorToggleButtonCheckFactions {
+        public static void Postfix(ref bool __result, ref TargetListSelector_ToggleButton __instance, ref Unit u) {
+            var factionMode = DynamicMap.GetFactionMode(u.NetworkHQ);
+            if (factionMode == FactionMode.NoFaction) {
+                var sameFaction = __instance.sameFaction;
+                if (!NeutralsAreFriendly)
+                    sameFaction = !sameFaction;
+                if (sameFaction)
+                    __result = !__instance.status;
             }
         }
     }

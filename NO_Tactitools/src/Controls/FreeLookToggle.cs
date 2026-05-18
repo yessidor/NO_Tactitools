@@ -21,7 +21,8 @@ public class FreeLookTogglePlugin {
 
             BindingHelper.Binding[] bindings = new BindingHelper.Binding[] {
                 new (typeof(FreeLookToggleComponent), "Report", Plugin.FreeLookToggle.Report),
-                new (typeof(FreeLookToggleComponent), "DisableFreeLookInPadlock", Plugin.FreeLookToggle.DisableFreeLookInPadlock)
+                new (typeof(FreeLookToggleComponent), "DisableFreeLookInPadlock", Plugin.FreeLookToggle.DisableFreeLookInPadlock),
+                new (typeof(FreeLookToggleComponent), "FOVDependentSens", Plugin.FreeLookToggle.FOVDependentSens)
             };
             BindingHelper.ApplyBindings(bindings);
 
@@ -34,6 +35,7 @@ public class FreeLookTogglePlugin {
 class FreeLookToggleComponent {
     public static bool Report { get; set; } = true;
     public static bool DisableFreeLookInPadlock { get; set; } = true;
+    public static bool FOVDependentSens { get; set; } = true;
 
     private static bool inCameraCockpitStateUpdateState = false;
     private static bool freeLook = false;
@@ -78,8 +80,13 @@ class FreeLookToggleComponent {
     [HarmonyPatch(typeof(Player), "GetAxis", typeof(string))]
     public class OnPlayerGetAxis {
         public static void Postfix(ref float __result, ref string actionName) {
-            if (inCameraCockpitStateUpdateState && !freeLook && (actionName == "Pan View" || actionName == "Tilt View"))
-                __result = 0.0f;
+            if (inCameraCockpitStateUpdateState && (actionName == "Pan View" || actionName == "Tilt View"))
+                if (freeLook) {
+                    if (FOVDependentSens)
+                        __result *= SceneSingleton<CameraStateManager>.i.mainCamera.fieldOfView / PlayerSettings.defaultFoV;
+                }
+                else
+                    __result = 0.0f;
         }
     }
 

@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.6.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.7.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public static RewiredInputConfig MFDNavEnter;
@@ -33,7 +33,6 @@ namespace NO_Tactitools.Core {
         public static ConfigEntry<bool> countermeasureControlsEnabled;
         public static RewiredInputConfig countermeasureControlsFlare;
         public static RewiredInputConfig countermeasureControlsJammer;
-        public static ConfigEntry<bool> weaponSwitcherEnabled;
         public class AmmoConIndicator {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<bool> ColorHMDMarker;
@@ -45,16 +44,18 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<Color> MFDDefaultBoxColor;
             public static ConfigEntry<Color> MFDTrackedDotColor;
         };
-        public static RewiredInputConfig weaponSwitcher0;
-        public static RewiredInputConfig weaponSwitcher1;
-        public static RewiredInputConfig weaponSwitcher2;
-        public static RewiredInputConfig weaponSwitcher3;
-        public static RewiredInputConfig weaponSwitcher4;
-        public static RewiredInputConfig weaponSwitcher5;
-        public static ConfigEntry<bool> targetFilterPresetEnabled;
-        public static ConfigEntry<int> targetFilterPresetNum;
-        public static List<RewiredInputConfig> targetFilterPresets;
-        public static ConfigEntry<bool> targetFilterPresetMaximizeTargetable;
+        public class WeaponSwitcher {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<byte> SlotsNum;
+            public static List<RewiredInputConfig> Slots;
+        };
+        public class TargetFilterPreset {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<int> PresetsNum;
+            public static List<RewiredInputConfig> Presets;
+            public static ConfigEntry<bool> MaximizeTargetable;
+            public static ConfigEntry<bool> NeutralsAreFriendly;
+        }
         // Virtual Joystick Extender
         public static ConfigEntry<bool> virtualJoystickExtenderEnabled;
         public static ConfigEntry<VirtualJoystickExtender.Modes> virtualJoystickExtenderDefaultMode;
@@ -115,6 +116,7 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<bool> Report;
             public static ConfigEntry<bool> DisableFreeLookInPadlock;
+            public static ConfigEntry<bool> FOVDependentSens;
         }
         public static ConfigEntry<bool> weaponDisplayEnabled;
         public static ConfigEntry<bool> weaponDisplayVanillaUIEnabled;
@@ -169,6 +171,7 @@ namespace NO_Tactitools.Core {
         public static ConfigEntry<float> ILSIndicatorMaxAngle;
         public static ConfigEntry<int> ILSIndicatorPositionX;
         public static ConfigEntry<int> ILSIndicatorPositionY;
+        public static ConfigEntry<bool> gameBindingsPatchEnabled;
         public static ConfigEntry<bool> debugModeEnabled;
         internal static new ManualLogSource Logger;
         public static Plugin Instance;
@@ -251,53 +254,69 @@ namespace NO_Tactitools.Core {
             countermeasureControlsFlare = new RewiredInputConfig(Config, "Countermeasures", "Countermeasure Controls - Flares", "Input you want to assign for selecting Flares", 2);
             countermeasureControlsJammer = new RewiredInputConfig(Config, "Countermeasures", "Countermeasure Controls - Jammer", "Input you want to assign for selecting Jammer", 0);
             // Weapon Switcher settings
-            weaponSwitcherEnabled = Config.Bind("Advanced Slot Selection",
+            order = 100;
+            WeaponSwitcher.Enabled = Config.Bind("Advanced Slot Selection",
                 "Advanced Slot Selection - Enabled",
                 true,
                 new ConfigDescription(
-                    "Enable or disable the Advanced Slot Selection feature.",
+                    "Enable or disable the Advanced Slot Selection feature (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = 7
+                        Order = order--
                     }));
-            weaponSwitcher0 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 0", "Input for slot 0 (Long press to toggle Turret Auto Control)", 5);
-            weaponSwitcher1 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 1", "Input for slot 1", 4);
-            weaponSwitcher2 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 2", "Input for slot 2", 3);
-            weaponSwitcher3 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 3", "Input for slot 3", 2);
-            weaponSwitcher4 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 4", "Input for slot 4", 1);
-            weaponSwitcher5 = new RewiredInputConfig(Config, "Advanced Slot Selection", "Advanced Slot Selection - Slot 5", "Input for slot 5", 0);
+            WeaponSwitcher.SlotsNum = Config.Bind("Advanced Slot Selection",
+                "Advanced Slot Selection - Number",
+                (byte)6,
+                new ConfigDescription(
+                    "Number of slots (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            WeaponSwitcher.Slots = new();
+            for (byte i = 0; i < WeaponSwitcher.SlotsNum.Value; i++)
+            {
+                string name = string.Format("Advanced Slot Selection - Slot {0}", i);
+                string description = string.Format("Input for slot {0}", i);
+                WeaponSwitcher.Slots.Add(new RewiredInputConfig(Config, "Advanced Slot Selection", name, description, order--));
+            }
             // Target Filter Preset settings
             order = 100;
-            targetFilterPresetEnabled = Config.Bind("Target Filter Preset",
+            TargetFilterPreset.Enabled = Config.Bind("Target Filter Preset",
                 "Target Filter Preset - Enabled",
                 true,
                 new ConfigDescription(
-                    "Enable or disable the Target Filter Preset feature.",
+                    "Enable or disable the Target Filter Preset feature (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
-            targetFilterPresetNum = Config.Bind("Target Filter Preset",
+            TargetFilterPreset.PresetsNum = Config.Bind("Target Filter Preset",
                 "Target Filter Preset - Number",
                 10,
                 new ConfigDescription(
                     "Number of target filter presets (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
-            targetFilterPresets = new();
-            for (int i = 0; i < targetFilterPresetNum.Value; i++)
+            TargetFilterPreset.Presets = new();
+            for (int i = 0; i < TargetFilterPreset.PresetsNum.Value; i++)
             {
                 string name = string.Format("Target Filter Preset - Slot {0}", i);
                 string description = string.Format("Input for slot {0} (Long press to save, short press to restore)", i);
-                targetFilterPresets.Add(new RewiredInputConfig(Config, "Target Filter Preset", name, description, order--));
+                TargetFilterPreset.Presets.Add(new RewiredInputConfig(Config, "Target Filter Preset", name, description, order--));
             }
-            targetFilterPresetMaximizeTargetable = Config.Bind("Target Filter Preset",
+            TargetFilterPreset.MaximizeTargetable = Config.Bind("Target Filter Preset",
                 "Target Filter Preset - Maximize Targetable Markers - Enabled",
                 true,
                 new ConfigDescription(
                     "If enabled, maximize markers of targetable units regardless of HUD settings",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
+            TargetFilterPreset.NeutralsAreFriendly = Config.Bind("Target Filter Preset",
+                "Target Filter Preset - Neutrals Are Friendly - Enabled",
+                true,
+                new ConfigDescription(
+                    "If enabled, neutral units and buildings are considered friendly (hostile otherwise) for the purposes of target selection (game-wide change!).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
             // Virtual Joystick Extender
-            order = 0;
+            order = 100;
             virtualJoystickExtenderEnabled = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Enabled",
                 true, 
@@ -586,6 +605,15 @@ namespace NO_Tactitools.Core {
                 false,
                 new ConfigDescription(
                     "Automatically disable free look state in padlock mode (so the mouse controls aircraft).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            FreeLookToggle.FOVDependentSens = Config.Bind("Free Look Toggle",
+                "Free Look Toggle - FOV-dependent Sensitivity - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable FOV-dependent sensitivity in Free Look mode",
                     null,
                     new ConfigurationManagerAttributes {
                         Order = order--
@@ -1131,13 +1159,18 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = -5
                     }));
+            // GameBindings patch
+            gameBindingsPatchEnabled = Config.Bind("Game Bindings Patch",
+                "Game Bindings Patch - Enabled",
+                true,
+                "Turn off only in case of problems.");
             // Debug Mode settings
             debugModeEnabled = Config.Bind("Debug Mode",
                 "Debug Mode - Enabled",
                 true,
                 "Enable or disable the debug mode for logging");
             // Plugin startup logic
-            harmony = new Harmony("george.no_tactitools");
+            harmony = new Harmony("yessidro.no_tactitools_plus");
             Logger = base.Logger;
             // CORE PATCHES
             harmony.PatchAll(typeof(RegisterControllerPatch));
@@ -1161,12 +1194,12 @@ namespace NO_Tactitools.Core {
                 harmony.PatchAll(typeof(CountermeasureControlsPlugin));
             }
             // Patch Weapon Switcher
-            if (weaponSwitcherEnabled.Value) {
+            if (WeaponSwitcher.Enabled.Value) {
                 Log($"Weapon Switcher is enabled, patching...");
                 harmony.PatchAll(typeof(WeaponSwitcherPlugin));
             }
             // Patch Target Filter Preset
-            if (targetFilterPresetEnabled.Value) {
+            if (TargetFilterPreset.Enabled.Value) {
                 Log($"Target Filter Preset is enabled, patching...");
                 harmony.PatchAll(typeof(TargetFilterPresetPlugin));
             }
@@ -1290,6 +1323,11 @@ namespace NO_Tactitools.Core {
             if (FreeLookToggle.Enabled.Value) {
                 Log($"Free Look toggle is enabled, patching...");
                 harmony.PatchAll(typeof(FreeLookTogglePlugin));
+            }
+            // GAMEBINDINGS
+            if (gameBindingsPatchEnabled.Value) {
+                Log($"Game Bindings patch is enabled, patching...");
+                harmony.PatchAll(typeof(GameBindingsPlugin));
             }
             //Finished patching
             //Load audio assets
