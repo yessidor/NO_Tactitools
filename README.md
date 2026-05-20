@@ -397,7 +397,7 @@ Feature state is controlled by `Target Filter Preset - Maximize Targetable Marke
 
 ### Alternative target selection
 
-Targeting in NO does not always produce expected results, so a more simpler algorithm was added.  
+Targeting in NO does not always produce expected results, so a more simplier algorithm was added.  
 In single target selection mode (with target selection key clicked) it selects the closest target that passes target filters and is within target selection cone centered around direction the camera is looking.  
 In "paint" mode (with target selection key held) it will not account for distances and will select all targets that pass filters and fall into the target selection cone.
 
@@ -468,6 +468,12 @@ Clicking `Free Look` key toggles free look mode on (when mouse controls camera) 
 Clicking `Center view` key switches between target padlock mode and previous view (if `Target Padlock` option in Gameplay settings tab is enabled, otherwise does nothing). Holding `Center view` key sets view to forward.
 
 In the mod settings, `Free Look Toggle - Enabled` controls the state of the feature. If `Free Look Toggle - Disable Free Look In Padlock` is enabled, free look mode is automatically disabled in padlock mode. If `Free Look Toggle - FOV-dependent Sensitivity - Enabled` is enabled, mouse sensitivity in free look mode depends on the current FOV: the lesser the FOV, the lesser the sensitivity. If `Free Look Toggle - Report` is enabled, free look and padlock state changes are reported on HMD.
+
+### Customizable modifier keys
+
+This feature allows to assign any button on any device as a modifier key.
+
+`Modifiers - Number` sets total number of modifier keys (restart the game to apply changes). `Modifiers - Modifier #` setting assigns bound key as a modifier. If some key was bound as non-modifier, functional key, it won't be allowed to be bound as modifier, and vice versa (error message about this conflict is displayed within input field). When binding modifier and functional keys combination to selected action in the mod settings, just hold modifier key(s) while pressing functional key.
 
 ### Better Virtual Joystick
 
