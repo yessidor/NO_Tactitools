@@ -106,6 +106,10 @@ public class WeaponDisplayComponent {
                 try {
                     InternalState.weaponDisplay = new WeaponDisplay();
                 }
+                catch (NotImplementedException e) {
+                    Plugin.Log(string.Format("[WD] Cockpit Weapon Display is not implemented for platform {0}", e.Message));
+                    InternalState.weaponDisplay = null;
+                }
                 catch (NullReferenceException e) {
                     Plugin.Log(string.Format("[WD] Got exception: {0}", e));
                     InternalState.weaponDisplay = null;
@@ -214,6 +218,7 @@ public class WeaponDisplayComponent {
                 "MiG-15" => Get("StatusGauges/FrontView"),
                 "F-16M King Viper" => Get("SystemsPanel"),
                 "MC-260 Chimera" => Get("SystemsPanel"),
+                "RAH-72 Knockout" => throw new NotImplementedException ("RAH-72 Knockout"),
                 _ => Get("SystemStatus") // all the others
             };
             if (destination == null)

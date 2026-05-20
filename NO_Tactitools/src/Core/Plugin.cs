@@ -13,9 +13,12 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.7.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.8.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
+        public class Modifiers {
+            public static ConfigEntry<int> ModifiersNum;
+        }
         public static RewiredInputConfig MFDNavEnter;
         public static RewiredInputConfig MFDNavBack;
         public static RewiredInputConfig MFDNavUp;
@@ -182,7 +185,34 @@ namespace NO_Tactitools.Core {
 
         private void Awake() {
             Instance = this;
+            // Logger and Debug Mode settings
+            debugModeEnabled = Config.Bind("Debug Mode",
+                "Debug Mode - Enabled",
+                true,
+                "Enable or disable the debug mode for logging");
+            Logger = base.Logger;
+            // Plugin startup logic
+            harmony = new Harmony("yessidro.no_tactitools_plus");
+            // CORE PATCHES
+            harmony.PatchAll(typeof(RegisterControllerPatch));
+            harmony.PatchAll(typeof(ControllerInputInterceptionPatch));
+            //Modifiers
             int order = 100;
+            Modifiers.ModifiersNum = Config.Bind("Modifiers",
+                "Modifiers - Number",
+                4,
+                new ConfigDescription(
+                    "Number of modifier buttons (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            for (int i = 0; i < Modifiers.ModifiersNum.Value; i++)
+            {
+                string name = string.Format("Modifiers - Modifier {0}", i);
+                string description = string.Format("Button to act as modifier {0}", i);
+                var modifierConfig = new RewiredInputConfig(Config, "Modifiers", name, description, order--, isModifier: true);
+                RewiredConfigManager.ModsTracker.AddModifierBinding(modifierConfig);
+                InputCatcher.ModsTracker.AddModifierBinding(modifierConfig);
+            }
             // MFD Nav
             MFDNavEnter = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Enter", "Input you want to assign for MFD Nav - Enter", order--);
             MFDNavBack = new RewiredInputConfig(Config, "MFD Nav", "MFD Nav - Backspace", "Input you want to assign for MFD Nav - Backspace", order--);
@@ -586,7 +616,12 @@ namespace NO_Tactitools.Core {
                 "Free Look Toggle - Enabled",
                 false,
                 new ConfigDescription(
-                    "Enable or disable the Free Look Toggle feature (restart the game to apply changes).",
+                    "Enable or disable the Free Look Toggle feature (restart the game to apply changes).\n" +
+                    "Uses keys bound to Free Look and Center view in game controls settings.\n" +
+                    "Press Free Look key to toggle Free Look mode.\n" +
+                    "Hold Free Look key to temporarily look forward.\n" +
+                    "Click Center view key to toggle padlock mode (if Target Padlock option in Gameplay settings is enabled).\n" +
+                    "Hold Center view key to look forward.",
                     null,
                     new ConfigurationManagerAttributes {
                         Order = order--
@@ -1164,17 +1199,6 @@ namespace NO_Tactitools.Core {
                 "Game Bindings Patch - Enabled",
                 true,
                 "Turn off only in case of problems.");
-            // Debug Mode settings
-            debugModeEnabled = Config.Bind("Debug Mode",
-                "Debug Mode - Enabled",
-                true,
-                "Enable or disable the debug mode for logging");
-            // Plugin startup logic
-            harmony = new Harmony("yessidro.no_tactitools_plus");
-            Logger = base.Logger;
-            // CORE PATCHES
-            harmony.PatchAll(typeof(RegisterControllerPatch));
-            harmony.PatchAll(typeof(ControllerInputInterceptionPatch));
             //harmony.PatchAll(typeof(TestInput));
             // Patch MFD Color
             if (MFDColorEnabled.Value) {

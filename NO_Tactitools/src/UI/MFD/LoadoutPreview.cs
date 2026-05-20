@@ -278,6 +278,9 @@ public class LoadoutPreviewComponent {
                     verticalOffset = 150;
                     fontSize = 40;
                     break;
+                case "RAH-72 Knockout":
+                    verticalOffset = -100;
+                    break;
                 case "HMD":
                     horizontalOffset = 0;
                     verticalOffset = 0;
