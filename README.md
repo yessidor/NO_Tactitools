@@ -369,8 +369,6 @@ Cycling through target list (with `MFD NAV Left/Right` keys) makes the currently
 
 Feature state is controlled by `Target List Controller - Switch Current Target - Enabled` setting in plugin settings.  
 
-*Known issue*: when new active target is selected, tooltips for all selected targets are briefly flashed on the minimap. This is because the list of selected targets is essentially cleared, modified, and loaded again. Have not figured out how to disable this, and this is not a big inconvenience anyway.
-
 ### Additional target lists
 
 Extra target lists were added in addition to the default target list saved and restored by `MFD NAV Up` key.  
@@ -520,4 +518,4 @@ Each axis is assigned so-called `Dynamic` and `Static` response curves. Shapes o
 
 ## Compatibility
 
-Updated mod was tested under Nuclear Option 0.33.3. Works with NO Autopilot, compatibility with other mods was not tested.
+Updated mod was tested under Nuclear Option 0.33.3. Compatible with **QoL** (1.1.7.1), **NOAutopilot** (5.2.0), **FQ-106** Kestrel (2.1.0; mind that it is bugged by itself), **MC-260** Chimera (1.0.9), **RAH-72** Knockout (1.0.0). Compatibility with **Vanilla Icons PLUS** and **ThirdPersonHud** was not tested.

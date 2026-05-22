@@ -394,20 +394,10 @@ public class GameBindings {
                         AudioClip selectSound = _selectSoundCache.GetValue(currentCombatHUD);
                         SoundManager.PlayInterfaceOneShot(selectSound);
                     }
-                    //Might be useful later
-                    /*
-                    List<PersistentID> units2ids(List<Unit> units) => units.ConvertAll(x => x.persistentID);
-                    Plugin.Log(
-                      string.Format(
-                        "AddTargets: units = {0}; currentTargets = {1}; retrieved = {2}",
-                        string.Join(",", units2ids(units)),
-                        string.Join(",", units2ids(currentTargets)),
-                        string.Join(",", units2ids(_targetListCache.GetValue(SceneSingleton<CombatHUD>.i)))
-                      )
-                    );
-                    */
                 }
-                catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+                catch (NullReferenceException e) {
+                    Plugin.Log("GameBindings.Player.TargetList.AddTargets(): " + e.ToString());
+                }
                 finally { checkExclusionsResult = null; }
             }
 
@@ -425,7 +415,9 @@ public class GameBindings {
                         SoundManager.PlayInterfaceOneShot(selectSound);
                     }
                 }
-                catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+                catch (NullReferenceException e) {
+                    Plugin.Log("GameBindings.Player.TargetList.AddTarget(): " + e.ToString());
+                }
                 finally { checkExclusionsResult = null; }
             }
 
@@ -433,14 +425,18 @@ public class GameBindings {
                 try {
                     SceneSingleton<CombatHUD>.i.DeselectAll(false);
                 }
-                catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+                catch (NullReferenceException e) {
+                    Plugin.Log("GameBindings.Player.TargetList.DeselectAll(): " + e.ToString());
+                }
             }
 
             public static void DeselectUnit(Unit unit) {
                 try {
                     SceneSingleton<CombatHUD>.i.DeSelectUnit(unit);
                 }
-                catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+                catch (NullReferenceException e) {
+                    Plugin.Log("GameBindings.Player.TargetList.DeselectUnit(): " + e.ToString());
+                }
             }
 
             public static List<Unit> GetTargets() {
@@ -449,7 +445,10 @@ public class GameBindings {
                     List<Unit> targetList = _targetListCache.GetValue(currentCombatHUD);
                     return [.. targetList];
                 }
-                catch (NullReferenceException e) { Plugin.Log(e.ToString()); return []; }
+                catch (NullReferenceException e) {
+                    Plugin.Log("GameBindings.Player.TargetList.GetTargets(): " + e.ToString());
+                    return [];
+                }
             }
 
             private static bool? checkExclusionsResult = null;

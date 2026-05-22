@@ -18,6 +18,7 @@ public class FreeLookTogglePlugin {
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnPlayerGetButtonDown));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnPlayerGetAxis));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnCameraCockpitStateUpdateState));
+            Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnCameraStateManagerLateUpdate));
 
             BindingHelper.Binding[] bindings = new BindingHelper.Binding[] {
                 new (typeof(FreeLookToggleComponent), "Report", Plugin.FreeLookToggle.Report),
@@ -57,6 +58,10 @@ class FreeLookToggleComponent {
     private static FieldInfo tiltViewInfo = AccessTools.Field(typeof(CameraCockpitState), "tiltView");
     private static FieldInfo panViewInfo = AccessTools.Field(typeof(CameraCockpitState), "panView");
 
+    private static bool ShouldProcess() {
+        return !(DynamicMap.mapMaximized || GameBindings.GameState.IsChatboxActive() || GameBindings.GameState.IsGamePaused());
+    }
+
     [HarmonyPatch(typeof(Player), "GetButton", typeof(string))]
     public class OnPlayerGetButton {
         public static void Postfix(ref bool __result, ref string actionName, Player __instance) {
@@ -80,13 +85,26 @@ class FreeLookToggleComponent {
     [HarmonyPatch(typeof(Player), "GetAxis", typeof(string))]
     public class OnPlayerGetAxis {
         public static void Postfix(ref float __result, ref string actionName) {
-            if (inCameraCockpitStateUpdateState && (actionName == "Pan View" || actionName == "Tilt View"))
-                if (freeLook) {
-                    if (FOVDependentSens)
-                        __result *= SceneSingleton<CameraStateManager>.i.mainCamera.fieldOfView / PlayerSettings.defaultFoV;
+            if (actionName == "Pan View" || actionName == "Tilt View") {
+                if (ShouldProcess()) {
+                    if (inCameraCockpitStateUpdateState) {
+                        //since GetButton("FreeLook") always returns true when in CameraCockpitState.UpdateState() to avoid resetting view to center,
+                        //handling "Pan View" and "Tilt View" axes output here based on freeLook
+                        if (freeLook) {
+                            if (FOVDependentSens)
+                                __result *= SceneSingleton<CameraStateManager>.i.mainCamera.fieldOfView / PlayerSettings.defaultFoV;
+                        }
+                        else
+                            __result = 0.0f;
+                    }
+                    //"Pan View" and "Tilt View" axes in other camera states is unchanged
+                    //Other camera states (except CameraOrbitState) process these axes if GetButton("FreeLook") returns true
+                    //CameraOrbitState does not check GetButton("FreeLook") and always processes these axes
                 }
                 else
                     __result = 0.0f;
+            }
+            //other axes input is unchanged
         }
     }
 
@@ -98,6 +116,9 @@ class FreeLookToggleComponent {
 
         public static void Postfix(CameraCockpitState __instance) {
             inCameraCockpitStateUpdateState = false;
+
+            if (!ShouldProcess())
+                return;
 
             var cameraCockpitState = __instance;
             var player = GameManager.playerInput;
@@ -188,6 +209,15 @@ class FreeLookToggleComponent {
                     UIBindings.Game.DisplayToast(string.Format("FreeLook: <b>{0}</b>", freeLook ? "activated" : "deactivated"), 3f);
             }
 
+        }
+    }
+
+    [HarmonyPatch(typeof(CameraStateManager), "LateUpdate")]
+    public class OnCameraStateManagerLateUpdate {
+        public static void Postfix(CameraStateManager __instance) {
+            //CameraCockpitState.UpdateState() hook handles GetButtonUp("Free Look") by itself
+            if (__instance.currentState != __instance.cockpitState && ShouldProcess() && GameManager.playerInput.GetButtonUp("Free Look"))
+                freeLook = !freeLook;
         }
     }
 }

@@ -20,6 +20,7 @@ class TargetListControllerPlugin {
             Plugin.Log($"[TC] Target List Controller plugin starting !");
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnPlatformUpdate));
+            Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkerExtraSetup));
 
             var unitRecallListsNum = Plugin.MFDNavExtraKeys.Count + 1;
             TargetListControllerComponent.InternalState.unitRecallLists = new List<Unit> [unitRecallListsNum];
@@ -637,6 +638,15 @@ public static class TargetListControllerComponent {
         static void Postfix() {
             LogicEngine.Update();
             DisplayEngine.Update();
+        }
+    }
+
+    //This patch avoids brief flashing of selected target info and marker on minimap when loading target list
+    [HarmonyPatch(typeof(TargetMarker), "ExtraSetup")]
+    public static class OnTargetMarkerExtraSetup {
+        static void Prefix(ref TargetMarker __instance) {
+           __instance.Show(value: false);
+           __instance.markerImg.enabled = false;
         }
     }
 }
