@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.8.5")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.8.6")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {

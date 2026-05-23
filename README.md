@@ -515,7 +515,10 @@ Each axis is assigned so-called `Dynamic` and `Static` response curves. Shapes o
 
  *Note:* for `throttle` axis, the same controlling keys must be bound in the game controls menu in order to control `throttle` axis in hover mode.
 
-
 ## Compatibility
 
 Updated mod was tested under Nuclear Option 0.33.3. Compatible with **QoL** (1.1.7.1), **NOAutopilot** (5.2.0), **FQ-106** Kestrel (2.1.0; mind that it is bugged by itself), **MC-260** Chimera (1.0.9), **RAH-72** Knockout (1.0.0). Compatibility with **Vanilla Icons PLUS** and **ThirdPersonHud** was not tested.
+
+## On possible "Could not load file or assembly MonoMod.Backports" error
+
+If the mod does not work and the error message *"Could not load file or assembly 'MonoMod.Backports...'"* is reported in `LogOutput.log`, place `MonoMod.Backports.dll` and `MonoMod.ILHelpers.dll` files from the folder `ON_ERROR_PLACE_IN_GAME_FOLDER` within the archive into the Nuclear Option folder. Don't place them into the NOTT folder, as BepInEx will delete them.

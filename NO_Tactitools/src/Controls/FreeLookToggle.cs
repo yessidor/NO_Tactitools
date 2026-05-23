@@ -19,6 +19,7 @@ public class FreeLookTogglePlugin {
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnPlayerGetAxis));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnCameraCockpitStateUpdateState));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnCameraStateManagerLateUpdate));
+            Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnDynamicMapMapControls));
 
             BindingHelper.Binding[] bindings = new BindingHelper.Binding[] {
                 new (typeof(FreeLookToggleComponent), "Report", Plugin.FreeLookToggle.Report),
@@ -39,6 +40,7 @@ class FreeLookToggleComponent {
     public static bool FOVDependentSens { get; set; } = true;
 
     private static bool inCameraCockpitStateUpdateState = false;
+    private static bool inDynamicMapMapControls = false;
     private static bool freeLook = false;
     private static bool padLock = false;
 
@@ -86,7 +88,9 @@ class FreeLookToggleComponent {
     public class OnPlayerGetAxis {
         public static void Postfix(ref float __result, ref string actionName) {
             if (actionName == "Pan View" || actionName == "Tilt View") {
-                if (ShouldProcess()) {
+                if (inDynamicMapMapControls)
+                { /* noop */ }
+                else if (ShouldProcess()) {
                     if (inCameraCockpitStateUpdateState) {
                         //since GetButton("FreeLook") always returns true when in CameraCockpitState.UpdateState() to avoid resetting view to center,
                         //handling "Pan View" and "Tilt View" axes output here based on freeLook
@@ -218,6 +222,17 @@ class FreeLookToggleComponent {
             //CameraCockpitState.UpdateState() hook handles GetButtonUp("Free Look") by itself
             if (__instance.currentState != __instance.cockpitState && ShouldProcess() && GameManager.playerInput.GetButtonUp("Free Look"))
                 freeLook = !freeLook;
+        }
+    }
+
+    [HarmonyPatch(typeof(DynamicMap), "MapControls")]
+    public class OnDynamicMapMapControls {
+        public static void Prefix() {
+            inDynamicMapMapControls = true;
+        }
+
+        public static void Postfix() {
+            inDynamicMapMapControls = false;
         }
     }
 }
