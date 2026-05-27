@@ -23,7 +23,7 @@ public static class NOAutopilotControlPlugin {
                 Plugin.harmony.PatchAll(typeof(NOAutopilotComponent.OnPlatformUpdate));
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavToggle,
-                    0.2f,
+                    PlayerSettings.pressDelay,
                     onRelease:ToggleMenu,
                     onLongPress: () => { }
                 );

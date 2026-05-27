@@ -29,50 +29,55 @@ class TargetListControllerPlugin {
 
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavUp,
-                0.2f,
+                PlayerSettings.pressDelay,
                 onRelease: () => RecallTargets(0),
                 onLongPress: () => RememberTargets(0));
             for (int i = 0; i < Plugin.MFDNavExtraKeys.Count; i++) {
                 int j = i + 1;
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavExtraKeys[i],
-                    0.2f,
+                    PlayerSettings.pressDelay,
                     onRelease: () => RecallTargets(j),
                     onLongPress: () => RememberTargets(j));
             }
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavRight,
-                0.5f,
+                PlayerSettings.pressDelay,
                 onRelease: NextTarget,
                 onLongPress: SortTargetsByDistance);
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavLeft,
-                0.5f,
+                PlayerSettings.pressDelay,
                 onRelease: PreviousTarget,
                 onLongPress: SortTargetsByName);
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavEnter,
-                0.2f,
+                PlayerSettings.pressDelay,
                 onRelease: PopCurrentTarget,
                 onLongPress: KeepOnlyCurrentTarget);
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavDown,
-                0.2f,
+                PlayerSettings.pressDelay,
                 onRelease: KeepOnlyDataLinkedTargets,
                 onLongPress: KeepClosestTargetsBasedOnAmmo);
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavBack,
-                0.2f,
+                PlayerSettings.pressDelay,
                 onRelease: KeepUntrackedTargets,
                 onLongPress: KeepTrackedTargets);
             InputCatcher.RegisterNewInput(
-                Plugin.MFDNavPoptByUnitName,
-                0.2f,
-                onRelease: () => PopTargetsByUnitName(asCurrentTarget: false),
-                onLongPress: () => PopTargetsByUnitName(asCurrentTarget: true));
+                Plugin.MFDNavSelectByUnitName,
+                PlayerSettings.pressDelay,
+                onRelease: () => SelectTargetsByUnitName(asCurrentTarget: false),
+                onLongPress: () => SelectTargetsByUnitName(asCurrentTarget: true));
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavSelectLased,
+                PlayerSettings.pressDelay,
+                onRelease: () => SelectTargetsByLasedStatus(lased: false),
+                onLongPress: () => SelectTargetsByLasedStatus(lased: true));
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavMissileTargetingSystem,
-                0.2f,
+                PlayerSettings.pressDelay,
                 onRelease: MtsToggle,
                 onLongPress: () => MtsSetAutoSelectMode(null));
             initialized = true;
@@ -289,7 +294,7 @@ class TargetListControllerPlugin {
         UIBindings.Sound.PlaySound("beep_sort");
     }
 
-    private static void PopTargetsByUnitName(bool asCurrentTarget) {
+    private static void SelectTargetsByUnitName(bool asCurrentTarget) {
         string getName(Unit target) => (target is Aircraft) ? target.definition.unitName : target.unitName;
         if (NOAutopilotComponent.InternalState.showMenu) return;
         Plugin.Log($"[TC] SelectUnitsWithSameName");
@@ -309,6 +314,25 @@ class TargetListControllerPlugin {
             targetCount,
             singularOrPlural(targetCount, "target", "targets"),
             targetName);
+        UIBindings.Game.DisplayToast(report, 3f);
+        UIBindings.Sound.PlaySound("beep_sort");
+    }
+
+    //lased = true - pop unlased targets, keep lased
+    //lased = false - pop lased targets, keep unlased
+    private static void SelectTargetsByLasedStatus(bool lased) {
+        Plugin.Log($"[TC] SelectTargetsByLasedStatus");
+        List<Unit> targets = GameBindings.Player.TargetList.GetTargets();
+        if (targets.Count == 0)
+            return;
+        var hq = GameBindings.GameState.GetCurrentFactionHQ();
+        targets.RemoveAll(unit => { bool r = hq.IsTargetLased(unit); if (lased) r = !r; return r; });
+        int targetCount = replaceTargets(targets);
+        string report = string.Format(
+            "Kept <b>{0}</b> {1} {2}",
+            targetCount,
+            lased ? "lased" : "unlased",
+            singularOrPlural(targetCount, "target", "targets"));
         UIBindings.Game.DisplayToast(report, 3f);
         UIBindings.Sound.PlaySound("beep_sort");
     }
@@ -650,5 +674,3 @@ public static class TargetListControllerComponent {
         }
     }
 }
-
-

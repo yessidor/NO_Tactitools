@@ -168,15 +168,25 @@ public class VirtualJoystickExtender {
     public bool ToggleMode { set; get; } = false;
     public float YawMultiplier { set; get; } = 1.0f;
     public float RollYawMultiplier { set; get; } = 1.0f;
+
+    public enum DecayModes { None, Instant };
+    public DecayModes DecayMode { set;  get; } = DecayModes.None;
+
     public ResponseCurve YawCurve = new ResponseCurve ();
     public ResponseCurve PitchCurve = new ResponseCurve ();
     public ResponseCurve RollCurve = new ResponseCurve ();
 
     public void Update(ref ControlInputs controlInputs) {
-        if (!Enabled || DynamicMap.mapMaximized || Leaderboard.IsOpen() || RadialMenuMain.IsInUse()) {
-            controlInputs.yaw = 0.0f;
-            controlInputs.pitch = 0.0f;
-            controlInputs.roll = 0.0f;
+        if (!Enabled || GameManager.playerInput.GetButton("Free Look") || DynamicMap.mapMaximized || Leaderboard.IsOpen() || RadialMenuMain.IsInUse()) {
+            if (DecayMode == DecayModes.Instant) {
+                controlInputs.yaw = 0.0f;
+                controlInputs.pitch = 0.0f;
+                controlInputs.roll = 0.0f;
+
+                var flightHud = SceneSingleton<FlightHud>.i;
+                if (flightHud is not null)
+                    flightHud.SetVirtualJoystick(new Vector3 (0.0f, 0.0f, 0.0f));
+            }
             return;
         }
 
@@ -194,7 +204,7 @@ public class VirtualJoystickExtender {
 
     private void OnSetMode() {
         var flightHud = SceneSingleton<FlightHud>.i;
-        if (flightHud is not null) {
+        if (flightHud != null) {
           var localPos = flightHud.virtualJoystickPos.transform.localPosition;
           localPos.x = 0.0f;
           flightHud.SetVirtualJoystick(localPos);
@@ -229,31 +239,32 @@ class VirtualJoystickExtenderComponent {
             Plugin.harmony.PatchAll(typeof(OnPilotPlayerStatePlayerAxisControls));
 
             InputCatcher.RegisterNewInput(
-                Plugin.virtualJoystickExtenderToggleStateKey,
+                Plugin.VirtualJoystickExtender.ToggleStateKey,
                 0.0f,
                 onPress: () => { virtualJoystickExtender.Enabled = !virtualJoystickExtender.Enabled; }
                 );
             InputCatcher.RegisterNewInput(
-                Plugin.virtualJoystickExtenderYawKey,
+                Plugin.VirtualJoystickExtender.YawKey,
                 0.0f,
                 onRelease: () => { virtualJoystickExtender.Mode = VirtualJoystickExtender.Modes.Roll; },
                 onPress: () => { virtualJoystickExtender.Mode = VirtualJoystickExtender.Modes.Yaw; }
                 );
             InputCatcher.RegisterNewInput(
-                Plugin.virtualJoystickExtenderRollYawKey,
+                Plugin.VirtualJoystickExtender.RollYawKey,
                 0.0f,
                 onRelease: () => { virtualJoystickExtender.Mode = VirtualJoystickExtender.Modes.Roll; },
                 onPress: () => { virtualJoystickExtender.Mode = VirtualJoystickExtender.Modes.RollYaw; }
                 );
 
             var virtualJoystickBindings = new BindingHelper.Binding[] {
-                new (virtualJoystickExtender, "ToggleMode", Plugin.virtualJoystickExtenderToggleMode),
-                new (virtualJoystickExtender, "Mode", Plugin.virtualJoystickExtenderDefaultMode),
-                new (virtualJoystickExtender, "YawMultiplier", Plugin.virtualJoystickExtenderYawMultiplier),
-                new (virtualJoystickExtender, "RollYawMultiplier", Plugin.virtualJoystickExtenderRollYawMultiplier),
-                new (virtualJoystickExtender.YawCurve, "Curvature", Plugin.virtualJoystickExtenderYawCurvature),
-                new (virtualJoystickExtender.PitchCurve, "Curvature", Plugin.virtualJoystickExtenderPitchCurvature),
-                new (virtualJoystickExtender.RollCurve, "Curvature", Plugin.virtualJoystickExtenderRollCurvature),
+                new (virtualJoystickExtender, "ToggleMode", Plugin.VirtualJoystickExtender.ToggleMode),
+                new (virtualJoystickExtender, "Mode", Plugin.VirtualJoystickExtender.DefaultMode),
+                new (virtualJoystickExtender, "YawMultiplier", Plugin.VirtualJoystickExtender.YawMultiplier),
+                new (virtualJoystickExtender, "RollYawMultiplier", Plugin.VirtualJoystickExtender.RollYawMultiplier),
+                new (virtualJoystickExtender.YawCurve, "Curvature", Plugin.VirtualJoystickExtender.YawCurvature),
+                new (virtualJoystickExtender.PitchCurve, "Curvature", Plugin.VirtualJoystickExtender.PitchCurvature),
+                new (virtualJoystickExtender.RollCurve, "Curvature", Plugin.VirtualJoystickExtender.RollCurvature),
+                new (virtualJoystickExtender, "DecayMode", Plugin.VirtualJoystickExtender.DecayMode),
             };
             BindingHelper.ApplyBindings(virtualJoystickBindings);
 
@@ -263,15 +274,11 @@ class VirtualJoystickExtenderComponent {
         }
     }
 
-    public static void ProcessPrimaryInputs(ref PilotPlayerState instance, ref ControlInputs controlInputs, ref Pilot pilot) {
-        virtualJoystickExtender.Update(ref controlInputs);
-    }
-
     [HarmonyPriority(Priority.Low)]
     [HarmonyPatch(typeof(PilotPlayerState), "PlayerAxisControls")]
     public class OnPilotPlayerStatePlayerAxisControls {
-        static void Postfix(ref PilotPlayerState __instance, ref ControlInputs ___controlInputs, ref Pilot ___pilot) {
-            ProcessPrimaryInputs(ref __instance, ref ___controlInputs, ref ___pilot);
+        static void Postfix(ref ControlInputs ___controlInputs) {
+            virtualJoystickExtender.Update(ref ___controlInputs);
         }
     }
 }

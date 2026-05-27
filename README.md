@@ -399,7 +399,7 @@ Targeting in NO does not always produce expected results, so a more simplier alg
 In single target selection mode (with target selection key clicked) it selects the closest target that passes target filters and is within target selection cone centered around direction the camera is looking.  
 In "paint" mode (with target selection key held) it will not account for distances and will select all targets that pass filters and fall into the target selection cone.
 
-`Alternative Target Selection - Enabled` setting controls the state of the feature, and `Alternative Target Selection - Camera FOV Fraction` sets the fraction that is multiplied by camera vertical FOV to get the apex angle (aperture) of selection cone.
+`Alternative Target Selection - Enabled` setting controls the state of the feature, and `Alternative Target Selection - Camera FOV Fraction` sets the fraction that is multiplied by camera vertical FOV to get the apex angle (aperture) of selection cone. If `Alternative Target Selection - Pick Active` is enabled, when target selection key is clicked and no new target can be selected, the best matching target from already selected ones is made active.
 
 ### Filtering targets tracked or not tracked by deliverables
 
@@ -409,7 +409,11 @@ Short press on the key bound to `MFD Nav - Backspace` removes tracked targets, l
 
 ### Filtering targets based on the unit name of the current target
 
-Short press on the key bound to  `MFD Nav - Select Targets By Unit Name` deselects targets which have the same unit name as the currently acitve target (including the active target itself). Long press on the same key removes targets which unit names *differ* from active target unit name.
+Short press on the key bound to `MFD Nav - Select Targets By Unit Name` deselects targets which have the same unit name as the currently acitve target (including the active target itself). Long press on the same key removes targets which unit names *differ* from active target unit name.
+
+### Filtering lased or unlased targets
+
+Short press on the key bound to `MFD Nav - Select Targets By Lased status' deselects lased targets, long press deselects unlased.
 
 ### Incoming missiles targeting
 
@@ -448,7 +452,13 @@ A small convenience feature that allows to recolor HMD unit markers.
 
 Allows to change zoom level of the minimap.
 
-`MiniMap Zoom - Enabled` controls the state. `MiniMap Zoom - Zoom levels` is a semicolon-separated list of zoom levels with dot (.) acting as fraction separator. Default in-game minimap zoom level is 2.0. `MiniMap Zoom - Offset` is an offset from center of the minimap to player aircraft in meters for default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Key` cycles zoom levels, long press restores default zoom level. If `MiniMap Zoom - Report` is enabled, minimap zoom level changes are reported on HMD.
+`MiniMap Zoom - Enabled` controls the state (restart the game to apply changes). `MiniMap Zoom - Zoom levels` is a semicolon-separated list of zoom levels with dot (.) acting as fraction separator. Default in-game minimap zoom level is 2.0. `MiniMap Zoom - Offset` is an offset from center of the minimap to player aircraft in meters for default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Key` cycles zoom levels, long press restores default zoom level. If `MiniMap Zoom - Report` is enabled, minimap zoom level changes are reported on HMD.
+
+### Map and minimap target arrows
+
+Adds arrows that point to selected targets if they are out of map bounds. Active target is distinguished by different arrow and marker color and, optionally, by "T" marker.
+
+`Map Target Arrows - Enabled` controls the state (restart the game to apply changes), `Map Target Arrows - Arrow Scale` sets the arrows scale (relative to target arrow on HMD), `Map Target Arrows - Selected Color` and `Map Target Arrows - Active Color` set colors for selected targets and the active target respectively, `Map Target Arrows - Show T` determines whether to show "T" near the active target arrow.
 
 ### Target velocity indicator
 
@@ -465,7 +475,7 @@ This feature uses keys bound to `Free Look` and `Center View` in game control bi
 Clicking `Free Look` key toggles free look mode on (when mouse controls camera) and off (when mouse controls player aircraft). Holding `Free Look` key temporarily sets view to forward and disables free look on press and restores previous free look state and view on release.  
 Clicking `Center view` key switches between target padlock mode and previous view (if `Target Padlock` option in Gameplay settings tab is enabled, otherwise does nothing). Holding `Center view` key sets view to forward.
 
-In the mod settings, `Free Look Toggle - Enabled` controls the state of the feature. If `Free Look Toggle - Disable Free Look In Padlock` is enabled, free look mode is automatically disabled in padlock mode. If `Free Look Toggle - FOV-dependent Sensitivity - Enabled` is enabled, mouse sensitivity in free look mode depends on the current FOV: the lesser the FOV, the lesser the sensitivity. If `Free Look Toggle - Report` is enabled, free look and padlock state changes are reported on HMD.
+In the mod settings, `Free Look Toggle - Enabled` controls the state of the feature (restart the game to apply changes). If `Free Look Toggle - Disable Free Look In Padlock` is enabled, free look mode is automatically disabled in padlock mode. If `Free Look Toggle - FOV-dependent Sensitivity - Enabled` is enabled, mouse sensitivity in free look mode depends on the current FOV: the lesser the FOV, the lesser the sensitivity. If `Free Look Toggle - Report` is enabled, free look and padlock state changes are reported on HMD.
 
 ### Customizable modifier keys
 
@@ -500,6 +510,10 @@ This feature also adds response curves for `yaw`, `pitch` and `roll` axes.
 Shape of these response curves are defined by so-called depressed cubic equation of the form y = Curvature\*x<sup>3</sup> + (1 - Curvature)\*x .
 
 `Curvature` parameters for respective axes are controlled by `Virtual Joystick Extender - Yaw Curvature`, `Virtual Joystick Extender - Pitch Curvature` and `Virtual Joystick Extender - Roll Curvature` settings.
+
+#### Setting primary axes to 0 when virtual joystick is temporarily disabled
+
+Set `Virtual Joystick Extender - Decay Mode` to `Instant` to set pitch, roll, and yaw axes to 0 when virtual joystick control is disabled by opening map, leaderboard, or radial menu.
 
 ### Better axis control with keys
 

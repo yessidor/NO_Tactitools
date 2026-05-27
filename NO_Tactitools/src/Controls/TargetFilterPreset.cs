@@ -23,7 +23,7 @@ class TargetFilterPresetPlugin {
               int j = i;
               InputCatcher.RegisterNewInput(
                   Plugin.TargetFilterPreset.Presets[i],
-                  TargetFilterPresetComponent.longPressDelay,
+                  PlayerSettings.pressDelay,
                   onRelease: () => TargetFilterPresetComponent.Recall(j),
                   onLongPress: () => TargetFilterPresetComponent.Remember(j)
               );
@@ -54,7 +54,6 @@ class TargetFilterPresetComponent {
     } = false;
     public static bool NeutralsAreFriendly = true;
 
-    public static float longPressDelay = 0.2f;
     public static float reportDelay = 2f;
     public static string configName = "TargetFilterPreset.cfg";
     private static Dictionary<int, Preset> presets = new ();

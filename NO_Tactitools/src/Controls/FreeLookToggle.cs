@@ -61,7 +61,7 @@ class FreeLookToggleComponent {
     private static FieldInfo panViewInfo = AccessTools.Field(typeof(CameraCockpitState), "panView");
 
     private static bool ShouldProcess() {
-        return !(DynamicMap.mapMaximized || GameBindings.GameState.IsChatboxActive() || GameBindings.GameState.IsGamePaused());
+        return !(DynamicMap.mapMaximized || GameBindings.GameState.IsChatboxActive() || GameBindings.GameState.IsGamePaused() || Leaderboard.IsOpen());
     }
 
     [HarmonyPatch(typeof(Player), "GetButton", typeof(string))]

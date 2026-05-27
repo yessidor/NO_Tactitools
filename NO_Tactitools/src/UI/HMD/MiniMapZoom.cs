@@ -21,15 +21,16 @@ public class MiniMapZoomPlugin {
 
             InputCatcher.RegisterNewInput(
                 Plugin.MiniMapZoom.CycleKey,
-                0.2f,
+                PlayerSettings.pressDelay,
                 onRelease: MiniMapZoomComponent.CycleZoom,
                 onLongPress: MiniMapZoomComponent.ResetZoom);
-            MiniMapZoomComponent.SetZoomsFromString(Plugin.MiniMapZoom.Zooms.Value);
-            Plugin.MiniMapZoom.Zooms.SettingChanged += (sender, args) => MiniMapZoomComponent.SetZoomsFromString(Plugin.MiniMapZoom.Zooms.Value);
-            MiniMapZoomComponent.Offset = Plugin.MiniMapZoom.Offset.Value;
-            Plugin.MiniMapZoom.Offset.SettingChanged += (sender, args) => MiniMapZoomComponent.Offset = Plugin.MiniMapZoom.Offset.Value;
-            MiniMapZoomComponent.Report = Plugin.MiniMapZoom.Report.Value;
-            Plugin.MiniMapZoom.Report.SettingChanged += (sender, args) => MiniMapZoomComponent.Report = Plugin.MiniMapZoom.Report.Value;
+
+            var virtualJoystickBindings = new BindingHelper.Binding[] {
+                new (typeof(MiniMapZoomComponent), "ZoomsString", Plugin.MiniMapZoom.Zooms),
+                new (typeof(MiniMapZoomComponent), "Offset", Plugin.MiniMapZoom.Offset),
+                new (typeof(MiniMapZoomComponent), "Report", Plugin.MiniMapZoom.Report),
+            };
+            BindingHelper.ApplyBindings(virtualJoystickBindings);
 
             initialized = true;
             Plugin.Log($"[MMZ] MiniMap Zoom plugin started !");
@@ -39,18 +40,22 @@ public class MiniMapZoomPlugin {
 
 class MiniMapZoomComponent {
     public static List<float> Zooms { set { field = [.. value]; } get; } = new ();
-    public static void SetZoomsFromString(string zooms) {
-        List<float> values = new ();
-        foreach (var v in zooms.Split(";")) {
-            if (!float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var f)) {
-                Plugin.Log(string.Format("[MMZ] Cannot parse {0} as float, skipping", v));
-                continue;
+    public static string ZoomsString {
+        set {
+            List<float> values = new ();
+            foreach (var v in value.Split(";")) {
+                if (!float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var f)) {
+                    Plugin.Log(string.Format("[MMZ] Cannot parse {0} as float, skipping", v));
+                    continue;
+                }
+                values.Add(f);
+                Zooms = values;
+                idx = Zooms.IndexOf(currentZoomLevel);
+                if (idx == -1) idx = 0;
             }
-            values.Add(f);
-            Zooms = values;
-            idx = Zooms.IndexOf(currentZoomLevel);
-            if (idx == -1) idx = 0;
+            field = value;
         }
+        private get;
     }
     public static float Offset { set; get; } = 4000f;
     public static bool Report { set; get; } = true;

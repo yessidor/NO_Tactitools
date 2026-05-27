@@ -13,7 +13,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.8.6")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.9.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -26,7 +26,8 @@ namespace NO_Tactitools.Core {
         public static RewiredInputConfig MFDNavLeft;
         public static RewiredInputConfig MFDNavRight;
         public static RewiredInputConfig MFDNavToggle;
-        public static RewiredInputConfig MFDNavPoptByUnitName;
+        public static RewiredInputConfig MFDNavSelectByUnitName;
+        public static RewiredInputConfig MFDNavSelectLased;
         public static RewiredInputConfig MFDNavMissileTargetingSystem;
         public static ConfigEntry<int> MFDNavExtraKeysNum;
         public static List<RewiredInputConfig> MFDNavExtraKeys;
@@ -60,17 +61,20 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<bool> NeutralsAreFriendly;
         }
         // Virtual Joystick Extender
-        public static ConfigEntry<bool> virtualJoystickExtenderEnabled;
-        public static ConfigEntry<VirtualJoystickExtender.Modes> virtualJoystickExtenderDefaultMode;
-        public static ConfigEntry<bool> virtualJoystickExtenderToggleMode;
-        public static RewiredInputConfig virtualJoystickExtenderToggleStateKey;
-        public static RewiredInputConfig virtualJoystickExtenderYawKey;
-        public static RewiredInputConfig virtualJoystickExtenderRollYawKey;
-        public static ConfigEntry<float> virtualJoystickExtenderYawMultiplier;
-        public static ConfigEntry<float> virtualJoystickExtenderRollYawMultiplier;
-        public static ConfigEntry<float> virtualJoystickExtenderYawCurvature;
-        public static ConfigEntry<float> virtualJoystickExtenderPitchCurvature;
-        public static ConfigEntry<float> virtualJoystickExtenderRollCurvature;
+        public class VirtualJoystickExtender {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<Controls.VirtualJoystickExtender.Modes> DefaultMode;
+            public static ConfigEntry<bool> ToggleMode;
+            public static RewiredInputConfig ToggleStateKey;
+            public static RewiredInputConfig YawKey;
+            public static RewiredInputConfig RollYawKey;
+            public static ConfigEntry<float> YawMultiplier;
+            public static ConfigEntry<float> RollYawMultiplier;
+            public static ConfigEntry<float> YawCurvature;
+            public static ConfigEntry<float> PitchCurvature;
+            public static ConfigEntry<float> RollCurvature;
+            public static ConfigEntry<Controls.VirtualJoystickExtender.DecayModes> DecayMode;
+        }
         // Key axes
         public class KeyAxisData {
             public RewiredInputConfig IncKey;
@@ -101,7 +105,8 @@ namespace NO_Tactitools.Core {
         public class AltTargetSelection {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<float> FOVFraction;
-        }
+            public static ConfigEntry<bool> PickActive;
+        };
         public class TargetVelocityIndicator {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<float> MaxSpeed;
@@ -114,6 +119,13 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<string> Zooms;
             public static ConfigEntry<float> Offset;
             public static ConfigEntry<bool> Report;
+        };
+        public class MapTargetArrows {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<float> ArrowScale;
+            public static ConfigEntry<Color> SelectedColor;
+            public static ConfigEntry<Color> ActiveColor;
+            public static ConfigEntry<bool> ShowT;
         };
         public class FreeLookToggle {
             public static ConfigEntry<bool> Enabled;
@@ -196,8 +208,9 @@ namespace NO_Tactitools.Core {
             // CORE PATCHES
             harmony.PatchAll(typeof(RegisterControllerPatch));
             harmony.PatchAll(typeof(ControllerInputInterceptionPatch));
-            //Modifiers
+            //
             int order = 100;
+            //Modifiers
             Modifiers.ModifiersNum = Config.Bind("Modifiers",
                 "Modifiers - Number",
                 4,
@@ -233,10 +246,15 @@ namespace NO_Tactitools.Core {
                 MFDNavExtraKeys.Add(new RewiredInputConfig(Config, "MFD Nav", $"MFD Nav - Extra Key {i.ToString()}", "", order--));
             }
             // Target Recall settings
-            MFDNavPoptByUnitName = new RewiredInputConfig(Config,
+            MFDNavSelectByUnitName = new RewiredInputConfig(Config,
               "MFD Nav",
               "MFD Nav - Select Targets By Unit Name",
               "Input you want to assign for deselecting targets based on the unit name of current target",
+              order--);
+            MFDNavSelectLased = new RewiredInputConfig(Config,
+              "MFD Nav",
+              "MFD Nav - Select Targets By Lased status",
+              "Input you want to assign for deselecting targets based on lased status",
               order--);
             MFDNavMissileTargetingSystem = new RewiredInputConfig(Config,
               "MFD Nav",
@@ -347,43 +365,43 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes { Order = order-- }));
             // Virtual Joystick Extender
             order = 100;
-            virtualJoystickExtenderEnabled = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.Enabled = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Enabled",
                 true, 
                 new ConfigDescription(
                     "Enable or disable the Virtual Joystick Extender feature (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
-            virtualJoystickExtenderDefaultMode = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.DefaultMode = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Default Mode",
-                VirtualJoystickExtender.Modes.Roll, 
+                Controls.VirtualJoystickExtender.Modes.Roll, 
                 new ConfigDescription(
                     "Virtual Joystick Extender default mode.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
-            virtualJoystickExtenderToggleMode = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.ToggleMode = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Toggle Mode - Enabled",
                 true, 
                 new ConfigDescription(
                     "Enable or disable Virtual Joystick Extender mode toggle.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
-            virtualJoystickExtenderToggleStateKey = new RewiredInputConfig(Config,
+            VirtualJoystickExtender.ToggleStateKey = new RewiredInputConfig(Config,
                 "Virtual Joystick Extender",
                 "Virtual Joystick Extender - Toggle Key",
                 "Key to turn on/off",
                 order--);
-            virtualJoystickExtenderYawKey = new RewiredInputConfig(Config,
+            VirtualJoystickExtender.YawKey = new RewiredInputConfig(Config,
                 "Virtual Joystick Extender",
                 "Virtual Joystick Extender - Yaw Mode Key",
                 "Key to toggle/switch to yaw mode",
                 order--);
-            virtualJoystickExtenderRollYawKey = new RewiredInputConfig(Config,
+            VirtualJoystickExtender.RollYawKey = new RewiredInputConfig(Config,
                 "Virtual Joystick Extender",
                 "Virtual Joystick Extender - Roll&Yaw Mode Key",
                 "Key to toggle/switch to roll&yaw mode",
                 order--);
-            virtualJoystickExtenderYawMultiplier = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.YawMultiplier = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Yaw Mode Multiplier",
                 1.0f,
                 new ConfigDescription(
@@ -392,7 +410,7 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
-            virtualJoystickExtenderRollYawMultiplier = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.RollYawMultiplier = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Roll&Yaw Mode Multiplier",
                 0.5f,
                 new ConfigDescription(
@@ -401,7 +419,7 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
-            virtualJoystickExtenderYawCurvature = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.YawCurvature = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Yaw Curvature",
                 0.2f,
                 new ConfigDescription(
@@ -410,7 +428,7 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
-            virtualJoystickExtenderPitchCurvature = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.PitchCurvature = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Pitch Curvature",
                 0.2f,
                 new ConfigDescription(
@@ -419,12 +437,21 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
-            virtualJoystickExtenderRollCurvature = Config.Bind("Virtual Joystick Extender",
+            VirtualJoystickExtender.RollCurvature = Config.Bind("Virtual Joystick Extender",
                 "Virtual Joystick Extender - Roll Curvature",
                 0.2f,
                 new ConfigDescription(
                     "Curvature of roll axis response curve",
                     new AcceptableValueRange<float>(0.0f, 0.99f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            VirtualJoystickExtender.DecayMode = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Decay Mode",
+                Controls.VirtualJoystickExtender.DecayModes.None,
+                new ConfigDescription(
+                    "Decay mode of pitch, roll, and yaw axes when virtual joystick control is disabled by opening map, leaderboard, or radial menu.",
+                    null,
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
@@ -496,6 +523,7 @@ namespace NO_Tactitools.Core {
                         }));
             }
             // Target Cam Mode
+            order = 100;
             targetCamModeEnabled = Config.Bind("Target Cam Mode",
                 "Target Cam Mode - Enabled",
                 true,
@@ -503,10 +531,11 @@ namespace NO_Tactitools.Core {
                     "Enable or disable the Target Cam Mode feature.",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = -4
+                        Order = order--
                     }));
             targetCamModeToggleKey = new RewiredInputConfig(Config, "Target Cam Mode", "Target Cam Mode - Toggle Mode Key", "", -5);
             // Alternative Target Selection
+            order = 100;
             AltTargetSelection.Enabled = Config.Bind("Alternative Target Selection",
                 "Alternative Target Selection - Enabled",
                 false,
@@ -514,7 +543,7 @@ namespace NO_Tactitools.Core {
                     "Enable or disable the Alternative Target Selection feature (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = -4
+                        Order = order--
                     }));
             AltTargetSelection.FOVFraction = Config.Bind("Alternative Target Selection",
                 "Alternative Target Selection - Camera FOV Fraction",
@@ -523,9 +552,20 @@ namespace NO_Tactitools.Core {
                     "Fraction multiplied by camera vertical FOV to get apex angle of selection cone.",
                     new AcceptableValueRange<float>(0.0f, 0.999f),
                     new ConfigurationManagerAttributes {
-                        Order = -5
+                        Order = order--
                     }));
-            targetCamModeToggleKey = new RewiredInputConfig(Config, "Target Cam Mode", "Target Cam Mode - Toggle Mode Key", "", -5);
+            AltTargetSelection.PickActive = Config.Bind("Alternative Target Selection",
+                "Alternative Target Selection - Pick Active",
+                false,
+                new ConfigDescription(
+                    "If no new target was selected, pick active target from already selected ones.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            //Target Cam Mode
+            order = 100;
+            targetCamModeToggleKey = new RewiredInputConfig(Config, "Target Cam Mode", "Target Cam Mode - Toggle Mode Key", "", order--);
             // Target Velocity Indicator settings
             order = 100;
             TargetVelocityIndicator.Enabled = Config.Bind("Target Velocity Indicator",
@@ -610,6 +650,55 @@ namespace NO_Tactitools.Core {
                 "MiniMap Zoom - Cycle Zoom Key",
                 "Cycle through zoom levels on short press, reset to default zoom level on long press",
                 order--);
+            //Map Target Arrows
+            MapTargetArrows.Enabled = Config.Bind("Map Target Arrows",
+                "Map Target Arrows - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable the Map Target Arrows feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MapTargetArrows.ArrowScale = Config.Bind(
+                "Map Target Arrows",
+                "Map Target Arrows - Arrow Scale",
+                0.5f,
+                new ConfigDescription(
+                    "Scale of the minimap target arrows.",
+                    new AcceptableValueRange<float>(0.0f, 10.0f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MapTargetArrows.SelectedColor = Config.Bind(
+                "Map Target Arrows",
+                "Map Target Arrows - Selected Color",
+                Color.white,
+                new ConfigDescription(
+                    "Arrow color for the selected targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MapTargetArrows.ActiveColor = Config.Bind(
+                "Map Target Arrows",
+                "Map Target Arrows - Active Color",
+                Color.green,
+                new ConfigDescription(
+                    "Arrow color for the active target.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            MapTargetArrows.ShowT = Config.Bind("Map Target Arrows",
+                "Map Target Arrows - Show T",
+                true,
+                new ConfigDescription(
+                    "Should a \"T\" be shown for active target.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             // Free Look Toggle
             order = 100;
             FreeLookToggle.Enabled = Config.Bind("Free Look Toggle",
@@ -1314,7 +1403,7 @@ namespace NO_Tactitools.Core {
                 harmony.PatchAll(typeof(NOAutopilotControlPlugin));
             }
             // VIRTUAL JOYSTICK EXTENDER PATCHES
-            if (virtualJoystickExtenderEnabled.Value) {
+            if (VirtualJoystickExtender.Enabled.Value) {
                 Log($"Virtual Joystick Extender is enabled, patching...");
                 harmony.PatchAll(typeof(VirtualJoystickExtenderPlugin));
             }
@@ -1342,6 +1431,11 @@ namespace NO_Tactitools.Core {
             if (MiniMapZoom.Enabled.Value) {
                 Log($"Minimap Zoom is enabled, patching...");
                 harmony.PatchAll(typeof(MiniMapZoomPlugin));
+            }
+            // MAP TARGET ARROWS
+            if (MapTargetArrows.Enabled.Value) {
+                Log($"Map Target Arrows are enabled, patching...");
+                harmony.PatchAll(typeof(MapTargetArrowsPlugin));
             }
             // FREE LOOK TOGGLE
             if (FreeLookToggle.Enabled.Value) {

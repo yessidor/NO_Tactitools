@@ -468,3 +468,12 @@ public class GameBindings {
     }
 }
 
+public class TransformUtils {
+    public static string ToString(Transform transform) {
+        return $"localPosition: {transform.localPosition}; localEulerAngles: {transform.localEulerAngles}; localScale:{transform.localScale}; position: {transform.position}; eulerAngles: {transform.eulerAngles}; lossyScale: {transform.lossyScale}";
+    }
+
+    public static string ToString(RectTransform transform) {
+        return $"{ToString((Transform)transform)}; anchoredPosition: {transform.anchoredPosition}; anchoredPosition3D: {transform.anchoredPosition3D}; anchorMax: {transform.anchorMax}; anchorMin: {transform.anchorMin}; offsetMax: {transform.offsetMax}; offsetMin: {transform.offsetMin}; pivot: {transform.pivot}; rect: {transform.rect}; sizeDelta: {transform.sizeDelta}";
+    }
+}

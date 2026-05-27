@@ -24,7 +24,8 @@ class AltTargetSelectionComponent {
             Plugin.harmony.PatchAll(typeof(OnCombatHUDTargetSelect));
 
             var virtualJoystickBindings = new BindingHelper.Binding[] {
-                new (typeof(AltTargetSelectionComponent), "FOVFraction", Plugin.AltTargetSelection.FOVFraction)
+                new (typeof(AltTargetSelectionComponent), "FOVFraction", Plugin.AltTargetSelection.FOVFraction),
+                new (typeof(AltTargetSelectionComponent), "PickActive", Plugin.AltTargetSelection.PickActive)
             };
             BindingHelper.ApplyBindings(virtualJoystickBindings);
 
@@ -34,6 +35,7 @@ class AltTargetSelectionComponent {
     }
 
     public static float FOVFraction { set; get; } = 0.1f;
+    public static bool PickActive = false;
 
     private static TraverseCache<CombatHUD, List<HUDUnitMarker>> markersCache = new ("markers");
 
@@ -49,9 +51,12 @@ class AltTargetSelectionComponent {
         Unit target = null;
         float targetDistance = float.PositiveInfinity;
 
+        Unit selectedTarget = null;
+        float selectedTargetDistance = float.PositiveInfinity;
+
         foreach (var marker in markers) {
             var unit = marker.unit;
-            if (marker.selected || SceneSingleton<TargetListSelector>.i.CheckExclusions(unit))
+            if (!marker.selected && SceneSingleton<TargetListSelector>.i.CheckExclusions(unit))
                 continue;
             if (!__instance.aircraft.NetworkHQ.TryGetKnownPosition(unit, out var unitPosition))
                 continue;
@@ -62,17 +67,27 @@ class AltTargetSelectionComponent {
             if (dotProduct < dotProductThreshold) {
                 continue;
             }
-            if (paint)
-                GameBindings.Player.TargetList.AddTarget(unit);
-            else if (distance < targetDistance) {
-                target = unit;
-                targetDistance = distance;
+            if (!marker.selected) {
+                if (paint)
+                    GameBindings.Player.TargetList.AddTarget(unit);
+                else if (distance < targetDistance) {
+                    target = unit;
+                    targetDistance = distance;
+                }
+            }
+            else if (PickActive && distance < selectedTargetDistance) {
+                selectedTarget = unit;
+                selectedTargetDistance = distance;
             }
         }
 
-        //add target to target list if not null
-        if (!paint && target != null) {
-            GameBindings.Player.TargetList.AddTarget(target);
+        if (!paint) {
+            if (target != null)
+                GameBindings.Player.TargetList.AddTarget(target);
+            else if (PickActive && selectedTarget != null) {
+                GameBindings.Player.TargetList.DeselectUnit(selectedTarget);
+                GameBindings.Player.TargetList.AddTarget(selectedTarget);
+            }
         }
 
         return false;

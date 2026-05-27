@@ -18,7 +18,7 @@ class WeaponDisplayPlugin {
             // Register the new button for toggling the weapon display
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavToggle,
-                0.2f,
+                PlayerSettings.pressDelay,
                 onLongPress: HandleDisplayToggle
             );
             initialized = true;
