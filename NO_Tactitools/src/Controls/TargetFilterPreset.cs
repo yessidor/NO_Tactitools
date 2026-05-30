@@ -14,7 +14,7 @@ class TargetFilterPresetPlugin {
         if (!initialized) {
             Plugin.Log($"[TFP] Target Filter Preset plugin starting !");
             Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorStart));
-            Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorCheckExclusions));
+            Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorCheckAllExclusions));
             Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnHUDUnitMarkerSetNew));
             Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorToggleButtonCheckFactions));
 
@@ -229,7 +229,7 @@ class TargetFilterPresetComponent {
     }
 
     [HarmonyPatch(typeof(TargetListSelector), "CheckAllExclusions")]
-    public class OnTargetListSelectorCheckExclusions {
+    public class OnTargetListSelectorCheckAllExclusions {
         public static void Postfix() {
             Plugin.Log("[TFP] CheckAllExclusions");
             ProcessMarkers();

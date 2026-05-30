@@ -7,13 +7,14 @@ using HarmonyLib;
 using UnityEngine;
 using Rewired;
 using NO_Tactitools.Controls;
+using NO_Tactitools.UI;
 using NO_Tactitools.UI.HMD;
 using NO_Tactitools.UI.MFD;
 using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.9.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.10.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -105,6 +106,7 @@ namespace NO_Tactitools.Core {
         public class AltTargetSelection {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<float> FOVFraction;
+            public static ConfigEntry<float> MaxDistance;
             public static ConfigEntry<bool> PickActive;
         };
         public class TargetVelocityIndicator {
@@ -126,6 +128,21 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<Color> SelectedColor;
             public static ConfigEntry<Color> ActiveColor;
             public static ConfigEntry<bool> ShowT;
+        };
+        public class UIAdjustments {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<int> TargetMarkerFontSize;
+            public static ConfigEntry<int> ToolTipFontSize;
+            public static ConfigEntry<int> ObjectiveMarkerFontSize;
+            public static ConfigEntry<int> GridLabelsFontSize;
+            public static ConfigEntry<int> BombingStateFontSize;
+            public static ConfigEntry<int> MissileStateFontSize;
+            public static ConfigEntry<int> LaserGuidedStateFontSize;
+        };
+        public class AltMapTargetSelection {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<int> SelectionRadius;
+            public static ConfigEntry<bool> PickActive;
         };
         public class FreeLookToggle {
             public static ConfigEntry<bool> Enabled;
@@ -554,6 +571,15 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
+            AltTargetSelection.MaxDistance = Config.Bind("Alternative Target Selection",
+                "Alternative Target Selection - Max Distance",
+                0f,
+                new ConfigDescription(
+                    "Max distance to select target at, in meters (set to 0 do select targets at any distance)",
+                    new AcceptableValueRange<float>(0.0f, float.PositiveInfinity),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             AltTargetSelection.PickActive = Config.Bind("Alternative Target Selection",
                 "Alternative Target Selection - Pick Active",
                 false,
@@ -695,6 +721,109 @@ namespace NO_Tactitools.Core {
                 true,
                 new ConfigDescription(
                     "Should a \"T\" be shown for active target.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            //UI Adjustments
+            order = 100;
+            UIAdjustments.Enabled = Config.Bind("UI Adjustments",
+                "UI Adjustments - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the UI Adjustments feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.TargetMarkerFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Target Marker - Font Size",
+                20,
+                new ConfigDescription(
+                    "Target marker text font size.",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.ToolTipFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - ToolTip - Font Size",
+                20,
+                new ConfigDescription(
+                    "ToolTip text font size.",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.ObjectiveMarkerFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Objective Marker - Font Size",
+                20,
+                new ConfigDescription(
+                    "Objective marker text font size.",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.GridLabelsFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Grid Labels - Font Size",
+                20,
+                new ConfigDescription(
+                    "Grid labels text font size.",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.BombingStateFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Bombing State - Font Size",
+                20,
+                new ConfigDescription(
+                    "HUD Bombing State text font size.",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.MissileStateFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Missile State - Font Size",
+                20,
+                new ConfigDescription(
+                    "HUD Missile State text font size.",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.LaserGuidedStateFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Laser Guided State - Font Size",
+                20,
+                new ConfigDescription(
+                    "HUD Laser Guided State text font size.",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            //Alternative Map Target Selection
+            order = 100;
+            AltMapTargetSelection.Enabled = Config.Bind("Alternative Map Target Selection",
+                "Alternative Map Target Selection - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the Alternative Map Target Selection feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            AltMapTargetSelection.SelectionRadius = Config.Bind("Alternative Map Target Selection",
+                "Alternative Map Target Selection - Selection Radius",
+                20,
+                new ConfigDescription(
+                    "Selection radius (in pixels).",
+                    new AcceptableValueRange<int>(0, 500),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            AltMapTargetSelection.PickActive = Config.Bind("Alternative Map Target Selection",
+                "Alternative Map Target Selection - Pick Active",
+                true,
+                new ConfigDescription(
+                    "If no new target was selected, pick active target from already selected ones.",
                     null,
                     new ConfigurationManagerAttributes {
                         Order = order--
@@ -1436,6 +1565,16 @@ namespace NO_Tactitools.Core {
             if (MapTargetArrows.Enabled.Value) {
                 Log($"Map Target Arrows are enabled, patching...");
                 harmony.PatchAll(typeof(MapTargetArrowsPlugin));
+            }
+            // FONT FIX
+            if (UIAdjustments.Enabled.Value) {
+                Log($"UI Adjustments is enabled, patching...");
+                harmony.PatchAll(typeof(UIAdjustmentsPlugin));
+            }
+            // MAP SELECT FIX
+            if (AltMapTargetSelection.Enabled.Value) {
+                Log($"Alternative Map Target Selection is enabled, patching...");
+                harmony.PatchAll(typeof(AltMapTargetSelectionPlugin));
             }
             // FREE LOOK TOGGLE
             if (FreeLookToggle.Enabled.Value) {

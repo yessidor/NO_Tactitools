@@ -393,13 +393,13 @@ If this option is enabled, markers of units eligible for targeting by target fil
 
 Feature state is controlled by `Target Filter Preset - Maximize Targetable Markers - Enabled` setting in plugin settings.  
 
-### Alternative target selection
+### Alternative target selection on HMD
 
 Targeting in NO does not always produce expected results, so a more simplier algorithm was added.  
 In single target selection mode (with target selection key clicked) it selects the closest target that passes target filters and is within target selection cone centered around direction the camera is looking.  
 In "paint" mode (with target selection key held) it will not account for distances and will select all targets that pass filters and fall into the target selection cone.
 
-`Alternative Target Selection - Enabled` setting controls the state of the feature, and `Alternative Target Selection - Camera FOV Fraction` sets the fraction that is multiplied by camera vertical FOV to get the apex angle (aperture) of selection cone. If `Alternative Target Selection - Pick Active` is enabled, when target selection key is clicked and no new target can be selected, the best matching target from already selected ones is made active.
+`Alternative Target Selection - Enabled` setting controls the state of the feature, and `Alternative Target Selection - Camera FOV Fraction` sets the fraction that is multiplied by camera vertical FOV to get the apex angle (aperture) of selection cone. `Alternative Target Selection - Max Distance` sets the max distance to select target at, measured in meters (set to 0 do select targets at any distance). If `Alternative Target Selection - Pick Active` is enabled, when target selection key is clicked and no new target can be selected, the best matching target from already selected ones is made active.
 
 ### Filtering targets tracked or not tracked by deliverables
 
@@ -465,6 +465,16 @@ Adds arrows that point to selected targets if they are out of map bounds. Active
 When enabled, the marker on HMD shows velocity vector of the current (active) target relative to current cockpit view. This vector is represented by a marker placed at the offset from marker of the current target. "x" marker means target moves toward the player aircraft, "o" - away from it. The size of offset depends only on the lateral movement of target and is not scaled by distance.
 
 `Target Velocity Indicator - Enabled` controls the state. `Target Velocity Indicator - Max Speed` is the maximum speed (velocity magnitude; in km/h) for maximum offset of marker. `Target Velocity Indicator - Max Length` is the maximum offset of velocity marker (in pixels) for maximum speed. `Target Velocity Indicator - Dot Step` is distance between the dots connecting target and velocity markers.
+
+### Text size adjustments for HUD and map
+
+Adds settings to adjust sizes of various text fields: target marker info and tooltip, objective marker text, grid labels on map; time of flight and missile ranged on HUD. `UI Adjustments - Enabled` controls the state, numerical options in `UI Adjustments` config section control text sizes.
+
+### Alternative algorithm for target selection on map
+
+Implements alternative way to select units on the maximized map, because selection radius of the built-in algorithm is too large.
+
+`Alternative Map Target Selection - Enabled` controls the state, `Alternative Map Target Selection - Selection Radius` sets selection radius (in pixels) around mouse cursor. To select the unit, click on the unit marker with the key bound to "Select" in controls settings; hold the key to select all units in the selection radius. If `Alternative Map Target Selection - Pick Active` is active, clicking on already selected unit designates is as active target.
 
 ### Togglable free look
 

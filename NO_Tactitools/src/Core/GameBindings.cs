@@ -379,15 +379,18 @@ public class GameBindings {
                        which in turn calls SceneSingleton<TargetListSelector>.i.CheckExclusions(unit).
                        So the map icon won't be selected if its unit does not pass current target filters. 
                        So a hook with a flag is added to bypass filters and select map icon anyway. */
-                    checkExclusionsResult = false;
                     CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
                     Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
                     List<Unit> currentTargets = [.. units];
                     currentTargets.Reverse();
                     foreach (Unit t_unit in currentTargets) {
                         if (markerLookup.TryGetValue(t_unit, out var marker)) {
-                            marker.SelectMarker();
-                            GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(t_unit);
+                            try {
+                                checkExclusionsResult = false;
+                                marker.SelectMarker();
+                                GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(t_unit);
+                            }
+                            finally { checkExclusionsResult = null; }
                         }
                     }
                     if (!muteSound) {
@@ -398,17 +401,19 @@ public class GameBindings {
                 catch (NullReferenceException e) {
                     Plugin.Log("GameBindings.Player.TargetList.AddTargets(): " + e.ToString());
                 }
-                finally { checkExclusionsResult = null; }
             }
 
             public static void AddTarget(Unit unit, bool muteSound = false) {
                 try {
-                    checkExclusionsResult = false;
                     CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
                     Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
                     if (markerLookup.TryGetValue(unit, out var marker)) {
-                        marker.SelectMarker();
-                        GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(unit);
+                        try {
+                            checkExclusionsResult = false;
+                            marker.SelectMarker();
+                            GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(unit);
+                        }
+                        finally { checkExclusionsResult = null; }
                     }
                     if (!muteSound) {
                         AudioClip selectSound = _selectSoundCache.GetValue(currentCombatHUD);
@@ -418,7 +423,6 @@ public class GameBindings {
                 catch (NullReferenceException e) {
                     Plugin.Log("GameBindings.Player.TargetList.AddTarget(): " + e.ToString());
                 }
-                finally { checkExclusionsResult = null; }
             }
 
             public static void DeselectAll() {

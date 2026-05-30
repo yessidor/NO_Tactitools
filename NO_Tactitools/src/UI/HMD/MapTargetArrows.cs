@@ -39,34 +39,36 @@ public class MapTargetArrowsComponent {
         var combatHUD = UIBindings.Game.GetCombatHUDComponent();
         if (combatHUD != cachedCombatHUD) {
             if (ShowT) {
+                if (text != null)
+                    UnityEngine.Object.Destroy(text.gameObject);
                 text = GameObject.Instantiate(targetTextCache.GetValue(combatHUD), dynamicMap.iconLayer.transform);
                 text.color = ActiveColor;
                 text.text = "T";
                 text.raycastTarget = false;
                 text.enabled = false;
             }
-            arrows.Clear();
+            ClearAllArrows();
             cachedCombatHUD = combatHUD;
         }
 
-        var aircraft = combatHUD.aircraft;
-        if (aircraft == null)
+        if (combatHUD == null) {
+            ClearAllArrows();
             return;
+        }
+        var aircraft = combatHUD.aircraft;
+        if (aircraft == null) {
+            ClearAllArrows();
+            return;
+        }
         var iconLookup = iconLookupCache.GetValue(dynamicMap);
         if (aircraft != cachedAircraft) {
+            ClearAllArrows();
             cachedAircraftIcon = iconLookup[aircraft];
             cachedAircraft = aircraft;
         }
         var aircraftIconTransform = cachedAircraftIcon.transform;
 
-        List<UnitMapIcon> toDelete = new ();
-        foreach ((var icon, var arrow) in arrows)
-            if (icon == null) {
-                toDelete.Add(icon);
-                arrow.enabled = false;
-            }
-        foreach (var icon in toDelete)
-            arrows.Remove(icon);
+        ClearInactiveArrows();
 
         var mapRectTransform = mapRectTransformCache.GetValue(dynamicMap);
         var mapImageTransform = dynamicMap.mapImage.transform;
@@ -211,6 +213,28 @@ public class MapTargetArrowsComponent {
         var tClosestClamped = Mathf.Min(tClosest, 1.0f);
         var result = tClosestClamped == 1.0f ? outside : inside + tClosestClamped * direction;
         return result;
+    }
+
+    private static void ClearAllArrows() {
+        foreach ((var icon, var arrow) in arrows) {
+            if (arrow != null) {
+                arrow.enabled = false;
+                UnityEngine.Object.Destroy(arrow.gameObject);
+            }
+        }
+        arrows.Clear();
+    }
+
+    private static void ClearInactiveArrows() {
+        List<UnitMapIcon> toDelete = new ();
+        foreach ((var icon, var arrow) in arrows)
+            if (icon == null) {
+                toDelete.Add(icon);
+                arrow.enabled = false;
+                UnityEngine.Object.Destroy(arrow.gameObject);
+            }
+        foreach (var icon in toDelete)
+            arrows.Remove(icon);
     }
 
     private static TraverseCache<DynamicMap, RectTransform> mapRectTransformCache = new ("mapRectTransform");

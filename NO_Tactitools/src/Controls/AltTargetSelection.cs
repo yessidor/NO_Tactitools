@@ -25,6 +25,7 @@ class AltTargetSelectionComponent {
 
             var virtualJoystickBindings = new BindingHelper.Binding[] {
                 new (typeof(AltTargetSelectionComponent), "FOVFraction", Plugin.AltTargetSelection.FOVFraction),
+                new (typeof(AltTargetSelectionComponent), "MaxDistance", Plugin.AltTargetSelection.MaxDistance),
                 new (typeof(AltTargetSelectionComponent), "PickActive", Plugin.AltTargetSelection.PickActive)
             };
             BindingHelper.ApplyBindings(virtualJoystickBindings);
@@ -35,6 +36,7 @@ class AltTargetSelectionComponent {
     }
 
     public static float FOVFraction { set; get; } = 0.1f;
+    public static float MaxDistance { set; get; } = 0f;
     public static bool PickActive = false;
 
     private static TraverseCache<CombatHUD, List<HUDUnitMarker>> markersCache = new ("markers");
@@ -64,7 +66,7 @@ class AltTargetSelectionComponent {
             float distance = toUnit.magnitude;
             toUnit.Normalize();
             float dotProduct = Vector3.Dot(toUnit, cameraForward);
-            if (dotProduct < dotProductThreshold) {
+            if (dotProduct < dotProductThreshold || (MaxDistance != 0f && distance > MaxDistance)) {
                 continue;
             }
             if (!marker.selected) {
