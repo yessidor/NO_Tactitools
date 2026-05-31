@@ -58,7 +58,7 @@ class AltTargetSelectionComponent {
 
         foreach (var marker in markers) {
             var unit = marker.unit;
-            if (!marker.selected && SceneSingleton<TargetListSelector>.i.CheckExclusions(unit))
+            if (!marker.image.enabled || (!marker.selected && SceneSingleton<TargetListSelector>.i.CheckExclusions(unit)))
                 continue;
             if (!__instance.aircraft.NetworkHQ.TryGetKnownPosition(unit, out var unitPosition))
                 continue;

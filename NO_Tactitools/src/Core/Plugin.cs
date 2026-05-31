@@ -14,7 +14,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.10.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.10.1")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -117,7 +117,8 @@ namespace NO_Tactitools.Core {
         };
         public class MiniMapZoom {
             public static ConfigEntry<bool> Enabled;
-            public static RewiredInputConfig CycleKey;
+            public static RewiredInputConfig CycleUpKey;
+            public static RewiredInputConfig CycleDownKey;
             public static ConfigEntry<string> Zooms;
             public static ConfigEntry<float> Offset;
             public static ConfigEntry<bool> Report;
@@ -670,11 +671,17 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
-            MiniMapZoom.CycleKey = new RewiredInputConfig(
+            MiniMapZoom.CycleUpKey = new RewiredInputConfig(
                 Config,
                 "MiniMap Zoom",
                 "MiniMap Zoom - Cycle Zoom Key",
-                "Cycle through zoom levels on short press, reset to default zoom level on long press",
+                "Cycle up through zoom levels on short press, reset to default zoom level on long press",
+                order--);
+            MiniMapZoom.CycleDownKey = new RewiredInputConfig(
+                Config,
+                "MiniMap Zoom",
+                "MiniMap Zoom - Cycle Zoom Down Key",
+                "Cycle down through zoom levels on short press, reset to default zoom level on long press",
                 order--);
             //Map Target Arrows
             MapTargetArrows.Enabled = Config.Bind("Map Target Arrows",

@@ -20,9 +20,15 @@ public class MiniMapZoomPlugin {
             Plugin.harmony.PatchAll(typeof(MiniMapZoomComponent.OnDynamicMapMinimize));
 
             InputCatcher.RegisterNewInput(
-                Plugin.MiniMapZoom.CycleKey,
+                Plugin.MiniMapZoom.CycleUpKey,
                 PlayerSettings.pressDelay,
-                onRelease: MiniMapZoomComponent.CycleZoom,
+                onRelease: () => MiniMapZoomComponent.CycleZoom(up: true),
+                onLongPress: MiniMapZoomComponent.ResetZoom);
+
+            InputCatcher.RegisterNewInput(
+                Plugin.MiniMapZoom.CycleDownKey,
+                PlayerSettings.pressDelay,
+                onRelease: () => MiniMapZoomComponent.CycleZoom(up: false),
                 onLongPress: MiniMapZoomComponent.ResetZoom);
 
             var virtualJoystickBindings = new BindingHelper.Binding[] {
@@ -39,7 +45,14 @@ public class MiniMapZoomPlugin {
 }
 
 class MiniMapZoomComponent {
-    public static List<float> Zooms { set { field = [.. value]; } get; } = new ();
+    public static List<float> Zooms {
+         set {
+              field = [.. value];
+              idx = field.IndexOf(currentZoomLevel);
+              if (idx == -1) idx = 0;
+         }
+         get;
+    } = new ();
     public static string ZoomsString {
         set {
             List<float> values = new ();
@@ -49,10 +62,8 @@ class MiniMapZoomComponent {
                     continue;
                 }
                 values.Add(f);
-                Zooms = values;
-                idx = Zooms.IndexOf(currentZoomLevel);
-                if (idx == -1) idx = 0;
             }
+            Zooms = values;
             field = value;
         }
         private get;
@@ -66,10 +77,10 @@ class MiniMapZoomComponent {
     private static float currentZoomLevel = minimizedZoomLevel;
     private static FieldInfo OnMapChangedInfo = AccessTools.Field(typeof(DynamicMap), "onMapChanged");
 
-    public static void CycleZoom() {
+    public static void CycleZoom(bool up = true) {
         if (Zooms.Count == 0)
             return;
-        idx = (idx + 1) % Zooms.Count;
+        idx = (up ? (idx + 1) : (idx - 1 + Zooms.Count)) % Zooms.Count;
         var zoom = Zooms[idx];
         SetZoomLevel(zoom);
         if (Report)

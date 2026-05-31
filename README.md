@@ -452,7 +452,7 @@ A small convenience feature that allows to recolor HMD unit markers.
 
 Allows to change zoom level of the minimap.
 
-`MiniMap Zoom - Enabled` controls the state (restart the game to apply changes). `MiniMap Zoom - Zoom levels` is a semicolon-separated list of zoom levels with dot (.) acting as fraction separator. Default in-game minimap zoom level is 2.0. `MiniMap Zoom - Offset` is an offset from center of the minimap to player aircraft in meters for default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Key` cycles zoom levels, long press restores default zoom level. If `MiniMap Zoom - Report` is enabled, minimap zoom level changes are reported on HMD.
+`MiniMap Zoom - Enabled` controls the state (restart the game to apply changes). `MiniMap Zoom - Zoom levels` is a semicolon-separated list of zoom levels with dot (.) acting as fraction separator. Default in-game minimap zoom level is 2.0. `MiniMap Zoom - Offset` is an offset from center of the minimap to player aircraft in meters for default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Key` cycles zoom levels towards next zoom level, long press restores default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Down Key` cycles zoom levels towards previous zoom level, long press restores default zoom level. If `MiniMap Zoom - Report` is enabled, minimap zoom level changes are reported on HMD.
 
 ### Map and minimap target arrows
 

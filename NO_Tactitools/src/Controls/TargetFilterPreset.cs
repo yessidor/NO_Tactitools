@@ -1,6 +1,7 @@
 using HarmonyLib;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Reflection;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.Controls;
@@ -29,9 +30,11 @@ class TargetFilterPresetPlugin {
               );
             }
 
-            BindingHelper.ApplyBindings(
-                new BindingHelper.Binding(
-                    typeof(TargetFilterPresetComponent), "MaximizeTargetableMarkers", Plugin.TargetFilterPreset.MaximizeTargetable));
+            var bindings = new BindingHelper.Binding[] {
+                new (typeof(TargetFilterPresetComponent), "MaximizeTargetableMarkers", Plugin.TargetFilterPreset.MaximizeTargetable),
+                new (typeof(TargetFilterPresetComponent), "NeutralsAreFriendly", Plugin.TargetFilterPreset.NeutralsAreFriendly),
+            };
+            BindingHelper.ApplyBindings(bindings);
 
             initialized = true;
             Plugin.Log($"[TFP] Target Filter Preset plugin successfully started !");
@@ -61,6 +64,7 @@ class TargetFilterPresetComponent {
     private static string entryFormat = @"""{0}"" : {{ {1} }}";
     private static string entryPattern = @" *""(\d*?)"" *: *{(.*?)} *";
     private static TraverseCache<CombatHUD, List<HUDUnitMarker>> markersCache = new ("markers");
+    private static MethodInfo updateHiddenInfo = AccessTools.Method(typeof(HUDUnitMarker), "UpdateHidden");
     private static Dictionary<HUDUnitMarker, bool> prevAlwaysMaximized = new ();
     private static bool inProcess = false;
 
@@ -212,8 +216,10 @@ class TargetFilterPresetComponent {
             if (combatHUD == null)
                 return;
             List<HUDUnitMarker> markers = markersCache.GetValue(combatHUD);
+            bool gearDeployed = combatHUD.aircraft.gearDeployed;
             foreach (var marker in markers) {
                 ProcessMarker(marker);
+                updateHiddenInfo.Invoke(marker, new object [] { gearDeployed });
             }
         }
         finally {
