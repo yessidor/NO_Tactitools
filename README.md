@@ -1,5 +1,7 @@
 # ☢️  Nuclear Option Tactical Tools (plus) ☢️
 
+**[Project mirror on Codeberg.](https://codeberg.org/yessidor/NO_Tactitools)**
+
 **Original NOTT README.md content follows, see below for [Additional features](#additional-features) .**
 
 ---
