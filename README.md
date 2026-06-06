@@ -1,6 +1,7 @@
 # ☢️  Nuclear Option Tactical Tools (plus) ☢️
 
-**[Project mirror on Codeberg.](https://codeberg.org/yessidor/NO_Tactitools)**
+[NOTT (plus) GitHub repository](https://github.com/yessidor/NO_Tactitools). [NOTT (plus) Codeberg repository](https://codeberg.org/yessidor/NO_Tactitools).  
+[Original NOTT repository](https://github.com/clumzy/NO_Tactitools).
 
 **Original NOTT README.md content follows, see below for [Additional features](#additional-features) .**
 
@@ -80,8 +81,8 @@ George
 
 - Can be assigned to any peripheral button
 - Direct-select weapon slots via dedicated buttons
-- Number of slots is configurable (by `Advanced Slot Selection - Number` variable, restart the game to apply changes)
 - Slot order is based on the order weapons are first shown on the loadout screen
+- **NOTT (plus)**: Number of slots is configured by `Advanced Slot Selection - Number` variable (restart the game to apply changes). If `Advanced Slot Selection - Skip Empty Stations` is enabled, empty weapons will be skipped when changing active weapon with `Next Weapon` and `Previous Weapon` keys bound in game controls (it's still possible to select empty weapon by pressing the key bound to its slot in mod settings).
 
 ### 💥 Separate, dedicated buttons for Flares and Jammer selection (Uses [new bindings](#how-to-setup-the-mod-to-use-your-peripherals))
 
@@ -383,21 +384,29 @@ Long press the corresponding `MFD Nav - Extra Key #` to save target list, short 
 
 This feature allows to save and load presets for target filter configuration (a window opened by by **"TGT"** button on the right side of the maximized map). Loading filter preset when some targets are already selected will deselect not matching targets.  
 
-Feature state is controlled by `Target Filter Preset - Enabled` setting in plugin settings.  
+Feature state is controlled by `Target Filter Preset - Enabled` setting in plugin settings (restart the game to apply changes).  
 
 Number of target filter presets is defined by `Target Filter Preset - Number` setting (restart the game to apply changes). Keys are bound in `"Target Filter Preset - Slot #"` settings.  
 
 Presets are persistent: they are saved to config file `TargetFilterPreset.cfg` when modified and loaded on mission load.
 
+### HUD options presets
+
+Adds key-bound presets for HUD options, just like [Target Filter Presets](#target-filter-presets).
+
+`HUD Options Preset - Enabled` controls the state (restart the game to apply changes), `HUD Options Preset - Number` sets number of presets (restart the game to apply these settings). `HUD Options Preset - Slot #` binds key to given preset, long press saves HUD settings to preset, short press loads. `HUD Options Preset - Enable Builtin Settings` enables built-in switching HUD settings on selecting weapon (when using HUD options presets, this most likely needs to be false).
+
+Presets are persistent: they are saved to config file `HUDOptionsPreset.cfg` when modified and loaded on mission load.
+
 ### Maximizing markers of targetable units
 
-If this option is enabled, markers of units eligible for targeting by target filter configuration will be always maximized regardless of HUD settings.
+If this option is enabled, markers of units eligible for targeting by target filter configuration will be always maximized regardless of HUD settings (and when gears are deployed).
 
 Feature state is controlled by `Target Filter Preset - Maximize Targetable Markers - Enabled` setting in plugin settings.  
 
 ### Alternative target selection on HMD
 
-Targeting in NO does not always produce expected results, so a more simplier algorithm was added.  
+Targeting in NO does not always produce expected results, so a more simpler algorithm was added.  
 In single target selection mode (with target selection key clicked) it selects the closest target that passes target filters and is within target selection cone centered around direction the camera is looking.  
 In "paint" mode (with target selection key held) it will not account for distances and will select all targets that pass filters and fall into the target selection cone.
 
@@ -411,7 +420,7 @@ Short press on the key bound to `MFD Nav - Backspace` removes tracked targets, l
 
 ### Filtering targets based on the unit name of the current target
 
-Short press on the key bound to `MFD Nav - Select Targets By Unit Name` deselects targets which have the same unit name as the currently acitve target (including the active target itself). Long press on the same key removes targets which unit names *differ* from active target unit name.
+Short press on the key bound to `MFD Nav - Select Targets By Unit Name` deselects targets which have the same unit name as the currently active target (including the active target itself). Long press on the same key removes targets which unit names *differ* from active target unit name.
 
 ### Filtering lased or unlased targets
 
@@ -456,17 +465,43 @@ Allows to change zoom level of the minimap.
 
 `MiniMap Zoom - Enabled` controls the state (restart the game to apply changes). `MiniMap Zoom - Zoom levels` is a semicolon-separated list of zoom levels with dot (.) acting as fraction separator. Default in-game minimap zoom level is 2.0. `MiniMap Zoom - Offset` is an offset from center of the minimap to player aircraft in meters for default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Key` cycles zoom levels towards next zoom level, long press restores default zoom level. Short press on key bound to `MiniMap Zoom - Cycle Zoom Down Key` cycles zoom levels towards previous zoom level, long press restores default zoom level. If `MiniMap Zoom - Report` is enabled, minimap zoom level changes are reported on HMD.
 
+### HMD Declutter
+
+Declutters HMD by introducing marker draw distance and options to minimize markers that are supposed to be maximized and to hide markers that are supposed to be minimized. Selected and flashing icons will be drawn at any distance and regardless of marker minimizing and hiding options (see below). Also, if `Target Filter Preset - Maximize Targetable Markers - Enabled` is enabled, targetable markers will be always maximized regardless of the following settings. 
+
+`HMD Declutter - Enabled` controls the state of the feature.
+
+#### HMD markers draw distance
+
+`HMD Declutter - Marker Draw Distances` is a string of marker draw distances, measured in meters. Distance values separator is ";", fraction separator is ".", "0.0" is unlimited distance. Example of the distances string: "0;1000.0;5000;50000". `HMD Declutter - Cycle Marker Draw Distance Up` and `HMD Declutter - Cycle Marker Draw Distance Down` are key bindings for cycling distance up or down the distances list. `HMD Declutter - Report` determines whether changing the marker draw distance will be reported on HMD.
+
+#### Minimizing and hiding HMD markers
+
+If `HMD Declutter - Minimize Maximized` is enabled, markers that should be maximized according to HUD settings, will be minimized to dots. If `HMD Declutter - Hide Minimized` is enabled, markers that should be minimized, will be hidden instead. `HMD Declutter - Enemy Minimized Marker Scale` and `HMD Declutter - Friendly Minimized Marker Scale` set scales of enemy and friendly minimized markers respectively.
+
 ### Map and minimap target arrows
 
 Adds arrows that point to selected targets if they are out of map bounds. Active target is distinguished by different arrow and marker color and, optionally, by "T" marker.
 
 `Map Target Arrows - Enabled` controls the state (restart the game to apply changes), `Map Target Arrows - Arrow Scale` sets the arrows scale (relative to target arrow on HMD), `Map Target Arrows - Selected Color` and `Map Target Arrows - Active Color` set colors for selected targets and the active target respectively, `Map Target Arrows - Show T` determines whether to show "T" near the active target arrow.
 
+### Multiple HMD target arrows
+
+This feature fixes position of active target arrow marker and adds an option to display arrow markers for other targets. Primary target arrow is designated by "TARGET" label.
+
+`Target Arrows - Enabled` controls the state (restart the game to apply changes). `Target Arrows - Number of arrows` set number of target arrows (0 is unlimited, 1 is default primary target arrow). `Target Arrows - Arrow Color` and `Target Arrows - Arrow Scale` set the color and scale of target arrows.
+
+### HUD center direction arrow
+
+Adds an arrow pointing to HUD center.
+
+`HUD Center Direction - Enabled` controls the state (restart the game to apply changes), `HUD Center Direction - Arrow Color` and `HUD Center Direction - Arrow Scale` set arrow color and scale.
+
 ### Target velocity indicator
 
 When enabled, the marker on HMD shows velocity vector of the current (active) target relative to current cockpit view. This vector is represented by a marker placed at the offset from marker of the current target. "x" marker means target moves toward the player aircraft, "o" - away from it. The size of offset depends only on the lateral movement of target and is not scaled by distance.
 
-`Target Velocity Indicator - Enabled` controls the state. `Target Velocity Indicator - Max Speed` is the maximum speed (velocity magnitude; in km/h) for maximum offset of marker. `Target Velocity Indicator - Max Length` is the maximum offset of velocity marker (in pixels) for maximum speed. `Target Velocity Indicator - Dot Step` is distance between the dots connecting target and velocity markers.
+`Target Velocity Indicator - Enabled` controls the state (restart the game to apply changes). `Target Velocity Indicator - Max Speed` is the maximum speed (velocity magnitude; in km/h) for maximum offset of marker. `Target Velocity Indicator - Max Length` is the maximum offset of velocity marker (in pixels) for maximum speed. `Target Velocity Indicator - Dot Step` is distance between the dots connecting target and velocity markers.
 
 ### Text size adjustments for HUD and map
 
@@ -543,7 +578,7 @@ Each axis is assigned so-called `Dynamic` and `Static` response curves. Shapes o
 
 ## Compatibility
 
-Updated mod was tested under Nuclear Option 0.33.3. Compatible with **QoL** (1.1.7.1), **NOAutopilot** (5.2.0), **FQ-106** Kestrel (2.1.0; mind that it is bugged by itself), **MC-260** Chimera (1.0.9), **RAH-72** Knockout (1.0.0). Compatibility with **Vanilla Icons PLUS** and **ThirdPersonHud** was not tested.
+Updated mod (0.7.8.5) was tested under Nuclear Option 0.33.3. Compatible with **QoL** (1.1.7.1), **NOAutopilot** (5.2.0), **FQ-106** Kestrel (2.1.0; mind that it is bugged by itself), **MC-260** Chimera (1.0.9), **RAH-72** Knockout (1.0.0). Compatibility with **Vanilla Icons PLUS** and **ThirdPersonHud** was not tested.
 
 ## On possible "Could not load file or assembly MonoMod.Backports" error
 

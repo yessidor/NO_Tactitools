@@ -14,7 +14,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.10.1")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.11.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -53,6 +53,7 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<byte> SlotsNum;
             public static List<RewiredInputConfig> Slots;
+            public static ConfigEntry<bool> SkipEmptyStations;
         };
         public class TargetFilterPreset {
             public static ConfigEntry<bool> Enabled;
@@ -60,7 +61,35 @@ namespace NO_Tactitools.Core {
             public static List<RewiredInputConfig> Presets;
             public static ConfigEntry<bool> MaximizeTargetable;
             public static ConfigEntry<bool> NeutralsAreFriendly;
-        }
+        };
+        public class HMDDeclutter {
+            public static ConfigEntry<bool> Enabled;
+            public static RewiredInputConfig CycleHMDMarkerDrawDistanceUp;
+            public static RewiredInputConfig CycleHMDMarkerDrawDistanceDown;
+            public static ConfigEntry<string> DistancesString;
+            public static ConfigEntry<bool> Report;
+            public static ConfigEntry<bool> HideMinimized;
+            public static ConfigEntry<bool> MinimizeMaximized;
+            public static ConfigEntry<float> EnemyMinimizedMarkerScale;
+            public static ConfigEntry<float> FriendlyMinimizedMarkerScale;
+        };
+        public class HUDOptionsPreset {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<int> PresetsNum;
+            public static List<RewiredInputConfig> Presets;
+            public static ConfigEntry<bool> EnableBuiltinSettings;
+        };
+        public class HUDCenterDirection {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<Color> ArrowColor;
+            public static ConfigEntry<float> ArrowScale;
+        };
+        public class TargetArrows {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<Color> ArrowColor;
+            public static ConfigEntry<float> ArrowScale;
+            public static ConfigEntry<int> NumArrows;
+        };
         // Virtual Joystick Extender
         public class VirtualJoystickExtender {
             public static ConfigEntry<bool> Enabled;
@@ -344,6 +373,15 @@ namespace NO_Tactitools.Core {
                 string description = string.Format("Input for slot {0}", i);
                 WeaponSwitcher.Slots.Add(new RewiredInputConfig(Config, "Advanced Slot Selection", name, description, order--));
             }
+            WeaponSwitcher.SkipEmptyStations = Config.Bind("Advanced Slot Selection",
+                "Advanced Slot Selection - Skip Empty Stations",
+                false,
+                new ConfigDescription(
+                    "When cycling through weapon stations, stations with no ammo will be skipped.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             // Target Filter Preset settings
             order = 100;
             TargetFilterPreset.Enabled = Config.Bind("Target Filter Preset",
@@ -381,6 +419,152 @@ namespace NO_Tactitools.Core {
                     "If enabled, neutral units and buildings are considered friendly (hostile otherwise) for the purposes of target selection (game-wide change!).",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
+            //HMD Declutter
+            order = 100;
+            HMDDeclutter.Enabled = Config.Bind("HMD Declutter",
+                "HMD Declutter - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the HMD Declutter feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.CycleHMDMarkerDrawDistanceUp = new RewiredInputConfig(Config, "HMD Declutter", "HMD Declutter - Cycle Marker Draw Distance Up", "", order--);
+            HMDDeclutter.CycleHMDMarkerDrawDistanceDown = new RewiredInputConfig(Config, "HMD Declutter", "HMD Declutter - Cycle Marker Draw Distance Down", "", order--);
+            HMDDeclutter.DistancesString = Config.Bind("HMD Declutter",
+                "HMD Declutter - Marker Draw Distances",
+                "0.0",
+                new ConfigDescription(
+                    "List of HMD marker draw distances, separated by \";\", fraction separator is \".\". 0.0 is unlimited distance.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.Report = Config.Bind("HMD Declutter",
+                "HMD Declutter - Report",
+                true,
+                new ConfigDescription(
+                    "Should changing the HMD marker draw distance be reported on HMD.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.MinimizeMaximized = Config.Bind("HMD Declutter",
+                "HMD Declutter - Minimize Maximized",
+                false,
+                new ConfigDescription(
+                    "Should maximized markers be minimized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.HideMinimized = Config.Bind("HMD Declutter",
+                "HMD Declutter - Hide Minimized",
+                false,
+                new ConfigDescription(
+                    "Should minimized markers be hidden.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.EnemyMinimizedMarkerScale = Config.Bind("HMD Declutter",
+                "HMD Declutter - Enemy Minimized Marker Scale",
+                6f,
+                new ConfigDescription(
+                    "Enemy Minimized Marker Scale (if 'Minimize Maximized' setting is enabled).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.FriendlyMinimizedMarkerScale = Config.Bind("HMD Declutter",
+                "HMD Declutter - Friendly Minimized Marker Scale",
+                3f,
+                new ConfigDescription(
+                    "Friendly Minimized Marker Scale (if 'Minimize Maximized' setting is enabled).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            // HUD Options Preset settings
+            order = 100;
+            HUDOptionsPreset.Enabled = Config.Bind("HUD Options Preset",
+                "HUD Options Preset - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the HUD Options Preset feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HUDOptionsPreset.PresetsNum = Config.Bind("HUD Options Preset",
+                "HUD Options Preset - Number",
+                10,
+                new ConfigDescription(
+                    "Number of target filter presets (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HUDOptionsPreset.Presets = new();
+            for (int i = 0; i < HUDOptionsPreset.PresetsNum.Value; i++)
+            {
+                string name = string.Format("HUD Options Preset - Slot {0}", i);
+                string description = string.Format("Input for slot {0} (Long press to save, short press to restore)", i);
+                HUDOptionsPreset.Presets.Add(new RewiredInputConfig(Config, "HUD Options Preset", name, description, order--));
+            }
+            HUDOptionsPreset.EnableBuiltinSettings = Config.Bind("HUD Options Preset",
+                "HUD Options Preset - Enable Builtin Settings",
+                false,
+                new ConfigDescription(
+                    "Enable or disable built-in HUD Options settings saving and loading on mode switch (likely needs to be false if using HUD Options presets).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            // HUD Center Direction settings
+            order = 100;
+            HUDCenterDirection.Enabled = Config.Bind("HUD Center Direction",
+                "HUD Center Direction - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the HUD Center Direction feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HUDCenterDirection.ArrowColor = Config.Bind("HUD Center Direction",
+                "HUD Center Direction - Arrow Color",
+                Color.yellow,
+                new ConfigDescription(
+                    "Color of the HUD center direction arrow.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HUDCenterDirection.ArrowScale = Config.Bind("HUD Center Direction",
+                "HUD Center Direction - Arrow Scale",
+                1.0f,
+                new ConfigDescription(
+                    "Scale of the HUD center direction arrow.",
+                    new AcceptableValueRange<float>(0f, 10f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            // Target Arrows settings
+            order = 100;
+            TargetArrows.Enabled = Config.Bind("Target Arrows",
+                "Target Arrows - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the Target Arrows feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            TargetArrows.ArrowColor = Config.Bind("Target Arrows",
+                "Target Arrows - Arrow Color",
+                Color.green,
+                new ConfigDescription(
+                    "Target arrow color.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            TargetArrows.ArrowScale = Config.Bind("Target Arrows",
+                "Target Arrows - Arrow Scale",
+                1.0f,
+                new ConfigDescription(
+                    "Target Arrow Scale.",
+                    new AcceptableValueRange<float>(0f, 10f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            TargetArrows.NumArrows = Config.Bind("Target Arrows",
+                "Target Arrows - Number of arrows",
+                1,
+                new ConfigDescription(
+                    "Number of target arrows (0 is unlimited, 1 is default target arrow).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             // Virtual Joystick Extender
             order = 100;
             VirtualJoystickExtender.Enabled = Config.Bind("Virtual Joystick Extender",
@@ -1451,6 +1635,26 @@ namespace NO_Tactitools.Core {
             if (TargetFilterPreset.Enabled.Value) {
                 Log($"Target Filter Preset is enabled, patching...");
                 harmony.PatchAll(typeof(TargetFilterPresetPlugin));
+            }
+            // Patch HMD Declutter
+            if (HMDDeclutter.Enabled.Value) {
+                Log($"HMD Declutter is enabled, patching...");
+                harmony.PatchAll(typeof(HMDDeclutterPlugin));
+            }
+            // Patch HUD Options Preset
+            if (HUDOptionsPreset.Enabled.Value) {
+                Log($"HUD Options Preset is enabled, patching...");
+                harmony.PatchAll(typeof(HUDOptionsPresetPlugin));
+            }
+            // HUD CENTER DIRECTION
+            if (HUDCenterDirection.Enabled.Value) {
+                Log($"HUD Center Direction patch is enabled, patching...");
+                harmony.PatchAll(typeof(HUDCenterDirectionPlugin));
+            }
+            // TARGET ARROWS
+            if (TargetArrows.Enabled.Value) {
+                Log($"Target Arrows patch is enabled, patching...");
+                harmony.PatchAll(typeof(TargetArrowsComponent.OnMainMenuStart));
             }
             // COCKPIT DISPLAY PATCHES
             // Patch Interception Vector

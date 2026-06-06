@@ -169,6 +169,7 @@ public class MapTargetArrowsComponent {
         }
     }
 
+    //TODO Extract from MapTargetArrowsComponent to helpers and reuse
     private static Vector3 GetRectLineIntersection(Rect rect, Vector3 inside, Vector3 outside) {
         Vector3 direction = outside - inside;
         float tClosest = float.MaxValue;

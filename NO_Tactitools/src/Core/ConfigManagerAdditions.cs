@@ -193,6 +193,7 @@ internal sealed class RewiredConfigManager {
                     var possibleModifier = new Modifier (controllerName, i);
                     if(ModsTracker.HasModifier(possibleModifier)) {
                         _errorMessage = activeModifiersString;
+                        _errorTimer = 3f;
                         return;
                     }
                 }
