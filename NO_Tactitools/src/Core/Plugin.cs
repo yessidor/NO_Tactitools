@@ -14,7 +14,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.11.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.11.1")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -86,6 +86,7 @@ namespace NO_Tactitools.Core {
         };
         public class TargetArrows {
             public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<bool> MatchMarkerColor;
             public static ConfigEntry<Color> ArrowColor;
             public static ConfigEntry<float> ArrowScale;
             public static ConfigEntry<int> NumArrows;
@@ -547,6 +548,13 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
+            TargetArrows.MatchMarkerColor = Config.Bind("Target Arrows",
+                "Target Arrows - Match Marker Color",
+                true,
+                new ConfigDescription(
+                    "If enabled, target arrow color will match target marker color.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
             TargetArrows.ArrowScale = Config.Bind("Target Arrows",
                 "Target Arrows - Arrow Scale",
                 1.0f,

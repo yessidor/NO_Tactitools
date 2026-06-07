@@ -16,7 +16,7 @@ class AmmoConIndicatorPlugin {
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnPlatformUpdate));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnMissileStart));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnMissileSetTarget));
-            Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnHUDUnitMarkerUpdateColor));
+            Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnHUDUnitMarkerUpdatePosition));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnCombatHUDShowTargetInfo));
 
             var bindings = new BindingHelper.Binding[] {
@@ -97,8 +97,8 @@ class AmmoConIndicatorComponent {
         static public readonly TraverseCache<TargetScreenUI, List<Image>> _targetBoxesCache = new("targetBoxes");
         static public readonly TraverseCache<CombatHUD, Dictionary<Unit, HUDUnitMarker>> _markerLookupCache = new("markerLookup");
         static public readonly TraverseCache<CombatHUD, Text> _targetInfoCache = new("targetInfo");
-        static public List<Unit> trackedTargets = [];
-        static public List<HUDUnitMarker> trackedMarkers = [];
+        static public List<Unit> trackedTargets = new ();
+        static public HashSet<HUDUnitMarker> trackedMarkers = new ();
         static public HUDUnitMarker? activeTrackedMarker = null;
         static public bool ColorHMDMarker = true;
         static public bool ColorMFDBox = true;
@@ -174,9 +174,9 @@ class AmmoConIndicatorComponent {
             }
         }
 
-        public static void OnHUDUnitMarkerUpdateColor(HUDUnitMarker marker) {
-            if (InternalState.ColorHMDMarker && marker.selected && InternalState.trackedMarkers.Contains(marker))
-                marker.image.color = InternalState.HMDTrackedMarkerColor;
+        public static void UpdateMarkerColor(HUDUnitMarker marker) {
+            if (InternalState.ColorHMDMarker && marker.selected)
+                marker.image.color = InternalState.trackedMarkers.Contains(marker) ? InternalState.HMDTrackedMarkerColor : InternalState.HMDDefaultMarkerColor;
         }
 
         public static void OnCombatHUDShowTargetInfo(CombatHUD combatHUD) {
@@ -228,10 +228,10 @@ class AmmoConIndicatorComponent {
         }
     }
 
-    [HarmonyPatch(typeof(HUDUnitMarker), "UpdateColor")]
-    public static class OnHUDUnitMarkerUpdateColor {
+    [HarmonyPatch(typeof(HUDUnitMarker), "UpdatePosition")]
+    public static class OnHUDUnitMarkerUpdatePosition {
         static void Postfix(HUDUnitMarker __instance) {
-            DisplayEngine.OnHUDUnitMarkerUpdateColor(__instance);
+            DisplayEngine.UpdateMarkerColor(__instance);
         }
     }
 

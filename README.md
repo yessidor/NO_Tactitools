@@ -435,7 +435,7 @@ Long press on the controlling key toggles the automated incoming missile targeti
 
 Edge case: targets selected while incoming missile targeting is active, will be deselected when the incoming missiles list is updated.
 
-### Ammo Conservation indicator extended
+### Extended Ammo Conservation Indicator
 
 This feature allows to recolor HMD markers of selected targets that are being tracked by deliverables. MFD box markers of selected targets can also be painted with a different color if those targets are being tracked. In addition to that, it's possible to turn of the dot markers under MFD boxes of tracked targets.
 
@@ -489,7 +489,7 @@ Adds arrows that point to selected targets if they are out of map bounds. Active
 
 This feature fixes position of active target arrow marker and adds an option to display arrow markers for other targets. Primary target arrow is designated by "TARGET" label.
 
-`Target Arrows - Enabled` controls the state (restart the game to apply changes). `Target Arrows - Number of arrows` set number of target arrows (0 is unlimited, 1 is default primary target arrow). `Target Arrows - Arrow Color` and `Target Arrows - Arrow Scale` set the color and scale of target arrows.
+`Target Arrows - Enabled` controls the state (restart the game to apply changes). `Target Arrows - Number of arrows` set number of target arrows (0 is unlimited, 1 is default primary target arrow). `Target Arrows - Arrow Color` and `Target Arrows - Arrow Scale` set the color and scale of target arrows. But if `Target Arrows - Match Marker Color` is enabled, target arrow color (and the color of "TARGET" text for main target arrow) will match the color of corresponding target marker (useful if `Ammo Conservation Indicator - HMD Markers Color - Enabled` is enabled).
 
 ### HUD center direction arrow
 

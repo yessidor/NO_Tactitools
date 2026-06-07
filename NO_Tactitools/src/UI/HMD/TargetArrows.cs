@@ -22,6 +22,7 @@ class TargetArrowsComponent {
 
                 var bindings = new BindingHelper.Binding[] {
                     new (typeof(TargetArrowsComponent), "ArrowColor", Plugin.TargetArrows.ArrowColor),
+                    new (typeof(TargetArrowsComponent), "MatchMarkerColor", Plugin.TargetArrows.MatchMarkerColor),
                     new (typeof(TargetArrowsComponent), "ArrowScale", Plugin.TargetArrows.ArrowScale),
                     new (typeof(TargetArrowsComponent), "NumArrows", Plugin.TargetArrows.NumArrows),
                 };
@@ -64,6 +65,7 @@ class TargetArrowsComponent {
         }
         get;
     } = 1f;
+    public static bool MatchMarkerColor = true;
 
     private static FieldInfo hudumTransformInfo = AccessTools.Field(typeof(HUDUnitMarker), "_transform");
     private static TraverseCache<CombatHUD, Image> targetArrowCache = new ("targetArrow");
@@ -74,12 +76,14 @@ class TargetArrowsComponent {
     private static CombatHUD combatHUD = null;
 
     //angle is in radians
-    private static void SetArrow(int i, bool enabled, Vector3 position, float angle) {
+    private static void SetArrow(int i, bool enabled, Vector3 position, float angle, Color? color) {
         var pos = enabled ? position : Vector3.zero;
         var ang = enabled ? new Vector3(0f, 0f, angle * Mathf.Rad2Deg - 90f) : Vector3.zero;
         if (i == 0) {
             //set main arrow position and angle
             combatHUD.SetTargetArrow(enabled: enabled, pos, ang);
+            targetArrowCache.GetValue(combatHUD).color = color ?? ArrowColor;
+            targetTextCache.GetValue(combatHUD).color = color ?? ArrowColor;
             //Fixes TARGET text jumping
             //In SetTargetArrow(), targetText transform position should be assigned to targetArrowTail position after targetArrow transform position was assigned to new value
             targetTextCache.GetValue(combatHUD).transform.position = targetArrowTailCache.GetValue(combatHUD).position;
@@ -99,6 +103,7 @@ class TargetArrowsComponent {
             arrow.enabled = enabled;
             arrow.transform.position = pos;
             arrow.transform.localEulerAngles = ang;
+            arrow.color = color ?? ArrowColor;
         }
     }
 
@@ -115,7 +120,6 @@ class TargetArrowsComponent {
             arrows.RemoveRange(arrowIdx, arrows.Count - arrowIdx);
     }
 
-    //Fix to make target arrow always point to active target (the target at the top of target list)
     [HarmonyPatch(typeof(CombatHUD), "UpdateMarkers")]
     public class OnCombatHUDUpdateMarkers {
         public static void Postfix(CombatHUD __instance, ref Dictionary<Unit, HUDUnitMarker> ___markerLookup, ref List<Unit> ___targetList) {
@@ -134,20 +138,17 @@ class TargetArrowsComponent {
             else {
                 int i = 0;
                 foreach (var target in ___targetList) {
-                    if (!___markerLookup.TryGetValue(target, out var targetMarker)) {
-                        continue;
-                    }
                     if (hq.TryGetKnownPosition(target, out var knownPosition)) {
-                        if (HUDFunctions.PinToScreenEdge(knownPosition.ToLocalPosition(), out var rayToScreen, out var arrowAngle)) {
-                            targetMarker.image.enabled = false;
-                            SetArrow(i, true, rayToScreen, arrowAngle);
-                            i++;
-                            if (NumArrows != 0 && i == NumArrows)
-                                break;
-                        }
-                        else {
-                            targetMarker.image.enabled = true;
-                            ((Transform)hudumTransformInfo.GetValue(targetMarker)).position = rayToScreen;
+                        bool arrowState = HUDFunctions.PinToScreenEdge(knownPosition.ToLocalPosition(), out var rayToScreen, out var arrowAngle);
+                        if (___markerLookup.TryGetValue(target, out var targetMarker)) {
+                            targetMarker.image.enabled = !arrowState;
+                            if (!arrowState)
+                                ((Transform)hudumTransformInfo.GetValue(targetMarker)).position = rayToScreen;
+                            if (NumArrows != 0 && i < NumArrows) {
+                                var arrowColor = MatchMarkerColor ? targetMarker.image.color : ArrowColor;
+                                SetArrow(i, arrowState, rayToScreen, arrowAngle, arrowColor);
+                                i++;
+                            }
                         }
                     }
                 }
