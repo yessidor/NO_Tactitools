@@ -150,6 +150,8 @@ public class LoadoutPreviewComponent {
                 "FQ-106 Kestrel" or
                 "MiG-15" or
                 "F-16M King Viper" or
+                "RAH-72 Knockout" or
+                "F-99 Shrike" or
                 "HMD" => true,
                 _ => false
             };
@@ -313,6 +315,11 @@ public class LoadoutPreviewComponent {
                     break;
                 case "RAH-72 Knockout":
                     verticalOffset = -100;
+                    break;
+                case "F-99 Shrike":
+                    horizontalOffset = -240;
+                    verticalOffset = -70;
+                    fontSize = 30;
                     break;
                 case "HMD":
                     horizontalOffset = 0;
