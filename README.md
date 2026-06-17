@@ -530,7 +530,7 @@ Enables HUD in third person mode (when camera is in "orbit" or "chase" modes).
 
 `Third Person HUD - Enabled` enables the feature (restart the game to apply changes). If `Third Person HUD - HUD Roll - Enabled` is enabled, HUD will pivot with aircraft roll. If `Third Person HUD - HUD Bound To Screen - Enabled` is enabled, HUD will stay at `Third Person HUD - HUD Screen Offset` position relative to screen center. If `Third Person HUD - Set Target Designator Position - Enabled` is enabled, target designator will be placed at `Third Person HUD - Target Designator Screen Offset` from screen center.
 
-### Cokpit camera control with keys
+### Cockpit camera control with keys
 
 Implements alternative way to control cockpit camera with keys.
 
