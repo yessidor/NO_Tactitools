@@ -455,6 +455,32 @@ public class GameBindings {
                 }
             }
 
+            public static Unit GetActiveTarget() {
+                try {
+                    CombatHUD currentCombatHUD = SceneSingleton<CombatHUD>.i;
+                    if (currentCombatHUD == null)
+                        return null;
+                    List<Unit> targetList = _targetListCache.GetValue(currentCombatHUD);
+                    return targetList != null && targetList.Count > 0 ? targetList[0] : null;
+                }
+                catch (NullReferenceException e) {
+                    Plugin.Log("GameBindings.Player.TargetList.GetAcitveTarget(): " + e.ToString());
+                    return null;
+                }
+            }
+
+            public static int GetTargetCount() {
+                try {
+                    CombatHUD currentCombatHUD = SceneSingleton<CombatHUD>.i;
+                    List<Unit> targetList = _targetListCache.GetValue(currentCombatHUD);
+                    return targetList.Count;
+                }
+                catch (NullReferenceException e) {
+                    Plugin.Log("GameBindings.Player.TargetList.GetTargetCount(): " + e.ToString());
+                    return 0;
+                }
+            }
+
             private static bool? checkExclusionsResult = null;
 
             [HarmonyPatch(typeof(TargetListSelector), "CheckExclusions")]

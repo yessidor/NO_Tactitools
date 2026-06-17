@@ -13,7 +13,7 @@ public class UIAdjustmentsPlugin {
     private static bool initialized = false;
     static void Postfix() {
         if (!initialized) {
-            Plugin.Log($"[UIA] Font Fix plugin starting !");
+            Plugin.Log($"[UIA] UI Adjustments plugin starting !");
 
             Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnDynamicMapAwake));
             Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnDynamicMapLoadMapImage));
@@ -21,6 +21,8 @@ public class UIAdjustmentsPlugin {
             Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnHUDBombingStateSetHUDWeaponState));
             Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnHUDMissileStateSetHUDWeaponState));
             Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnHUDLaserGuidedStateSetHUDWeaponState));
+            Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnWingAngleGaugeInitialize));
+            Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnNozzleGaugeInitialize));
             Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnUnitMapIconOnSelectIcon));
             Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.OnUnitMapIconOnDeselectIcon));
 
@@ -32,11 +34,13 @@ public class UIAdjustmentsPlugin {
                 new (typeof(UIAdjustmentsComponent), "BombingStateFontSize", Plugin.UIAdjustments.BombingStateFontSize),
                 new (typeof(UIAdjustmentsComponent), "MissileStateFontSize", Plugin.UIAdjustments.MissileStateFontSize),
                 new (typeof(UIAdjustmentsComponent), "LaserGuidedStateFontSize", Plugin.UIAdjustments.LaserGuidedStateFontSize),
+                new (typeof(UIAdjustmentsComponent), "WingAngleGaugeFontSize", Plugin.UIAdjustments.WingAngleGaugeFontSize),
+                new (typeof(UIAdjustmentsComponent), "NozzleGaugeFontSize", Plugin.UIAdjustments.NozzleGaugeFontSize),
             };
             BindingHelper.ApplyBindings(bindings);
 
             initialized = true;
-            Plugin.Log($"[UIA] Font Fix plugin started !");
+            Plugin.Log($"[UIA] UI Adjustments plugin started !");
         }
     }
 }
@@ -95,6 +99,22 @@ class UIAdjustmentsComponent {
         set {
             field = value;
             SetupLaserGuidedStateFonts();
+        }
+        get;
+    }
+
+    public static int WingAngleGaugeFontSize {
+        set {
+            field = value;
+            SetupWingAngleGaugeFont();
+        }
+        get;
+    }
+
+    public static int NozzleGaugeFontSize {
+        set {
+            field = value;
+            SetupNozzleGaugeFont();
         }
         get;
     }
@@ -304,6 +324,49 @@ class UIAdjustmentsComponent {
         }
     }
 
+    //Wing angle gauge
+    private static void SetupWingAngleGaugeFont() {
+        if (wingAngleGauge == null)
+            return;
+
+        ((Text)wingAngleGaugeLabelInfo.GetValue(wingAngleGauge)).fontSize = WingAngleGaugeFontSize;
+    }
+
+    private static FieldInfo wingAngleGaugeLabelInfo = AccessTools.Field(typeof(WingAngleGauge), "label");
+    private static WingAngleGauge wingAngleGauge;
+
+    [HarmonyPatch(typeof(WingAngleGauge), "Initialize")]
+    public class OnWingAngleGaugeInitialize {
+        public static void Postfix(WingAngleGauge __instance) {
+            if (wingAngleGauge != __instance) {
+                wingAngleGauge = __instance;
+                SetupWingAngleGaugeFont();
+            }
+        }
+    }
+
+    //Nozzle gauge
+    private static void SetupNozzleGaugeFont() {
+        if (nozzleGauge == null)
+            return;
+
+        ((Text)nozzleGaugeLabelInfo.GetValue(nozzleGauge)).fontSize = NozzleGaugeFontSize;
+    }
+
+    private static FieldInfo nozzleGaugeLabelInfo = AccessTools.Field(typeof(NozzleGauge), "label");
+    private static NozzleGauge nozzleGauge;
+
+    [HarmonyPatch(typeof(NozzleGauge), "Initialize")]
+    public class OnNozzleGaugeInitialize {
+        public static void Postfix(NozzleGauge __instance) {
+            if (nozzleGauge != __instance) {
+                nozzleGauge = __instance;
+                SetupNozzleGaugeFont();
+            }
+        }
+    }
+
+    //Unit map icon color
     [HarmonyPatch(typeof(UnitMapIcon), "OnSelectIcon")]
     public class OnUnitMapIconOnSelectIcon {
         public static void Postfix(UnitMapIcon __instance) {

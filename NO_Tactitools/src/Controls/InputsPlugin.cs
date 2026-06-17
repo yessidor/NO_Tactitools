@@ -229,6 +229,8 @@ class VirtualJoystickExtenderPlugin {
 }
 
 class VirtualJoystickExtenderComponent {
+    public static bool ControlInThirdPersonMode = true;
+
     private static bool initialized = false;
     private static VirtualJoystickExtender virtualJoystickExtender = new ();
 
@@ -265,6 +267,7 @@ class VirtualJoystickExtenderComponent {
                 new (virtualJoystickExtender.PitchCurve, "Curvature", Plugin.VirtualJoystickExtender.PitchCurvature),
                 new (virtualJoystickExtender.RollCurve, "Curvature", Plugin.VirtualJoystickExtender.RollCurvature),
                 new (virtualJoystickExtender, "DecayMode", Plugin.VirtualJoystickExtender.DecayMode),
+                new (typeof(VirtualJoystickExtenderComponent), "ControlInThirdPersonMode", Plugin.VirtualJoystickExtender.ControlInThirdPersonMode),
             };
             BindingHelper.ApplyBindings(virtualJoystickBindings);
 
@@ -277,7 +280,17 @@ class VirtualJoystickExtenderComponent {
     [HarmonyPriority(Priority.Low)]
     [HarmonyPatch(typeof(PilotPlayerState), "PlayerAxisControls")]
     public class OnPilotPlayerStatePlayerAxisControls {
-        static void Postfix(ref ControlInputs ___controlInputs) {
+        static void Prefix(ref CameraMode __state) {
+            __state = CameraStateManager.cameraMode;
+            var cameraMode = CameraStateManager.cameraMode;
+            var freeLook = GameManager.playerInput.GetButton("Free Look");
+            //Setting cameraMode to CameraMode.cockpit to force PlayerAxisControls() process virtual joystick in camera orbit and chase modes
+            if (ControlInThirdPersonMode && !freeLook && (cameraMode == CameraMode.orbit || cameraMode == CameraMode.chase))
+                CameraStateManager.cameraMode = CameraMode.cockpit;
+        }
+
+        static void Postfix(ref ControlInputs ___controlInputs, ref CameraMode __state) {
+            CameraStateManager.cameraMode = __state;
             virtualJoystickExtender.Update(ref ___controlInputs);
         }
     }

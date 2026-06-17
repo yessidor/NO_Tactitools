@@ -42,17 +42,22 @@ class AltTargetSelectionComponent {
     private static TraverseCache<CombatHUD, List<HUDUnitMarker>> markersCache = new ("markers");
 
     public static bool TargetSelect(ref CombatHUD __instance, ref bool paint) {
+        if (DynamicMap.mapMaximized)
+            return false;
+
         List<HUDUnitMarker> markers = markersCache.GetValue(__instance);
 
         var camera = SceneSingleton<CameraStateManager>.i.mainCamera;
         var cameraTransform = camera.transform;
         var cameraPosition = cameraTransform.position.ToGlobalPosition();
-        var cameraForward = cameraTransform.forward;
+        var forward = camera.ScreenPointToRay(SceneSingleton<CombatHUD>.i.targetDesignator.gameObject.transform.position).direction;
         var dotProductThreshold = Mathf.Cos(0.5f * Mathf.Deg2Rad * camera.fieldOfView * FOVFraction);
 
         Unit target = null;
         float targetDistance = float.PositiveInfinity;
 
+        //If paint is true, in order to play "add target" sound once, store targets in paintedTargets and then use AddTargets() to add this list in one call 
+        List<Unit> paintedTargets = new ();
         Unit selectedTarget = null;
         float selectedTargetDistance = float.PositiveInfinity;
 
@@ -65,13 +70,13 @@ class AltTargetSelectionComponent {
             Vector3 toUnit = unitPosition - cameraPosition;
             float distance = toUnit.magnitude;
             toUnit.Normalize();
-            float dotProduct = Vector3.Dot(toUnit, cameraForward);
+            float dotProduct = Vector3.Dot(toUnit, forward);
             if (dotProduct < dotProductThreshold || (MaxDistance != 0f && distance > MaxDistance)) {
                 continue;
             }
             if (!marker.selected) {
                 if (paint)
-                    GameBindings.Player.TargetList.AddTarget(unit);
+                    paintedTargets.Add(unit);
                 else if (distance < targetDistance) {
                     target = unit;
                     targetDistance = distance;
@@ -83,7 +88,9 @@ class AltTargetSelectionComponent {
             }
         }
 
-        if (!paint) {
+        if (paint)
+            GameBindings.Player.TargetList.AddTargets(paintedTargets);
+        else {
             if (target != null)
                 GameBindings.Player.TargetList.AddTarget(target);
             else if (PickActive && selectedTarget != null) {

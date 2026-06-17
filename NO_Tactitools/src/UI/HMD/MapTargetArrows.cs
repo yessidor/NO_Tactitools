@@ -126,7 +126,9 @@ public class MapTargetArrowsComponent {
                 arrow.transform.position = outsidePositionClipped;
                 //makes arrow size fixed regardless of zoom
                 arrow.transform.localScale = Vector3.one / mapImageTransform.localScale.x * ArrowScale;
+
                 arrow.enabled = true;
+                targetMarker.markerImg.enabled = false;
 
                 if (icon.unit == activeTarget) {
                     targetMarker.color = ActiveColor;
@@ -148,6 +150,8 @@ public class MapTargetArrowsComponent {
             }
             else {
                 arrow.enabled = false;
+                targetMarker.markerImg.enabled = true;
+
                 if (icon.unit == activeTarget) {
                     if (ShowT)
                         text.enabled = false;

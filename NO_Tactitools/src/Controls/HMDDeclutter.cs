@@ -3,6 +3,7 @@ using UnityEngine;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Reflection;
+using System;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.Controls;
@@ -37,7 +38,9 @@ class HMDDeclutterPlugin {
                 new (typeof(HMDDeclutterComponent), "MaximizeTargetableMarkers", Plugin.TargetFilterPreset.MaximizeTargetable),
                 new (typeof(HMDDeclutterComponent), "NeutralsAreFriendly", Plugin.TargetFilterPreset.NeutralsAreFriendly),
                 new (typeof(HMDDeclutterComponent), "DistancesString", Plugin.HMDDeclutter.DistancesString),
+                new (typeof(HMDDeclutterComponent), "Unit", Plugin.HMDDeclutter.Unit),
                 new (typeof(HMDDeclutterComponent), "Report", Plugin.HMDDeclutter.Report),
+                new (typeof(HMDDeclutterComponent), "NotAlwaysMaximized", Plugin.HMDDeclutter.NotAlwaysMaximized),
                 new (typeof(HMDDeclutterComponent), "HideMinimized", Plugin.HMDDeclutter.HideMinimized),
                 new (typeof(HMDDeclutterComponent), "MinimizeMaximized", Plugin.HMDDeclutter.MinimizeMaximized),
                 new (typeof(HMDDeclutterComponent), "EnemyMinimizedMarkerScale", Plugin.HMDDeclutter.EnemyMinimizedMarkerScale),
@@ -53,7 +56,9 @@ class HMDDeclutterPlugin {
 }
 
 
-class HMDDeclutterComponent {
+public class HMDDeclutterComponent {
+    public static bool NotAlwaysMaximized = false;
+
     public static bool MaximizeTargetableMarkers {
         set {
             if (!value)
@@ -71,7 +76,8 @@ class HMDDeclutterComponent {
     public static List<float> Distances {
         set {
             field = [.. value];
-            squaredDistances = field.ConvertAll(x => x*x);
+            squaredDistances = field.ConvertAll(x => Mathf.Pow(ConvertToMeters(x, Unit), 2));
+            distancesStrings = field.ConvertAll(x => x.ToString());
             idx = 0;
         }
         get;
@@ -97,6 +103,16 @@ class HMDDeclutterComponent {
         private get;
     }
 
+    public enum Units { m, km, ft, mi };
+
+    public static Units Unit {
+        set {
+            field = value;
+            squaredDistances = Distances.ConvertAll(x => Mathf.Pow(ConvertToMeters(x, field), 2));
+        }
+        get;
+    } = Units.m;
+
     public static bool Report = true;
     public static bool HideMinimized = false;
     public static bool MinimizeMaximized = false;
@@ -108,7 +124,7 @@ class HMDDeclutterComponent {
             return;
         idx = (up ? (idx + 1) : (idx - 1 + Distances.Count))  % Distances.Count;
         if (Report) {
-          UIBindings.Game.DisplayToast(string.Format("HMD markers draw distance: <b>{0}</b>", Distances[idx] == 0f ? "unlimited" : Distances[idx]), 3f);
+          UIBindings.Game.DisplayToast(string.Format("HMD markers draw distance: <b>{0}</b>", Distances[idx] == 0f ? "unlimited" : string.Format("{0} {1}", distancesStrings[idx], Unit.ToString())), 3f);
         }
     }
 
@@ -124,19 +140,20 @@ class HMDDeclutterComponent {
 
     private static int idx = 0;
     private static List<float> squaredDistances = new ();
+    private static List<string> distancesStrings = new ();
 
     private static void ProcessMarker(HUDUnitMarker marker) {
         var unit = marker.unit;
         if (unit == null)
             return;
         var targetListSelector = SceneSingleton<TargetListSelector>.i;
+        if (!prevAlwaysMaximized.TryGetValue(marker, out bool _))
+            prevAlwaysMaximized[marker] = NotAlwaysMaximized ? false : marker.alwaysMaximized;
         if (targetListSelector.CheckExclusions(unit)) {
             if (prevAlwaysMaximized.TryGetValue(marker, out bool alwaysMaximized))
                 marker.alwaysMaximized = alwaysMaximized;
         }
         else {
-            if (!prevAlwaysMaximized.TryGetValue(marker, out bool _))
-                prevAlwaysMaximized[marker] = marker.alwaysMaximized;
             marker.alwaysMaximized = true;
         }
     }
@@ -167,6 +184,21 @@ class HMDDeclutterComponent {
         }
         finally {
             inProcess = false;
+        }
+    }
+
+    private static float ConvertToMeters(float distance, Units unit) {
+        switch (unit) {
+            case Units.m:
+                return distance;
+            case Units.km:
+                return distance * 1000f;
+            case Units.ft:
+                return distance * 0.3048f;
+            case Units.mi:
+                return distance * 1609.344f;
+            default:
+                throw new ArgumentException("Unsupported unit");
         }
     }
 

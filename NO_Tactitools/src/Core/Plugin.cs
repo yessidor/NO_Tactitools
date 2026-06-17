@@ -14,7 +14,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.11.2")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.12.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -67,7 +67,9 @@ namespace NO_Tactitools.Core {
             public static RewiredInputConfig CycleHMDMarkerDrawDistanceUp;
             public static RewiredInputConfig CycleHMDMarkerDrawDistanceDown;
             public static ConfigEntry<string> DistancesString;
+            public static ConfigEntry<HMDDeclutterComponent.Units> Unit;
             public static ConfigEntry<bool> Report;
+            public static ConfigEntry<bool> NotAlwaysMaximized;
             public static ConfigEntry<bool> HideMinimized;
             public static ConfigEntry<bool> MinimizeMaximized;
             public static ConfigEntry<float> EnemyMinimizedMarkerScale;
@@ -105,6 +107,7 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<float> PitchCurvature;
             public static ConfigEntry<float> RollCurvature;
             public static ConfigEntry<Controls.VirtualJoystickExtender.DecayModes> DecayMode;
+            public static ConfigEntry<bool> ControlInThirdPersonMode;
         }
         // Key axes
         public class KeyAxisData {
@@ -169,6 +172,8 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<int> BombingStateFontSize;
             public static ConfigEntry<int> MissileStateFontSize;
             public static ConfigEntry<int> LaserGuidedStateFontSize;
+            public static ConfigEntry<int> WingAngleGaugeFontSize;
+            public static ConfigEntry<int> NozzleGaugeFontSize;
         };
         public class AltMapTargetSelection {
             public static ConfigEntry<bool> Enabled;
@@ -180,6 +185,39 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<bool> Report;
             public static ConfigEntry<bool> DisableFreeLookInPadlock;
             public static ConfigEntry<bool> FOVDependentSens;
+        }
+        public class KeyViewControl {
+            public static ConfigEntry<bool> Enabled;
+            public static RewiredButtonConfig PanLeftKey;
+            public static RewiredButtonConfig PanRightKey;
+            public static RewiredButtonConfig TiltUpKey;
+            public static RewiredButtonConfig TiltDownKey;
+            public static ConfigEntry<bool> FOVDependent;
+            public static ConfigEntry<bool> StopAt0;
+            public static ConfigEntry<float> PanStep;
+            public static ConfigEntry<float> TiltStep;
+            public static ConfigEntry<float> PanSpeed;
+            public static ConfigEntry<float> TiltSpeed;
+        }
+        public class ThirdPersonHUD {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<bool> HUDRoll;
+            public static ConfigEntry<bool> HUDBoundToScreen;
+            public static ConfigEntry<Vector2> HUDScreenOffset;
+            public static ConfigEntry<bool> SetTargetDesignatorPos;
+            public static ConfigEntry<Vector2> TargetDesignatorScreenOffset;
+        }
+        public class DynamicLandingCam {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<bool> KeepOnAfterTouchDown;
+            public static ConfigEntry<bool> Rotate;
+            public static ConfigEntry<float> RotationSpeed;
+            public static ConfigEntry<Vector2> TiltLimits;
+            public static ConfigEntry<Vector2> PanLimits;
+            public static ConfigEntry<Vector2> InitialAngles;
+            public static ConfigEntry<float> LandingCamFOV;
+            public static ConfigEntry<float> Deadzone;
+            public static ConfigEntry<bool> FixBrawlerLandingCam;
         }
         public static ConfigEntry<bool> weaponDisplayEnabled;
         public static ConfigEntry<bool> weaponDisplayVanillaUIEnabled;
@@ -253,9 +291,8 @@ namespace NO_Tactitools.Core {
             Logger = base.Logger;
             // Plugin startup logic
             harmony = new Harmony("yessidro.no_tactitools_plus");
-            // CORE PATCHES
-            harmony.PatchAll(typeof(RegisterControllerPatch));
-            harmony.PatchAll(typeof(ControllerInputInterceptionPatch));
+            // INPUT CATCHER
+            InputCatcher.Init(harmony);
             //
             int order = 100;
             //Modifiers
@@ -270,7 +307,7 @@ namespace NO_Tactitools.Core {
             {
                 string name = string.Format("Modifiers - Modifier {0}", i);
                 string description = string.Format("Button to act as modifier {0}", i);
-                var modifierConfig = new RewiredInputConfig(Config, "Modifiers", name, description, order--, isModifier: true);
+                var modifierConfig = new RewiredModifierConfig(Config, "Modifiers", name, description, order--);
                 RewiredConfigManager.ModsTracker.AddModifierBinding(modifierConfig);
                 InputCatcher.ModsTracker.AddModifierBinding(modifierConfig);
             }
@@ -438,6 +475,13 @@ namespace NO_Tactitools.Core {
                     "List of HMD marker draw distances, separated by \";\", fraction separator is \".\". 0.0 is unlimited distance.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.Unit = Config.Bind("HMD Declutter",
+                "HMD Declutter - Unit",
+                HMDDeclutterComponent.Units.m,
+                new ConfigDescription(
+                    "Distance measurement unit.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
             HMDDeclutter.Report = Config.Bind("HMD Declutter",
                 "HMD Declutter - Report",
                 true,
@@ -450,6 +494,13 @@ namespace NO_Tactitools.Core {
                 false,
                 new ConfigDescription(
                     "Should maximized markers be minimized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.NotAlwaysMaximized = Config.Bind("HMD Declutter",
+                "HMD Declutter - Not Always Maximized",
+                false,
+                new ConfigDescription(
+                    "If enabled, no markers will be always maximized by default.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
             HMDDeclutter.HideMinimized = Config.Bind("HMD Declutter",
@@ -665,6 +716,13 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
+            VirtualJoystickExtender.ControlInThirdPersonMode = Config.Bind("Virtual Joystick Extender",
+                "Virtual Joystick Extender - Control In Third Person Mode - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable controlling aircraft with mouse joystick in third person mode. If enabled, Third Person HUD typically needs to be also enabled.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
             // Keyboard-controlled axes
             keyAxes = new KeyAxisData[6] {
                 new ("Pitch", "Down", "Up", -0.999f, 0.999f),
@@ -998,6 +1056,24 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
+            UIAdjustments.WingAngleGaugeFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Wing Angle Gauge - Font Size",
+                20,
+                new ConfigDescription(
+                    "Wing Angle Gauge text font size (leave and reenter aircraft to apply changes).",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.NozzleGaugeFontSize = Config.Bind("UI Adjustments",
+                "UI Adjustments - Nozzle Gauge - Font Size",
+                20,
+                new ConfigDescription(
+                    "Nozzle Gauge text font size (leave and reenter aircraft to apply changes).",
+                    new AcceptableValueRange<int>(0, 110),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             //Alternative Map Target Selection
             order = 100;
             AltMapTargetSelection.Enabled = Config.Bind("Alternative Map Target Selection",
@@ -1066,6 +1142,223 @@ namespace NO_Tactitools.Core {
                 false,
                 new ConfigDescription(
                     "Enable or disable FOV-dependent sensitivity in Free Look mode",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            // Key View Control
+            order = 100;
+            KeyViewControl.Enabled = Config.Bind("Key View Control",
+                "Key View Control - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable controlling view with keys (restart the game to apply changes). If enabled, Free Look Toggle also needs to be enabled.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            KeyViewControl.PanLeftKey = new RewiredButtonConfig(Config, "Key View Control", "Key View Control - Pan Left", "", order--);
+            KeyViewControl.PanRightKey = new RewiredButtonConfig(Config, "Key View Control", "Key View Control - Pan Right", "", order--);
+            KeyViewControl.TiltUpKey = new RewiredButtonConfig(Config, "Key View Control", "Key View Control - Tilt Up", "", order--);
+            KeyViewControl.TiltDownKey = new RewiredButtonConfig(Config, "Key View Control", "Key View Control - Tilt Down", "", order--);
+            KeyViewControl.FOVDependent = Config.Bind("Key View Control",
+                "Key View Control - FOVDependent",
+                true,
+                new ConfigDescription(
+                    "Should pan and tilt step and speed depend on current FOV.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            KeyViewControl.StopAt0 = Config.Bind("Key View Control",
+                "Key View Control - Stop At 0",
+                true,
+                new ConfigDescription(
+                    "Should stop at 0 angles while changing pan and tilt angles in steps.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            KeyViewControl.PanStep = Config.Bind("Key View Control",
+                "Key View Control - Pan Step",
+                45.0f,
+                new ConfigDescription(
+                    "Pan angle change step in degrees.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            KeyViewControl.TiltStep = Config.Bind("Key View Control",
+                "Key View Control - Tilt Step",
+                45.0f,
+                new ConfigDescription(
+                    "Tilt angle change step in degrees.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            KeyViewControl.PanSpeed = Config.Bind("Key View Control",
+                "Key View Control - Pan Speed",
+                45.0f,
+                new ConfigDescription(
+                    "Pan angle change speed in degrees per second.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            KeyViewControl.TiltSpeed = Config.Bind("Key View Control",
+                "Key View Control - Tilt Speed",
+                45.0f,
+                new ConfigDescription(
+                    "Tilt angle change speed in degrees per second.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            // Third Person HUD
+            order = 100;
+            ThirdPersonHUD.Enabled = Config.Bind("Third Person HUD",
+                "Third Person HUD - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable HUD and HMD in camera orbit and chase modes (restart the game to apply changes). If enabled, Virtual Joystick Extender - Control In Third Person Mode typically needs to be also enabled.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            ThirdPersonHUD.HUDRoll = Config.Bind("Third Person HUD",
+                "Third Person HUD - HUD Roll - Enabled",
+                false,
+                new ConfigDescription(
+                    "Should HUD pivot with the aircraft roll.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            ThirdPersonHUD.HUDBoundToScreen = Config.Bind("Third Person HUD",
+                "Third Person HUD - HUD Bound To Screen - Enabled",
+                false,
+                new ConfigDescription(
+                    "Should HUD be bound to screen position instead of aircraft direction.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            ThirdPersonHUD.HUDScreenOffset = Config.Bind("Third Person HUD",
+                "Third Person HUD - HUD Screen Offset",
+                Vector2.zero,
+                new ConfigDescription(
+                    "HUD position offset relative to screen center (positive x is right, positive y is up).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            ThirdPersonHUD.SetTargetDesignatorPos = Config.Bind("Third Person HUD",
+                "Third Person HUD - Set Target Designator Position - Enabled",
+                false,
+                new ConfigDescription(
+                    "If enabled, target designator will be placed at screen center in camera cockpit mode, and at offset from screen center in camera orbit and chase modes.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            ThirdPersonHUD.TargetDesignatorScreenOffset = Config.Bind("Third Person HUD",
+                "Third Person HUD - Target Designator Screen Offset",
+                Vector2.zero,
+                new ConfigDescription(
+                    "Target Designator position offset relative to screen center (positive x is right, positive y is up).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            // Dynamic Landing Cam
+            order = 100;
+            DynamicLandingCam.Enabled = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable or disable Dynamic Landing Cam feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.KeepOnAfterTouchDown = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Keep On After Touchdown - Enabled",
+                true,
+                new ConfigDescription(
+                    "Should landing cam be kept on after touchdown.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.Rotate = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Rotate - Enabled",
+                false,
+                new ConfigDescription(
+                    "If enabled, landing cam will be rotated (within limits) towards velocity vector.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.RotationSpeed = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Rotation Speed",
+                1f,
+                new ConfigDescription(
+                    "Landing Cam rotation speed.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.TiltLimits = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Tilt Limits",
+                new Vector2 (0f, 90f),
+                new ConfigDescription(
+                    "Landing Cam tilt angle limits (0 is horizontal, 90 is down).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.PanLimits = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Pan Limits",
+                new Vector2 (-90f, 90f),
+                new ConfigDescription(
+                    "Landing Cam pan angle limits (0 is forward, -90 is left, 90 is right).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.InitialAngles = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Initial Angles",
+                new Vector2 (0, 0),
+                new ConfigDescription(
+                    "Initial landing camera angles (x is tilt angle, y is pan angle).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.LandingCamFOV = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Landing Cam FOV",
+                90f,
+                new ConfigDescription(
+                    "Landing Cam FOV.",
+                    new AcceptableValueRange<float>(0f, 180f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.Deadzone = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Deadzone",
+                10f,
+                new ConfigDescription(
+                    "Deadzone angle (in degrees): landing camera won't rotate if angle between velocity vector and camera direction is less that this angle.",
+                    new AcceptableValueRange<float>(0f, 180f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            DynamicLandingCam.FixBrawlerLandingCam = Config.Bind("Dynamic Landing Cam",
+                "Dynamic Landing Cam - Fix A-19 Brawler Landing Cam",
+                true,
+                new ConfigDescription(
+                    "Apply the A-19 Brawler landing cam position fix (as of NO 0.33.4, it is set inside the aircraft).",
                     null,
                     new ConfigurationManagerAttributes {
                         Order = order--
@@ -1799,6 +2092,21 @@ namespace NO_Tactitools.Core {
             if (FreeLookToggle.Enabled.Value) {
                 Log($"Free Look toggle is enabled, patching...");
                 harmony.PatchAll(typeof(FreeLookTogglePlugin));
+            }
+            // KEY VIEW CONTROL
+            if (KeyViewControl.Enabled.Value) {
+                Log($"Key View Control is enabled, patching...");
+                harmony.PatchAll(typeof(KeyViewControlComponent.OnMainMenuStart));
+            }
+            // THIRD PERSON HUD
+            if (ThirdPersonHUD.Enabled.Value) {
+                Log($"Third Person HUD is enabled, patching...");
+                harmony.PatchAll(typeof(ThirdPersonHUDComponent.OnMainMenuStart));
+            }
+            //DYNAMIC LANDING CAM
+            if (DynamicLandingCam.Enabled.Value) {
+                Log($"Dynamic Landing Cam is enabled, patching...");
+                harmony.PatchAll(typeof(DynamicLandingCamComponent.OnMainMenuStart));
             }
             // GAMEBINDINGS
             if (gameBindingsPatchEnabled.Value) {

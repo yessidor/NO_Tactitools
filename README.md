@@ -407,7 +407,7 @@ Feature state is controlled by `Target Filter Preset - Maximize Targetable Marke
 ### Alternative target selection on HMD
 
 Targeting in NO does not always produce expected results, so a more simpler algorithm was added.  
-In single target selection mode (with target selection key clicked) it selects the closest target that passes target filters and is within target selection cone centered around direction the camera is looking.  
+In single target selection mode (with target selection key clicked) it selects the closest target that passes target filters and is within target selection cone centered around direction designated by target selection marker.  
 In "paint" mode (with target selection key held) it will not account for distances and will select all targets that pass filters and fall into the target selection cone.
 
 `Alternative Target Selection - Enabled` setting controls the state of the feature, and `Alternative Target Selection - Camera FOV Fraction` sets the fraction that is multiplied by camera vertical FOV to get the apex angle (aperture) of selection cone. `Alternative Target Selection - Max Distance` sets the max distance to select target at, measured in meters (set to 0 do select targets at any distance). If `Alternative Target Selection - Pick Active` is enabled, when target selection key is clicked and no new target can be selected, the best matching target from already selected ones is made active.
@@ -473,11 +473,11 @@ Declutters HMD by introducing marker draw distance and options to minimize marke
 
 #### HMD markers draw distance
 
-`HMD Declutter - Marker Draw Distances` is a string of marker draw distances, measured in meters. Distance values separator is ";", fraction separator is ".", "0.0" is unlimited distance. Example of the distances string: "0;1000.0;5000;50000". `HMD Declutter - Cycle Marker Draw Distance Up` and `HMD Declutter - Cycle Marker Draw Distance Down` are key bindings for cycling distance up or down the distances list. `HMD Declutter - Report` determines whether changing the marker draw distance will be reported on HMD.
+`HMD Declutter - Marker Draw Distances` is a string of marker draw distances, measured in units specified by `HMD Declutter - Unit`. Distance values separator is ";", fraction separator is ".", "0.0" is unlimited distance. Example of the distances string: "0;1000.0;5000;50000". `HMD Declutter - Cycle Marker Draw Distance Up` and `HMD Declutter - Cycle Marker Draw Distance Down` are key bindings for cycling distance up or down the distances list. `HMD Declutter - Report` determines whether changing the marker draw distance will be reported on HMD.
 
 #### Minimizing and hiding HMD markers
 
-If `HMD Declutter - Minimize Maximized` is enabled, markers that should be maximized according to HUD settings, will be minimized to dots. If `HMD Declutter - Hide Minimized` is enabled, markers that should be minimized, will be hidden instead. `HMD Declutter - Enemy Minimized Marker Scale` and `HMD Declutter - Friendly Minimized Marker Scale` set scales of enemy and friendly minimized markers respectively.
+If `HMD Declutter - Not Always Maximized` is enabled, no markers will be always maximized by default (currently only aircraft markers are always maximized by game). If `HMD Declutter - Minimize Maximized` is enabled, markers that should be maximized according to HUD settings, will be minimized to dots. If `HMD Declutter - Hide Minimized` is enabled, markers that should be minimized, will be hidden instead. `HMD Declutter - Enemy Minimized Marker Scale` and `HMD Declutter - Friendly Minimized Marker Scale` set scales of enemy and friendly minimized markers respectively.
 
 ### Map and minimap target arrows
 
@@ -505,7 +505,7 @@ When enabled, the marker on HMD shows velocity vector of the current (active) ta
 
 ### Text size adjustments for HUD and map
 
-Adds settings to adjust sizes of various text fields: target marker info and tooltip, objective marker text, grid labels on map; time of flight and missile ranged on HUD. `UI Adjustments - Enabled` controls the state, numerical options in `UI Adjustments` config section control text sizes.
+Adds settings to adjust sizes of various text fields: target marker info and tooltip, objective marker text, grid labels on map; time of flight and missile ranged on HUD. `UI Adjustments - Enabled` controls the state, numerical options in `UI Adjustments` config section control text sizes. Note: wing and nozzle gauge font settings will be applied after respawning the aircraft. 
 
 ### Alternative algorithm for target selection on map
 
@@ -524,11 +524,33 @@ Clicking `Center view` key switches between target padlock mode and previous vie
 
 In the mod settings, `Free Look Toggle - Enabled` controls the state of the feature (restart the game to apply changes). If `Free Look Toggle - Disable Free Look In Padlock` is enabled, free look mode is automatically disabled in padlock mode. If `Free Look Toggle - FOV-dependent Sensitivity - Enabled` is enabled, mouse sensitivity in free look mode depends on the current FOV: the lesser the FOV, the lesser the sensitivity. If `Free Look Toggle - Report` is enabled, free look and padlock state changes are reported on HMD.
 
+### Third person HUD
+
+Enables HUD in third person mode (when camera is in "orbit" or "chase" modes).
+
+`Third Person HUD - Enabled` enables the feature (restart the game to apply changes). If `Third Person HUD - HUD Roll - Enabled` is enabled, HUD will pivot with aircraft roll. If `Third Person HUD - HUD Bound To Screen - Enabled` is enabled, HUD will stay at `Third Person HUD - HUD Screen Offset` position relative to screen center. If `Third Person HUD - Set Target Designator Position - Enabled` is enabled, target designator will be placed at `Third Person HUD - Target Designator Screen Offset` from screen center.
+
+### Cokpit camera control with keys
+
+Implements alternative way to control cockpit camera with keys.
+
+`Key View Control - Enabled` controls the state (restart the game to apply changes. `Key View Control - Pan Left`, `Key View Control - Pan Right`, `Key View Control - Tilt Up`, `Key View Control - Tilt Down` are key bindings for pan (horizontal) and tilt (vertical) axes respectivelly. Short press will change angles by values set by `Key View Control - Pan Step` and `Key View Control - Tilt Step` config variables, long press will gradually change angles with speed set by `Key View Control - Pan Speed` and `Key View Control - Tilt Speed`. If `Key View Control - FOVDependent` is enabled, step and speed will be adjusted by FOV-dependent factor (lesser the FOV, lesser the speed and step). If `Key View Control - Stop At 0` is enabled, changing pan and tilt anges in steps will stop at zero angle values regardless of step size. 
+
+### Dynamic landing camera
+
+Enables to pivot landing camera towards velocity vector.
+
+`Dynamic Landing Cam - Enabled` enables the feature (restart the game to apply changes). `Dynamic Landing Cam - Keep On After Touchdown - Enabled` keeps landing camera on after touchdown and after spawning on ground. `Dynamic Landing Cam - Rotate - Enabled` makes landing camera rotate towards velocity vector at `Dynamic Landing Cam - Rotation Speed` and within `Dynamic Landing Cam - Tilt Limits` and `Dynamic Landing Cam - Pan Limits`. `Dynamic Landing Cam - Initial Angles` set initial landing camera tilt and pan angles, `Dynamic Landing Cam - Landing Cam FOV` sets landing camera FOV. `Dynamic Landing Cam - Deadzone` sets the deadzone angle (in degrees): landing camera won't rotate if angle between velocity vector and camera direction is less that this angle. `Dynamic Landing Cam - Fix A-19 Brawler Landing Cam` fixes A-19 Brawler landing cam position: as of NO 0.33.4, it is set inside the aircraft.
+
 ### Customizable modifier keys
 
 This feature allows to assign any button on any device as a modifier key.
 
 `Modifiers - Number` sets total number of modifier keys (restart the game to apply changes). `Modifiers - Modifier #` setting assigns bound key as a modifier. If some key was bound as non-modifier, functional key, it won't be allowed to be bound as modifier, and vice versa (error message about this conflict is displayed within input field). When binding modifier and functional keys combination to selected action in the mod settings, just hold modifier key(s) while pressing functional key.
+
+### Axes binding
+
+Input subsystem supports axis binding (though currently no mod components use this functionality).
 
 ### Better Virtual Joystick
 
@@ -561,6 +583,10 @@ Shape of these response curves are defined by so-called depressed cubic equation
 #### Setting primary axes to 0 when virtual joystick is temporarily disabled
 
 Set `Virtual Joystick Extender - Decay Mode` to `Instant` to set pitch, roll, and yaw axes to 0 when virtual joystick control is disabled by opening map, leaderboard, or radial menu.
+
+#### Controlling in third person mode
+
+If `Virtual Joystick Extender - Control In Third Person Mode - Enabled` virtual joystick will control aircraft in third person mode. See [Third person HUD](#third-person-hud).
 
 ### Better axis control with keys
 

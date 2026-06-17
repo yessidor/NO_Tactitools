@@ -5,7 +5,7 @@ using Rewired;
 using UnityEngine;
 using NO_Tactitools.Core;
 
-namespace NO_Tactitools.UI.HMD;
+namespace NO_Tactitools.Controls;
 
 [HarmonyPatch(typeof(MainMenu), "Start")]
 public class FreeLookTogglePlugin {
@@ -18,6 +18,7 @@ public class FreeLookTogglePlugin {
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnPlayerGetButtonDown));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnPlayerGetAxis));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnCameraCockpitStateUpdateState));
+            Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnCameraOrbitStateUpdateState));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnCameraStateManagerLateUpdate));
             Plugin.harmony.PatchAll(typeof(FreeLookToggleComponent.OnDynamicMapMapControls));
 
@@ -40,6 +41,7 @@ class FreeLookToggleComponent {
     public static bool FOVDependentSens { get; set; } = true;
 
     private static bool inCameraCockpitStateUpdateState = false;
+    private static bool inCameraOrbitStateUpdateState = false;
     private static bool inDynamicMapMapControls = false;
     private static bool freeLook = false;
     private static bool padLock = false;
@@ -91,7 +93,7 @@ class FreeLookToggleComponent {
                 if (inDynamicMapMapControls)
                 { /* noop */ }
                 else if (ShouldProcess()) {
-                    if (inCameraCockpitStateUpdateState) {
+                    if (inCameraCockpitStateUpdateState || inCameraOrbitStateUpdateState) {
                         //since GetButton("FreeLook") always returns true when in CameraCockpitState.UpdateState() to avoid resetting view to center,
                         //handling "Pan View" and "Tilt View" axes output here based on freeLook
                         if (freeLook) {
@@ -103,7 +105,6 @@ class FreeLookToggleComponent {
                     }
                     //"Pan View" and "Tilt View" axes in other camera states is unchanged
                     //Other camera states (except CameraOrbitState) process these axes if GetButton("FreeLook") returns true
-                    //CameraOrbitState does not check GetButton("FreeLook") and always processes these axes
                 }
                 else
                     __result = 0.0f;
@@ -127,7 +128,7 @@ class FreeLookToggleComponent {
             var cameraCockpitState = __instance;
             var player = GameManager.playerInput;
             padLock = (bool)padLockInfo.GetValue(cameraCockpitState);
-            bool hasTargets = SceneSingleton<CombatHUD>.i.GetTargetList().Count > 0;
+            bool hasTargets = GameBindings.Player.TargetList.GetTargetCount() > 0;
             bool oldPadLock = padLock;
             bool oldFreeLook = freeLook;
             if (player.GetButtonTimedPressDown("Center", PlayerSettings.pressDelay)) {
@@ -144,7 +145,7 @@ class FreeLookToggleComponent {
                 Plugin.Log("[FLT] UpdateState: toggle PadLock");
                 if (padLockState.ignoreCenterUp)
                     padLockState.ignoreCenterUp = false;
-                else if (PlayerSettings.padLockTarget && hasTargets && SceneSingleton<CombatHUD>.i.aircraft != null) {
+                else if (PlayerSettings.padLockTarget && hasTargets && GameBindings.Player.Aircraft.GetAircraft(silent: true) != null) {
                     padLock = !padLock;
                     padLockInfo.SetValue(cameraCockpitState, padLock);
                     if (padLock) {
@@ -213,6 +214,17 @@ class FreeLookToggleComponent {
                     UIBindings.Game.DisplayToast(string.Format("FreeLook: <b>{0}</b>", freeLook ? "activated" : "deactivated"), 3f);
             }
 
+        }
+    }
+
+    [HarmonyPatch(typeof(CameraOrbitState), "UpdateState")]
+    public class OnCameraOrbitStateUpdateState {
+        public static void Prefix() {
+            inCameraOrbitStateUpdateState = true;
+        }
+
+        public static void Postfix(CameraOrbitState __instance) {
+            inCameraOrbitStateUpdateState = false;
         }
     }
 

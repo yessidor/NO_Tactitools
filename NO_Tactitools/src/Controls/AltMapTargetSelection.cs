@@ -41,7 +41,8 @@ class AltMapTargetSelectionComponent {
             return;
 
         var iconLookup = (Dictionary<Unit, UnitMapIcon>)dynamicMapIconLookupInfo.GetValue(dynamicMap);
-        UnitMapIcon unselectedMapIcon = null, selectedMapIcon = null;
+        List<UnitMapIcon> paintedIcons = new ();
+        UnitMapIcon unselectedIcon = null, selectedIcon = null;
         float squareSelectionRadiusUnselected = SelectionRadius * SelectionRadius;
         float squareSelectionRadiusSelected = squareSelectionRadiusUnselected;
         Vector3 mousePosition = Input.mousePosition;
@@ -52,26 +53,42 @@ class AltMapTargetSelectionComponent {
                 bool selected = !icon.iconImage.raycastTarget;
                 if (!selected && squareDistance <= squareSelectionRadiusUnselected && !SceneSingleton<TargetListSelector>.i.CheckExclusions(icon.unit)) {
                     if (paint) {
-                        icon.ClickIcon(MapIcon.ClickSource.Controller);
+                        paintedIcons.Add(icon);
                     }
                     else {
                         squareSelectionRadiusUnselected = squareDistance;
-                        unselectedMapIcon = icon;
+                        unselectedIcon = icon;
                     }
                 }
                 else if (PickActive && selected && !paint && squareDistance <= squareSelectionRadiusSelected) {
                     squareSelectionRadiusSelected = squareDistance;
-                    selectedMapIcon = icon;
+                    selectedIcon = icon;
                 }
             }
         }
-        if (!paint && unselectedMapIcon != null) {
-            unselectedMapIcon.ClickIcon(MapIcon.ClickSource.Controller);
-        }
-        else if (selectedMapIcon != null) {
-            var unit = selectedMapIcon.unit;
-            GameBindings.Player.TargetList.DeselectUnit(unit);
-            GameBindings.Player.TargetList.AddTarget(unit);
+
+        bool disposessed = SceneSingleton<CombatHUD>.i?.aircraft?.disabled ?? true;
+        if (paint)
+            if (disposessed)
+                foreach (var icon in paintedIcons)
+                    icon.ClickIcon(MapIcon.ClickSource.Controller);
+            else
+                GameBindings.Player.TargetList.AddTargets(paintedIcons.ConvertAll(icon => icon.unit));
+        else {
+            if (disposessed) {
+                var icon = unselectedIcon != null ? unselectedIcon : selectedIcon != null ? selectedIcon : null;
+                if (icon != null)
+                    icon.ClickIcon(MapIcon.ClickSource.Controller);
+            }
+            else
+                if (unselectedIcon != null) {
+                    GameBindings.Player.TargetList.AddTarget(unselectedIcon.unit);
+                }
+                else if (selectedIcon != null) {
+                    var unit = selectedIcon.unit;
+                    GameBindings.Player.TargetList.DeselectUnit(unit);
+                    GameBindings.Player.TargetList.AddTarget(unit);
+                }
         }
     }
 

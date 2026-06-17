@@ -21,6 +21,7 @@ class TargetListControllerPlugin {
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnPlatformUpdate));
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkerExtraSetup));
+            Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkeDynamicHide));
 
             var unitRecallListsNum = Plugin.MFDNavExtraKeys.Count + 1;
             TargetListControllerComponent.InternalState.unitRecallLists = new List<Unit> [unitRecallListsNum];
@@ -665,12 +666,41 @@ public static class TargetListControllerComponent {
         }
     }
 
-    //This patch avoids brief flashing of selected target info and marker on minimap when loading target list
+    private static void TargetMarkerExtraSetup(TargetMarker targetMarker) {
+       targetMarker.Show(value: false);
+       targetMarker.markerImg.enabled = true;
+       float num = (DynamicMap.mapMaximized ? 1f : 0.5f) / SceneSingleton<DynamicMap>.i.mapImage.transform.localScale.x;
+       targetMarker.transform.localScale = Vector3.one * num;
+    }
+
+    //FIX: This patch removes brief flashing of selected target info and marker on minimap when loading target list
     [HarmonyPatch(typeof(TargetMarker), "ExtraSetup")]
     public static class OnTargetMarkerExtraSetup {
         static void Prefix(ref TargetMarker __instance) {
-           __instance.Show(value: false);
-           __instance.markerImg.enabled = false;
+           TargetMarkerExtraSetup(__instance);
+        }
+
+        //0.33.4: Added Postfix()
+        static void Postfix(ref TargetMarker __instance) {
+           TargetMarkerExtraSetup(__instance);
+        }
+    }
+
+    //FIX: 0.33.4: This patch highlights target marker for active target and masks target markers for other targets
+    [HarmonyPatch(typeof(TargetMarker), "DynamicHide")]
+    public static class OnTargetMarkeDynamicHide {
+        static void Postfix(ref TargetMarker __instance) {
+            if (SceneSingleton<MapOptions>.i.showTargetInfo && DynamicMap.mapMaximized) {
+               //GetActiveTarget() returns null when there are no targets or there is no target list at all
+               var activeTarget = GameBindings.Player.TargetList.GetActiveTarget();
+               if (activeTarget == null || __instance.GetUnit() == activeTarget) {
+                   var color = __instance.markerImg.color;
+                   __instance.Show(value: true);
+                   __instance.markerImg.color = color;
+               }
+               else
+                   __instance.Mask();
+            }
         }
     }
 }

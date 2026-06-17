@@ -113,6 +113,8 @@ class TargetArrowsComponent {
         var arrowIdx = startIdx == 0 ? 0 : startIdx - 1;
         for (int idx = arrowIdx; idx < arrows.Count; idx++) {
             var arrow = arrows[idx];
+            if (arrow == null)
+                continue;
             arrow.enabled = false;
             UnityEngine.Object.Destroy(arrow.gameObject);
         }
