@@ -67,28 +67,20 @@ public class DynamicLandingCamComponent {
 
 	[HarmonyPatch(typeof(TargetCam), "Initialize")]
     public class OnTargetCamInitialize {
-        public static void Postfix(TargetCam __instance, ref Camera ___cam, ref TargetCam.CamMode ___currentMode, ref Aircraft ___aircraft) {
-            if (!KeepOnAfterTouchDown || !(___aircraft.gearState == LandingGear.GearState.Extending || ___aircraft.gearState == LandingGear.GearState.LockedExtended))
+        public static void Postfix(TargetCam __instance, ref TargetCam.CamMode ___currentMode, ref UnitPart ___attachedPart) {
+            Plugin.Log($"OnTargetCamInitialize.Postfix()");
+
+            var aircraft = ___attachedPart?.parentUnit as Aircraft;
+            if (!KeepOnAfterTouchDown || aircraft == null || !aircraft.Identity.HasAuthority || !(aircraft.gearState == LandingGear.GearState.Extending || aircraft.gearState == LandingGear.GearState.LockedExtended))
                 return;
 
-			WeaponManager weaponManager = ___aircraft.weaponManager;
+			WeaponManager weaponManager = aircraft.weaponManager;
 			if (weaponManager != null && weaponManager.GetTargetList().Count > 0) {
-				___cam.enabled = false;
-				___currentMode = TargetCam.CamMode.landingMode;
                 InvokeOnCamToggle(__instance, false, TargetCam.CamMode.targetForward);
 			}
+
             __instance.SetLandingCam();
         }
-    }
-
-    private static int Sign(float f) {
-        return f < 0 ? -1 : f > 0 ? 1 : 0;
-    }
-
-    private static float ClampAngle(float angle) {
-        if (Mathf.Abs(angle) > 180f)
-            angle = angle - Sign(angle) * 360f;
-        return angle;
     }
 
 	[HarmonyPatch(typeof(TargetCam), "Update")]
@@ -99,9 +91,9 @@ public class DynamicLandingCamComponent {
                 if (velocity.magnitude > 1f && Vector3.Dot(velocity.normalized, ___cam.transform.forward) < deadzoneDotProductThreshold) {
                     ___cam.transform.rotation = Quaternion.Slerp(___cam.transform.rotation, Quaternion.LookRotation(velocity, Vector3.up), Time.deltaTime * RotationSpeed);
                     var eulerAngles = ___cam.transform.localEulerAngles;
-                    eulerAngles.x = ClampAngle(eulerAngles.x);
+                    eulerAngles.x = MathUtils.ClampAngle(eulerAngles.x);
                     eulerAngles.x = Mathf.Clamp(eulerAngles.x, TiltLimits.x, TiltLimits.y);
-                    eulerAngles.y = ClampAngle(eulerAngles.y);
+                    eulerAngles.y = MathUtils.ClampAngle(eulerAngles.y);
                     eulerAngles.y = Mathf.Clamp(eulerAngles.y, PanLimits.x, PanLimits.y);
                     eulerAngles.z = 0f;
                     ___cam.transform.localEulerAngles = eulerAngles;
@@ -117,8 +109,8 @@ public class DynamicLandingCamComponent {
         }
 
         public static void Postfix(ref Camera ___cam, ref Aircraft ___aircraft) {
-            var tilt = Mathf.Clamp(ClampAngle(InitialAngles.x), TiltLimits.x, TiltLimits.y);
-            var pan = Mathf.Clamp(ClampAngle(InitialAngles.y), PanLimits.x, PanLimits.y);
+            var tilt = Mathf.Clamp(MathUtils.ClampAngle(InitialAngles.x), TiltLimits.x, TiltLimits.y);
+            var pan = Mathf.Clamp(MathUtils.ClampAngle(InitialAngles.y), PanLimits.x, PanLimits.y);
             ___cam.transform.localEulerAngles = new Vector3(tilt, pan, 0);
 
             //FIX: A-19 Brawler landing cam fix

@@ -14,7 +14,7 @@ using NO_Tactitools.UI.HUD;
 using BepInEx.Bootstrap;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.12.0")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.13.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -74,6 +74,11 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<bool> MinimizeMaximized;
             public static ConfigEntry<float> EnemyMinimizedMarkerScale;
             public static ConfigEntry<float> FriendlyMinimizedMarkerScale;
+            public static ConfigEntry<float> OutdatedTime;
+            public static ConfigEntry<bool> ShowOutdatedTime;
+            public static ConfigEntry<bool> HideOutdatedMarker;
+            public static ConfigEntry<bool> SetOutdatedIcon;
+            public static ConfigEntry<float> EndOutdatedMarkerOpacity;
         };
         public class HUDOptionsPreset {
             public static ConfigEntry<bool> Enabled;
@@ -522,6 +527,41 @@ namespace NO_Tactitools.Core {
                 3f,
                 new ConfigDescription(
                     "Friendly Minimized Marker Scale (if 'Minimize Maximized' setting is enabled).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OutdatedTime = Config.Bind("HMD Declutter",
+                "HMD Declutter - Outdated Time",
+                -1.0f,
+                new ConfigDescription(
+                    "Base time for outdated marker modifications (in seconds). Set to negative value to disable.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.ShowOutdatedTime = Config.Bind("HMD Declutter",
+                "HMD Declutter - Show Outdated Time",
+                false,
+                new ConfigDescription(
+                    "Show time during which a marker was outdated.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.HideOutdatedMarker = Config.Bind("HMD Declutter",
+                "HMD Declutter - Hide Outdated Marker",
+                false,
+                new ConfigDescription(
+                    "Hide outdated marker after 'Outdated Time'.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.SetOutdatedIcon = Config.Bind("HMD Declutter",
+                "HMD Declutter - Set Outdated Icon",
+                false,
+                new ConfigDescription(
+                    "Set outdated icon for all outdated markers, not just selected ones.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.EndOutdatedMarkerOpacity = Config.Bind("HMD Declutter",
+                "HMD Declutter - End Outdated Marker Opacity",
+                0.25f,
+                new ConfigDescription(
+                    "Outdated marker opacity when it's been outdated for 'Outdated Time'.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
             // HUD Options Preset settings

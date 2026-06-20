@@ -116,7 +116,7 @@ public class MapTargetArrowsComponent {
             var targetMarker = (TargetMarker)targetMarkerInfo.GetValue(icon);
 
             var outsidePosition = icon.iconImage.transform.position;
-            var outsidePositionClipped = GetRectLineIntersection((Rect)rect, insidePosition, outsidePosition);
+            var outsidePositionClipped = MathUtils.GetRectLineIntersection((Rect)rect, insidePosition, outsidePosition);
             if (outsidePositionClipped != outsidePosition) {
                 var direction = outsidePositionClipped - insidePosition;
                 float z = -Mathf.Atan2(direction.x, direction.y) * Mathf.Rad2Deg;
@@ -171,53 +171,6 @@ public class MapTargetArrowsComponent {
         public static void Postfix(ref DynamicMap __instance) {
             Update(ref __instance);
         }
-    }
-
-    //TODO Extract from MapTargetArrowsComponent to helpers and reuse
-    private static Vector3 GetRectLineIntersection(Rect rect, Vector3 inside, Vector3 outside) {
-        Vector3 direction = outside - inside;
-        float tClosest = float.MaxValue;
-        float xMin = rect.x, xMax = rect.x + rect.width, yMin = rect.y, yMax = rect.y + rect.height;
-
-        void check_x(float t) {
-            if (t > 0 && t < tClosest) {
-                float y = inside.y + t * direction.y;
-                if (y >= yMin && y <= yMax)
-                    tClosest = t;
-            }
-        }
-
-        void check_y(float t) {
-            if (t > 0 && t < tClosest) {
-                float x = inside.x + t * direction.x;
-                if (x >= xMin && x <= xMax)
-                    tClosest = t;
-            }
-        }
-
-        if (Mathf.Abs(direction.x) > Mathf.Epsilon) {
-            // Check intersection with left edge (x = xMin)
-            float t = (xMin - inside.x) / direction.x;
-            check_x(t);
-
-            // Check intersection with right edge (x = xMax)
-            t = (xMax - inside.x) / direction.x;
-            check_x(t);
-        }
-
-        if (Mathf.Abs(direction.y) > Mathf.Epsilon) {
-            // Check intersection with bottom edge (y = yMin)
-            float t = (yMin - inside.y) / direction.y;
-            check_y(t);
-
-            // Check intersection with top edge (y = yMax)
-            t = (yMax - inside.y) / direction.y;
-            check_y(t);
-        }
-
-        var tClosestClamped = Mathf.Min(tClosest, 1.0f);
-        var result = tClosestClamped == 1.0f ? outside : inside + tClosestClamped * direction;
-        return result;
     }
 
     private static void ClearAllArrows() {

@@ -1,4 +1,5 @@
 using HarmonyLib;
+using System.Reflection;
 using System.Collections.Generic;
 using NO_Tactitools.Core;
 using NO_Tactitools.UI.MFD;
@@ -21,7 +22,10 @@ class TargetListControllerPlugin {
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnPlatformUpdate));
             Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkerExtraSetup));
-            Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkeDynamicHide));
+            Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkerDynamicHide));
+            Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkerMask));
+            Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnTargetMarkerShow));
+            Plugin.harmony.PatchAll(typeof(TargetListControllerComponent.OnDynamicMapMinimize));
 
             var unitRecallListsNum = Plugin.MFDNavExtraKeys.Count + 1;
             TargetListControllerComponent.InternalState.unitRecallLists = new List<Unit> [unitRecallListsNum];
@@ -688,18 +692,71 @@ public static class TargetListControllerComponent {
 
     //FIX: 0.33.4: This patch highlights target marker for active target and masks target markers for other targets
     [HarmonyPatch(typeof(TargetMarker), "DynamicHide")]
-    public static class OnTargetMarkeDynamicHide {
-        static void Postfix(ref TargetMarker __instance) {
-            if (SceneSingleton<MapOptions>.i.showTargetInfo && DynamicMap.mapMaximized) {
-               //GetActiveTarget() returns null when there are no targets or there is no target list at all
-               var activeTarget = GameBindings.Player.TargetList.GetActiveTarget();
-               if (activeTarget == null || __instance.GetUnit() == activeTarget) {
-                   var color = __instance.markerImg.color;
-                   __instance.Show(value: true);
-                   __instance.markerImg.color = color;
-               }
-               else
+    public static class OnTargetMarkerDynamicHide {
+        static bool Prefix(ref TargetMarker __instance) {
+           //GetActiveTarget() returns null when there are no targets or there is no target list at all
+           var activeTarget = GameBindings.Player.TargetList.GetActiveTarget();
+           bool show = SceneSingleton<MapOptions>.i.showTargetInfo && DynamicMap.mapMaximized;
+           if (activeTarget == null || __instance.GetUnit() == activeTarget) {
+               __instance.Show(value: show);
+           }
+           else {
+               if (show)
                    __instance.Mask();
+               else
+                   __instance.Show(false);
+           }
+           return false;
+        }
+    }
+
+    /* Save and restore markerImg.color and markerImg.enabled in order to maintain values of these fields,
+       because Show() modifies both and  Mask() modifies .color */
+    [HarmonyPatch(typeof(TargetMarker), "Show")]
+    public static class OnTargetMarkerShow {
+        struct ShowState {
+            public bool enabled;
+            public Color color;
+        };
+
+        static void Prefix(bool value, ref TargetMarker __instance, ref ShowState __state) {
+            __state.color = __instance.markerImg.color;
+            __state.enabled = __instance.markerImg.enabled;
+        }
+
+        static void Postfix(ref TargetMarker __instance, ref ShowState __state) {
+            __instance.markerImg.color = __state.color;
+            __instance.markerImg.enabled = __state.enabled;
+        }
+    }
+
+    [HarmonyPatch(typeof(TargetMarker), "Mask")]
+    public static class OnTargetMarkerMask {
+        static void Prefix(ref TargetMarker __instance, ref Color __state) {
+            __state = __instance.markerImg.color;
+        }
+
+        static void Postfix(ref TargetMarker __instance, ref Color __state) {
+            __instance.markerImg.color = __state;
+        }
+    }
+
+    [HarmonyPatch(typeof(DynamicMap), "Minimize")]
+    public static class OnDynamicMapMinimize {
+        private static FieldInfo targetMarkerInfo = AccessTools.Field(typeof(UnitMapIcon), "targetMarker");
+
+        static void Postfix(ref DynamicMap __instance) {
+            foreach (var icon in __instance.selectedIcons) {
+                var unitMapIcon = icon as UnitMapIcon;
+                if (unitMapIcon == null)
+                    continue;
+                var targetMarker = targetMarkerInfo.GetValue(unitMapIcon) as TargetMarker;
+                if (targetMarker == null)
+                    continue;
+                targetMarker.Show(value: false);
+                targetMarker.markerImg.enabled = true;
+                float scale = (DynamicMap.mapMaximized ? 1f : 0.5f) / __instance.mapImage.transform.localScale.x;
+                targetMarker.transform.localScale = Vector3.one * scale;
             }
         }
     }

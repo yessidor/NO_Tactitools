@@ -73,16 +73,6 @@ public class KeyViewControlComponent {
 
     private static bool initialized = false;
 
-    private static int Sign(float f) {
-        return f < 0 ? -1 : f > 0 ? 1 : 0;
-    }
-
-    private static float ClampAngle(float angle) {
-        if (Mathf.Abs(angle) > 180f)
-            angle = angle - Sign(angle) * 360f;
-        return angle;
-    }
-
     private static readonly float panLimit = 165f;
     private static readonly float tiltLimit = 65f;
 
@@ -94,13 +84,13 @@ public class KeyViewControlComponent {
                 var fovFactor = FOVDependent ? UIBindings.Game.GetCameraStateManager().mainCamera.fieldOfView / PlayerSettings.defaultFoV : 1f;
                 var ap = Math.Abs(pan);
                 if (ap == 1) {
-                    var sp = Sign(___panView);
+                    var sp = Mathf.Sign(___panView);
                     var n = ___panView + pan * PanStep * fovFactor;
-                    ___panView = Mathf.Clamp(StopAt0 && sp != 0 && sp != Sign(n) ? 0 : n, -panLimit, panLimit);
+                    ___panView = Mathf.Clamp(StopAt0 && !Mathf.Approximately(___panView, 0f) && sp != Mathf.Sign(n) ? 0 : n, -panLimit, panLimit);
                     pan = 0;
                 }
                 else if (ap == 2) {
-                    var n = ___panView + Sign(pan) * PanSpeed * Time.unscaledDeltaTime * fovFactor;
+                    var n = ___panView + Mathf.Sign(pan) * PanSpeed * Time.unscaledDeltaTime * fovFactor;
                     ___panView = Mathf.Clamp(n, -panLimit, panLimit);
                 }
             }
@@ -108,13 +98,13 @@ public class KeyViewControlComponent {
                 var fovFactor = FOVDependent ? UIBindings.Game.GetCameraStateManager().mainCamera.fieldOfView / PlayerSettings.defaultFoV : 1f;
                 var at = Mathf.Abs(tilt);
                 if (at == 1) {
-                    var st = Sign(___tiltView);
+                    var st = Mathf.Sign(___tiltView);
                     var n = ___tiltView + tilt * TiltStep * fovFactor;
-                    ___tiltView = Mathf.Clamp(StopAt0 && st != 0 && st != Sign(n) ? 0 : n, -tiltLimit, tiltLimit);
+                    ___tiltView = Mathf.Clamp(StopAt0 && !Mathf.Approximately(___tiltView, 0f) && st != Mathf.Sign(n) ? 0 : n, -tiltLimit, tiltLimit);
                     tilt = 0;
                 }
                 else if (at == 2) {
-                    var n = ___tiltView + Sign(tilt) * TiltSpeed * Time.unscaledDeltaTime * fovFactor;
+                    var n = ___tiltView + Mathf.Sign(tilt) * TiltSpeed * Time.unscaledDeltaTime * fovFactor;
                     ___tiltView = Mathf.Clamp(n, -tiltLimit, tiltLimit);
                 }
             }
@@ -127,28 +117,28 @@ public class KeyViewControlComponent {
             if (pan != 0) {
                 var ap = Math.Abs(pan);
                 if (ap == 1) {
-                    var sp = Sign(___panView);
+                    var sp = Mathf.Sign(___panView);
                     var n = ___panView + pan * PanStep;
-                    ___panView = StopAt0 && sp != 0 && sp != Sign(n) ? 0 : n;
+                    ___panView = StopAt0 && !Mathf.Approximately(___panView, 0f) && sp != Mathf.Sign(n) ? 0 : n;
                     pan = 0;
                 }
                 else if (ap == 2) {
-                    ___panView += Sign(pan) * PanSpeed * Time.unscaledDeltaTime;
+                    ___panView += Mathf.Sign(pan) * PanSpeed * Time.unscaledDeltaTime;
                 }
-                ___panView = ClampAngle(___panView);
+                ___panView = MathUtils.ClampAngle(___panView);
             }
             if (tilt != 0) {
                 var at = Mathf.Abs(tilt);
                 if (at == 1) {
-                    var st = Sign(___tiltView);
+                    var st = Mathf.Sign(___tiltView);
                     var n = ___tiltView + tilt * TiltStep;
-                    ___tiltView = StopAt0 && st != 0 && st != Sign(n) ? 0 : n;
+                    ___tiltView = StopAt0 && !Mathf.Approximately(___tiltView, 0f) && st != Mathf.Sign(n) ? 0 : n;
                     tilt = 0;
                 }
                 else if (at == 2) {
-                    ___tiltView += Sign(tilt) * TiltSpeed * Time.unscaledDeltaTime;
+                    ___tiltView += Mathf.Sign(tilt) * TiltSpeed * Time.unscaledDeltaTime;
                 }
-                ___tiltView = ClampAngle(___tiltView);
+                ___tiltView = MathUtils.ClampAngle(___tiltView);
             }
         }
     }

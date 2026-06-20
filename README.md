@@ -3,6 +3,8 @@
 [NOTT (plus) GitHub repository](https://github.com/yessidor/NO_Tactitools). [NOTT (plus) Codeberg repository](https://codeberg.org/yessidor/NO_Tactitools).  
 [Original NOTT repository](https://github.com/clumzy/NO_Tactitools).
 
+**Due to 2FA issues, NOTT (plus) main repository will be at** [Codeberg](https://codeberg.org/yessidor/NO_Tactitools).
+
 **Original NOTT README.md content follows, see below for [Additional features](#additional-features) .**
 
 ---
@@ -467,9 +469,11 @@ Allows to change zoom level of the minimap.
 
 ### HMD Declutter
 
-Declutters HMD by introducing marker draw distance and options to minimize markers that are supposed to be maximized and to hide markers that are supposed to be minimized. Selected and flashing icons will be drawn at any distance and regardless of marker minimizing and hiding options (see below). Also, if `Target Filter Preset - Maximize Targetable Markers - Enabled` is enabled, targetable markers will be always maximized regardless of the following settings. 
+Declutters HMD by introducing marker draw distance and options to minimize markers that are supposed to be maximized and to hide markers that are supposed to be minimized. Selected and flashing icons will be drawn at any distance and regardless of marker minimizing and hiding options (see below).
 
 `HMD Declutter - Enabled` controls the state of the feature.
+
+If `Target Filter Preset - Maximize Targetable Markers - Enabled` is enabled, targetable markers will be always maximized regardless of the following settings. 
 
 #### HMD markers draw distance
 
@@ -478,6 +482,10 @@ Declutters HMD by introducing marker draw distance and options to minimize marke
 #### Minimizing and hiding HMD markers
 
 If `HMD Declutter - Not Always Maximized` is enabled, no markers will be always maximized by default (currently only aircraft markers are always maximized by game). If `HMD Declutter - Minimize Maximized` is enabled, markers that should be maximized according to HUD settings, will be minimized to dots. If `HMD Declutter - Hide Minimized` is enabled, markers that should be minimized, will be hidden instead. `HMD Declutter - Enemy Minimized Marker Scale` and `HMD Declutter - Friendly Minimized Marker Scale` set scales of enemy and friendly minimized markers respectively.
+
+#### Outdated markers management
+
+`HMD Declutter - Outdated Time` sets base time for outdated marker modifications (in seconds). Assign negative value to disable. `HMD Declutter - Show Outdated Time` shows time during which the marker was outdated besides it. `HMD Declutter - Hide Outdated Marker` hides outdated marker after `Outdated Time` has expired. `HMD Declutter - Set Outdated Icon` sets all outdated markers to "?" icon, not just selected ones. If positive, `HMD Declutter - End Outdated Marker Opacity` makes outdated marker more and more transparent as it reaches expiration time (set to negative value to disable, max opacity is 1).
 
 ### Map and minimap target arrows
 

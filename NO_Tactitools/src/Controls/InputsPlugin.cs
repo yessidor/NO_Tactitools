@@ -81,7 +81,8 @@ public class KeyboardAxis {
             else {
                 var now = Time.time;
                 timeDelta = now - (float)prevTime;
-                prevTime = now;
+                if (now != prevTime)
+                    prevTime = now;
             }
 
             //skips the first iteration where timeDelta == 0.0f
@@ -92,7 +93,8 @@ public class KeyboardAxis {
                         initial = 0.0f;
                         intermediate = 0.0f;
                     }
-                    initial += (IncKeyPressed ? 1.0f : -1.0f) * timeDelta * BuildUpSpeed;
+                    var initialDelta = (IncKeyPressed ? 1.0f : -1.0f) * timeDelta * BuildUpSpeed;
+                    initial = Mathf.Sign(initialDelta) == Mathf.Sign(initial) ? initial + initialDelta : initialDelta;
                     var newIntermediate = DynamicCurve.Calc(initial);
                     var accumulatedDelta = newIntermediate - intermediate;
                     intermediate = newIntermediate;
@@ -195,11 +197,13 @@ public class VirtualJoystickExtender {
             controlInputs.yaw = YawCurve.Calc(controlInputs.yaw);
             controlInputs.roll = 0.0f;
         }
-        else if (Mode == Modes.RollYaw) {
-            controlInputs.yaw = controlInputs.roll * RollYawMultiplier;
+        else {
+            controlInputs.roll = RollCurve.Calc(controlInputs.roll);
+            if (Mode == Modes.RollYaw) {
+                controlInputs.yaw = controlInputs.roll * RollYawMultiplier;
+            }
         }
         controlInputs.pitch = PitchCurve.Calc(controlInputs.pitch);
-        controlInputs.roll = RollCurve.Calc(controlInputs.roll);
     }
 
     private void OnSetMode() {

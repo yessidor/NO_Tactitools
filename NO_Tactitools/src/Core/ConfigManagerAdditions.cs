@@ -225,6 +225,7 @@ public class RewiredAxisConfig : RewiredConfigBase {
     public static List<RewiredAxisConfig> AxisConfigs = [];
 
     public ConfigEntry<int> AxisIndex { get; private set; }
+    public ConfigEntry<int> AxisDirection { get; private set; }
     public ConfigEntry<string> ModifiersString { get; private set; }
 
     public RewiredAxisConfig(ConfigFile config, string category, string featureName, string description, int order) :
@@ -235,6 +236,15 @@ public class RewiredAxisConfig : RewiredConfigBase {
             -2,
             new ConfigDescription(
                 "Index of the axis",
+                null,
+                new ConfigurationManagerAttributes { Browsable = false }));
+
+        AxisDirection = config.Bind(
+            category,
+            $"{featureName} - Axis Direction",
+            1,
+            new ConfigDescription(
+                "Direction of the axis",
                 null,
                 new ConfigurationManagerAttributes { Browsable = false }));
 
@@ -253,9 +263,10 @@ public class RewiredAxisConfig : RewiredConfigBase {
         AxisConfigs.Add(this);
     }
 
-    public void Set(string controllerName, int axisIndex, string axisName, string modifiersString) {
+    public void Set(string controllerName, int axisIndex, string axisName, int axisDirection, string modifiersString) {
         base.Set(controllerName);
         this.AxisIndex.BoxedValue = axisIndex;
+        this.AxisDirection.BoxedValue = axisDirection;
         this.ModifiersString.BoxedValue = modifiersString;
         this.Input.BoxedValue = string.Format(
             "{0}{1}",
@@ -457,7 +468,7 @@ internal sealed class RewiredConfigManager {
 
         string activeModifiersString = ModifierUtils.ToString(ModsTracker.GetModifiers(activeOnly: true));
 
-        (var controller, var axis, var _) = PickAxis(0.5f);
+        (var controller, var axis, var axisDirection) = PickAxis(0.5f);
         if (axis == null) {
             _errorMessage = activeModifiersString.Length != 0 ? activeModifiersString : null;
             return;
@@ -465,7 +476,8 @@ internal sealed class RewiredConfigManager {
 
         string controllerName = controller.name.Trim();
         int axisId = axis.id;
-        string axisName = axis.elementIdentifier.name;
+        var elementIdentifier = axis.elementIdentifier;
+        string axisName = axisDirection > 0 ? elementIdentifier.positiveName : axisDirection < 0 ? elementIdentifier.negativeName : elementIdentifier.name;
 
         // Conflict check
         foreach (var config in RewiredAxisConfig.AxisConfigs) {
@@ -486,7 +498,7 @@ internal sealed class RewiredConfigManager {
         }
 
         Debug.Assert(targetConfig != null);
-        targetConfig.Set(controllerName, axisId, axisName, activeModifiersString);
+        targetConfig.Set(controllerName, axisId, axisName, axisDirection, activeModifiersString);
         Reset();
         _axes.Clear();
         return;
@@ -517,7 +529,7 @@ internal sealed class RewiredConfigManager {
 
     private static Dictionary<Controller, Dictionary<Controller.Axis, float>> _axes = new ();
 
-    private static (Rewired.Controller, Rewired.Controller.Axis, float) PickAxis(float threshold) {
+    private static (Rewired.Controller, Rewired.Controller.Axis, int) PickAxis(float threshold) {
         foreach (var controller in ReInput.controllers.Controllers) {
             if (!_axes.TryGetValue(controller, out var controllerAxes)) {
                 controllerAxes = new Dictionary<Controller.Axis, float> ();
