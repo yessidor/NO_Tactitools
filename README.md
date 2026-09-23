@@ -1,6 +1,6 @@
 # ☢️  Nuclear Option Tactical Tools (plus) ☢️
 
-[NOTT (plus) Codeberg repository](https://codeberg.org/yessidor/NO_Tactitools). [NOTT (plus) GitHub repository](https://github.com/yessidor/NO_Tactitools) (currently inactive).
+[NOTT (plus) Codeberg repository](https://codeberg.org/yessidor/NO_Tactitools). [NOTT (plus) GitHub repository](https://github.com/yessidor/NO_Tactitools).
 
 [Original NOTT repository](https://github.com/clumzy/NO_Tactitools).
 
