@@ -3,6 +3,7 @@ using UnityEngine;
 using NO_Tactitools.Core;
 using System.Collections.Generic;
 using UnityEngine.UI;
+using TMPro;
 
 namespace NO_Tactitools.UI.MFD;
 
@@ -21,9 +22,11 @@ class AmmoConIndicatorPlugin {
 
             var bindings = new BindingHelper.Binding[] {
                 new (typeof(AmmoConIndicatorComponent.InternalState), "ColorHMDMarker", Plugin.AmmoConIndicator.ColorHMDMarker),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "ColorHMDLasedMarker", Plugin.AmmoConIndicator.ColorHMDLasedMarker),
                 new (typeof(AmmoConIndicatorComponent.InternalState), "ColorMFDBox", Plugin.AmmoConIndicator.ColorMFDBox),
                 new (typeof(AmmoConIndicatorComponent.InternalState), "DrawMFDDot", Plugin.AmmoConIndicator.DrawMFDDot),
                 new (typeof(AmmoConIndicatorComponent.InternalState), "HMDTrackedMarkerColor", Plugin.AmmoConIndicator.HMDTrackedMarkerColor),
+                new (typeof(AmmoConIndicatorComponent.InternalState), "HMDLasedMarkerColor", Plugin.AmmoConIndicator.HMDLasedMarkerColor),
                 new (typeof(AmmoConIndicatorComponent.InternalState), "HMDDefaultMarkerColor", Plugin.AmmoConIndicator.HMDDefaultMarkerColor),
                 new (typeof(AmmoConIndicatorComponent.InternalState), "MFDTrackedBoxColor", Plugin.AmmoConIndicator.MFDTrackedBoxColor),
                 new (typeof(AmmoConIndicatorComponent.InternalState), "MFDDefaultBoxColor", Plugin.AmmoConIndicator.MFDDefaultBoxColor),
@@ -63,6 +66,16 @@ class AmmoConIndicatorComponent {
             foreach (var missile in toRemove) {
                 InternalState.activeMissiles.Remove(missile);
             }
+
+            List<Unit> toRemoveUnits = [];
+            foreach (Unit unit in InternalState.trackedUnits) {
+                if (unit == null) {
+                    toRemoveUnits.Add(unit);
+                }
+            }
+            foreach (var unit in toRemoveUnits) {
+                InternalState.trackedUnits.Remove(unit);
+            }
         }
 
         public static void OnMissileStart(Missile missile) {
@@ -72,9 +85,17 @@ class AmmoConIndicatorComponent {
                 return;
             }
             // no target
-            if (missile.targetID == null) return;
+            if (missile.targetID == null)
+                return;
+            // processing only friendly missiles
+            var owner = missile.owner;
+            if (owner == null)
+                return;
+            if (GameBindings.GameState.GetFactionMode(owner) != FactionMode.Friendly)
+                return;
             if (missile.targetID.TryGetUnit(out Unit unit)) {
                 InternalState.activeMissiles[missile] = unit;
+                InternalState.trackedUnits.Add(unit);
             }
         }
 
@@ -85,25 +106,50 @@ class AmmoConIndicatorComponent {
                 return;
             }
             // make the mod update proof
-            if (unit == null) // this always happens when a missile detonates
+            // unit == null always happens when a missile detonates
+            if (unit == null) {
+                if (InternalState.activeMissiles.TryGetValue(missile, out var prevUnit))
+                    InternalState.trackedUnits.Remove(prevUnit);
                 InternalState.activeMissiles.Remove(missile);
-            else
-                InternalState.activeMissiles[missile] = unit;
+            }
+            else {
+                // processing only friendly missiles
+                if (GameBindings.GameState.GetFactionMode(missile.owner) == FactionMode.Friendly) {
+                    Unit prevUnit = null;
+                    InternalState.activeMissiles.TryGetValue(missile, out prevUnit);
+                    if (unit != prevUnit) {
+                        InternalState.activeMissiles[missile] = unit;
+                        InternalState.trackedUnits.Remove(prevUnit);
+                        InternalState.trackedUnits.Add(unit);
+                    }
+                }
+            }
         }
     }
 
     static public class InternalState {
-        static public Dictionary<Missile, Unit> activeMissiles = [];
         static public readonly TraverseCache<TargetScreenUI, List<Image>> _targetBoxesCache = new("targetBoxes");
         static public readonly TraverseCache<CombatHUD, Dictionary<Unit, HUDUnitMarker>> _markerLookupCache = new("markerLookup");
-        static public readonly TraverseCache<CombatHUD, Text> _targetInfoCache = new("targetInfo");
+
+        //missile to target relation
+        static public Dictionary<Missile, Unit> activeMissiles = [];
+        //targets of currently active missiles
+        static public HashSet<Unit> trackedUnits = new ();
+        //player-selected targets that at the same time are targets of active missiles
         static public List<Unit> trackedTargets = new ();
+        //markers of the above
         static public HashSet<HUDUnitMarker> trackedMarkers = new ();
-        static public HUDUnitMarker? activeTrackedMarker = null;
+        //marker of active target (whether it's tracked by missile or not)
+        static public HUDUnitMarker activeMarker = null;
+
+        static public Dictionary<Image, UIBindings.Draw.UIRectangle> trackerDots = new ();
+
         static public bool ColorHMDMarker = true;
+        static public bool ColorHMDLasedMarker = true;
         static public bool ColorMFDBox = true;
         static public bool DrawMFDDot = true;
         static public Color HMDTrackedMarkerColor = Color.yellow;
+        static public Color HMDLasedMarkerColor = Color.red;
         static public Color HMDDefaultMarkerColor = Color.green;
         static public Color MFDTrackedBoxColor = Color.yellow;
         static public Color MFDDefaultBoxColor = Color.white;
@@ -115,84 +161,94 @@ class AmmoConIndicatorComponent {
         }
 
         public static void Update() {
-            if (
-                GameBindings.GameState.IsGamePaused()
-                || GameBindings.Player.Aircraft.GetAircraft() == null
-                || UIBindings.Game.GetTargetScreenTransform(silent: true) == null) {
+            if (GameBindings.GameState.IsGamePaused() || GameBindings.Player.Aircraft.GetAircraft() == null)
                 return;
-            }
+
+            List<Unit> targets = GameBindings.Player.TargetList.GetTargets(copy: false);
 
             TargetScreenUI targetScreen = UIBindings.Game.GetTargetScreenUIComponent();
-            if (targetScreen == null) return;
+            List<Image> targetIcons = targetScreen != null ? InternalState._targetBoxesCache.GetValue(targetScreen) : null;
 
-            List<Unit> targets = GameBindings.Player.TargetList.GetTargets();
-            List<Image> targetIcons = InternalState._targetBoxesCache.GetValue(targetScreen);
-            HashSet<Unit> trackedUnits = new HashSet<Unit> (InternalState.activeMissiles.Values);
+            bool targetIconsValid = !(targetIcons == null || targetIcons.Count < targets.Count);
 
-            if (targetIcons == null || targetIcons.Count < targets.Count) return;
-
-            Dictionary<Unit, HUDUnitMarker>? markerLookup = null;
-            CombatHUD currentCombatHUD;
-            if (InternalState.ColorHMDMarker) {
-                currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
-                markerLookup = InternalState._markerLookupCache.GetValue(currentCombatHUD);
-                InternalState.trackedTargets.Clear();
-                InternalState.trackedMarkers.Clear();
-                InternalState.activeTrackedMarker = null;
+            if (InternalState.DrawMFDDot) {
+                List<Image> toRemove = new ();
+                foreach (var icon in InternalState.trackerDots.Keys) {
+                    if (icon == null)
+                        toRemove.Add(icon);
+                }
+                foreach (var icon in toRemove)
+                    InternalState.trackerDots.Remove(icon);
             }
+
+            Dictionary<Unit, HUDUnitMarker> markerLookup = null;
+            if (InternalState.ColorHMDMarker) {
+                var currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
+                markerLookup = InternalState._markerLookupCache.GetValue(currentCombatHUD);
+                InternalState.trackedMarkers.Clear();
+                InternalState.activeMarker = null;
+            }
+            InternalState.trackedTargets.Clear();
 
             //'targetIcons' is indexed by i, so have to walk 'targets' list
             for (int i = 0; i < targets.Count; i++) {
-                bool isTracked = trackedUnits.Contains(targets[i]);
+                var target = targets[i];
+
+                bool targetIconExists = targetIcons != null && i < targetIcons.Count;
+
+                bool isTracked = InternalState.trackedUnits.Contains(target);
 
                 if (isTracked)
-                    InternalState.trackedTargets.Add(targets[i]);
+                    InternalState.trackedTargets.Add(target);
 
-                if (InternalState.DrawMFDDot) {
-                    UIBindings.Draw.UIRectangle trackerDot = new(
-                        "TrackerDot",
-                        new Vector2(-5, -30),
-                        new Vector2(5, -40),
-                        fillColor: InternalState.MFDTrackedDotColor,
-                        UIParent: targetIcons[i].rectTransform
-                    );
+                if (InternalState.DrawMFDDot && targetIconExists) {
+                    if (!InternalState.trackerDots.TryGetValue(targetIcons[i], out var trackerDot)) {
+                        var parentTransform = targetIcons[i].rectTransform;
+                        trackerDot = new(
+                            "TrackerDot",
+                            new Vector2(-5, -30),
+                            new Vector2(5, -40),
+                            fillColor: InternalState.MFDTrackedDotColor,
+                            UIParent: parentTransform
+                        );
+                        trackerDot.GetImageComponent().raycastTarget = false;
+                    }
                     trackerDot.GetGameObject().SetActive(isTracked);
-                    trackerDot.GetImageComponent().raycastTarget = false;
                 }
 
-                if (InternalState.ColorMFDBox)
+                if (InternalState.ColorMFDBox && targetIconExists)
                     targetIcons[i].color = isTracked ? InternalState.MFDTrackedBoxColor : InternalState.MFDDefaultBoxColor;
 
-                if (InternalState.ColorHMDMarker) {
-                    HUDUnitMarker? marker = null;
-                    if (isTracked && markerLookup is not null && (bool)markerLookup?.TryGetValue(targets[i], out marker)) {
-                        marker.image.color = InternalState.HMDTrackedMarkerColor;
+                if (InternalState.ColorHMDMarker && markerLookup.TryGetValue(target, out var marker)) {
+                    if (i == 0)
+                        InternalState.activeMarker = marker;
+                    if (isTracked) {
                         InternalState.trackedMarkers.Add(marker);
-                        if (i == 0) InternalState.activeTrackedMarker = marker;
                     }
                 }
             }
         }
 
         public static void UpdateMarkerColor(HUDUnitMarker marker) {
-            if (InternalState.ColorHMDMarker && marker.selected)
-                marker.image.color = InternalState.trackedMarkers.Contains(marker) ? InternalState.HMDTrackedMarkerColor : InternalState.HMDDefaultMarkerColor;
-        }
-
-        public static void OnCombatHUDShowTargetInfo(CombatHUD combatHUD) {
-            Text targetInfo = InternalState._targetInfoCache.GetValue(combatHUD);
             if (InternalState.ColorHMDMarker) {
-                HUDUnitMarker? activeTrackedMarker = InternalState.activeTrackedMarker;
-                if (activeTrackedMarker != null) {
-                    activeTrackedMarker?.image.color = InternalState.HMDTrackedMarkerColor;
-                    targetInfo.color = InternalState.HMDTrackedMarkerColor;
+                Color? color = null;
+                if (InternalState.trackedMarkers.Contains(marker))
+                    color = InternalState.HMDTrackedMarkerColor;
+                else if (marker.selected) {
+                    if (InternalState.ColorHMDLasedMarker) {
+                        var currentWeaponStation = GameBindings.Player.Aircraft.Weapons.GetActiveStation();
+                        if (currentWeaponStation != null && currentWeaponStation.WeaponInfo.laserGuided) {
+                            var hq = GameBindings.GameState.GetCurrentFactionHQ();
+                            if (hq.IsTargetLased(marker.unit))
+                                color = InternalState.HMDLasedMarkerColor;
+                        }
+                    }
+                    //not 'else if' !
+                    if (color == null)
+                        color = InternalState.HMDDefaultMarkerColor;
                 }
-                else {
-                    targetInfo.color = InternalState.HMDDefaultMarkerColor;
-                }
-            }
-            else {
-                targetInfo.color = InternalState.HMDDefaultMarkerColor;
+                if (color != null)
+                    marker.image.color = (Color)color;
             }
         }
     }
@@ -235,10 +291,31 @@ class AmmoConIndicatorComponent {
         }
     }
 
+    private struct State {
+        public HUDUnitMarker marker;
+        public Color color;
+    }
+
+    //Make ShowTargetInfo() not change active marker image color and make targetInfo inherit that color
     [HarmonyPatch(typeof(CombatHUD), "ShowTargetInfo")]
     public static class OnCombatHUDShowTargetInfo {
-        static void Postfix(CombatHUD __instance) {
-            DisplayEngine.OnCombatHUDShowTargetInfo(__instance);
+        static void Prefix(ref State __state) {
+            if (InternalState.ColorHMDMarker) {
+                var marker = InternalState.activeMarker;
+                if (marker != null) {
+                    __state.marker = marker;
+                    __state.color = marker.image.color;
+                }
+                else
+                    __state.marker = null;
+            }
+        }
+
+        static void Postfix(ref TextMeshProUGUI ___targetInfo, ref State __state) {
+            if (InternalState.ColorHMDMarker && __state.marker != null) {
+                __state.marker.image.color = __state.color;
+                ___targetInfo.color = __state.color;
+            }
         }
     }
 }

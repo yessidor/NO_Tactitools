@@ -4,6 +4,9 @@ using System.Globalization;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Reflection;
+using System.IO;
+using System;
+using Newtonsoft.Json;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.Controls;
@@ -12,39 +15,49 @@ using Preset = Dictionary<TargetListSelector_ToggleButton, bool>;
 
 [HarmonyPatch(typeof(MainMenu), "Start")]
 class TargetFilterPresetPlugin {
-    private static bool initialized = false;
+    public static bool initialized = false;
     static void Postfix() {
         if (!initialized) {
             Plugin.Log($"[TFP] Target Filter Preset plugin starting !");
+
             Plugin.harmony.PatchAll(typeof(TargetFilterPresetComponent.OnTargetListSelectorStart));
 
             for (int i = 0; i < Plugin.TargetFilterPreset.PresetsNum.Value; i++) {
               int j = i;
               InputCatcher.RegisterNewInput(
                   Plugin.TargetFilterPreset.Presets[i],
-                  PlayerSettings.pressDelay,
+                  Plugin.PressDelay.Value,
                   onRelease: () => TargetFilterPresetComponent.Recall(j),
                   onLongPress: () => TargetFilterPresetComponent.Remember(j)
               );
             }
 
             initialized = true;
+
             Plugin.Log($"[TFP] Target Filter Preset plugin successfully started !");
         }
     }
 }
 
 
-class TargetFilterPresetComponent {
+public class TargetFilterPresetComponent {
     public static float reportDelay = 2f;
     public static string configName = "TargetFilterPreset.cfg";
     private static Dictionary<int, Preset> presets = new ();
     private static Dictionary<string, TargetListSelector_ToggleButton> buttons = new ();
-    private static string entryFormat = @"""{0}"" : {{ {1} }}";
     private static string entryPattern = @" *""(\d*?)"" *: *{(.*?)} *";
 
     public static void Recall(int i) {
         Plugin.Log(string.Format("[TFP] Recall({0})", i));
+
+        if (!TargetFilterPresetPlugin.initialized) {
+            Plugin.Log("[TFP] Not initialized");
+            return;
+        }
+
+        if (UIBindings.Game.GetDynamicMapComponent() == null)
+            return;
+
         string report = null;
         if (presets.TryGetValue(i, out var preset)) {
             foreach (var buttonAndStatus in preset) {
@@ -63,6 +76,15 @@ class TargetFilterPresetComponent {
 
     public static void Remember(int i) {
         Plugin.Log(string.Format("[TFP] Remember({0})", i));
+
+        if (!TargetFilterPresetPlugin.initialized) {
+            Plugin.Log("[TFP] Not initialized");
+            return;
+        }
+
+        if (UIBindings.Game.GetDynamicMapComponent() == null)
+            return;
+
         Preset preset = new Preset ();
         foreach (var button in buttons.Values)
             preset[button] = button.status;
@@ -73,36 +95,95 @@ class TargetFilterPresetComponent {
         SaveConfig();
     }
 
+    public static void Preview(int i) {
+        Plugin.Log(string.Format("[TFP] Preview({0})", i));
+
+        if (!TargetFilterPresetPlugin.initialized) {
+            Plugin.Log("[TFP] Not initialized");
+            return;
+        }
+
+        if (UIBindings.Game.GetDynamicMapComponent() == null)
+            return;
+
+        string report = null;
+        if (presets.TryGetValue(i, out var preset)) {
+            report = string.Format("Target filter preset <b>{0}</b> <b>({1})</b>", i, GetTargetables(preset));
+        }
+        else {
+            report = string.Format("Target filter preset <b>{0}</b> not found", i);
+        }
+        UIBindings.Game.DisplayToast(report, reportDelay);
+    }
+
     private static void SaveConfig() {
-      List<string> entries = new ();
-      foreach (var idAndPreset in presets) {
-          var id = idAndPreset.Key;
-          var preset = idAndPreset.Value;
-          List<string> entryElements = new ();
-          foreach (var buttonAndStatus in preset) {
-              var button = buttonAndStatus.Key;
-              var status = buttonAndStatus.Value;
-              //As of NO 0.33.2, spaces in Target List Controller button names are replaced with newlines
-              var buttonName = button.label.text.Replace("\n", " ").Trim();
-              var s = string.Format("{0} : {1}", buttonName, status);
-              entryElements.Add(s);
-          }
-          string entry = string.Format(entryFormat, id, string.Join(", ", entryElements));
-          entries.Add(entry);
-      }
-      FileUtilities.WriteListToConfigFile(configName, entries);
+        Plugin.Log($"[TFP] SaveConfig()");
+        Dictionary<string, Dictionary<string, bool>> entries = new ();
+        foreach (var idAndPreset in presets) {
+            Dictionary<string, bool> entryElements = new ();
+            var id = idAndPreset.Key;
+            var preset = idAndPreset.Value;
+            foreach (var buttonAndStatus in preset) {
+                var button = buttonAndStatus.Key;
+                var buttonStatus = buttonAndStatus.Value;
+                //As of NO 0.33.2, spaces in Target List Controller button names are replaced with newlines
+                var buttonName = button.label.text.Replace("\n", " ").Trim();
+                entryElements[buttonName] = buttonStatus;
+            }
+            entries[id.ToString()] = entryElements;
+        }
+        var json = JsonConvert.SerializeObject(entries, Formatting.Indented);
+        File.WriteAllText(FileUtilities.GetConfigPath(configName), json);
     }
 
     private static void LoadConfig() {
+        Plugin.Log($"[TFP] LoadConfig()");
+        try {
+            var configPath = FileUtilities.GetConfigPath(configName);
+            if (!File.Exists(configPath)) {
+                Plugin.Log($"[TFP] File {configPath} does not exist");
+                return;
+            }
+            var json = File.ReadAllText(configPath);
+            var entries = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, bool>>>(json);
+
+            foreach ((var idString, var entry) in entries) {
+                if (!int.TryParse(idString, out var id)) {
+                    Plugin.Log($"[TFP] Cannot parse {idString} as preset id");
+                    continue;
+                }
+
+                Preset preset = new ();
+                foreach ((var buttonName, var buttonStatus) in entry) {
+                    if (!buttons.TryGetValue(buttonName, out var button)) {
+                        Plugin.Log($"[TFP] Cannot find button for {buttonName}");
+                        continue;
+                    }
+                    preset[button] = buttonStatus;
+                }
+                presets[id] = preset;
+            }
+        }
+        catch (Exception e) when (e is JsonReaderException || e is JsonSerializationException) {
+            Plugin.Log($"[TFP] Failed to load JSON config. Trying legacy config parser.");
+            LoadLegacyConfig();
+        }
+        catch (Exception e) {
+            Plugin.Log($"[TFP] Unexpected exception when trying to load JSON config: {e}.");
+        }
+    }
+
+    private static void LoadLegacyConfig() {
         List<string> entries = FileUtilities.GetListFromConfigFile(configName);
         foreach (var entry in entries) {
             Match m = Regex.Match(entry, entryPattern);
             if (m.Success) {
-                Preset preset = new ();
                 if (!int.TryParse(m.Groups[1].Value, out var id)) {
                     Plugin.Log(string.Format("[TFP] Cannot parse {0} as preset id}", m.Groups[1].Value));
                     continue;
                 }
+
+                Preset preset = new ();
                 string presetContents = m.Groups[2].Value;
                 string[] namesAndValues = presetContents.Split(",");
                 foreach (var bns in namesAndValues) {

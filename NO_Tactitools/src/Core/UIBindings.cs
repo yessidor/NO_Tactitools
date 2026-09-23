@@ -3,6 +3,7 @@ using System.Collections;
 using UnityEngine.Networking;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using System.Collections.Generic;
 using System.IO;
 
@@ -458,8 +459,18 @@ public class UIBindings {
         }
 
         public static Font GetDefaultFont() {
-            Text weaponText = UIBindings.Game.GetFlightHUDTransform().GetComponentInChildren<Text>();
-            return weaponText.font;
+            var flightHUDTransform = UIBindings.Game.GetFlightHUDTransform();
+            if (flightHUDTransform == null)
+                return null;
+
+            foreach (var text in flightHUDTransform.GetComponentsInChildren<Text>()) {
+                if (text != null && text.font != null) {
+                    return text.font;
+                }
+            }
+
+            Plugin.Log("[UIBindings] GetDefaultFont(): font is null");
+            return null;
         }
     }
 
@@ -468,6 +479,7 @@ public class UIBindings {
         private static readonly TraverseCache<TargetCam, TargetScreenUI> _targetScreenUICache = new("targetScreenUI");
         private static readonly TraverseCache<Cockpit, TacScreen> _tacScreenCache = new("tacScreen");
         private static readonly TraverseCache<FlightHud, Transform> _flightHUDCenterCache = new("HUDCenter");
+        private static TraverseCache<CombatHUD, TextMeshProUGUI> targetInfoCache = new ("targetInfo");
 
         private static TacScreen
             _cachedTacScreen = null; // For caching the tacscreen instance since finding it is expensive
@@ -476,10 +488,10 @@ public class UIBindings {
             SceneSingleton<AircraftActionsReport>.i?.ReportText(message, duration);
         }
 
-        public static Transform GetCombatHUDTransform() {
-            // HMD
+        public static CombatHUD GetCombatHUDComponent() {
             try {
-                return SceneSingleton<CombatHUD>.i.transform;
+                var combatHUD = SceneSingleton<CombatHUD>.i;
+                return combatHUD != null ? combatHUD : null;
             }
             catch (NullReferenceException e) {
                 Plugin.Log(e.ToString());
@@ -487,9 +499,51 @@ public class UIBindings {
             }
         }
 
-        public static CombatHUD GetCombatHUDComponent() {
+        public static Transform GetCombatHUDTransform() {
+            // HMD
             try {
-                return SceneSingleton<CombatHUD>.i;
+                return GetCombatHUDComponent()?.transform;
+            }
+            catch (NullReferenceException e) {
+                Plugin.Log(e.ToString());
+                return null;
+            }
+        }
+
+        public static TextMeshProUGUI GetCombatHUDTargetInfo() {
+            try {
+                var combatHUD = GetCombatHUDComponent();
+                if (combatHUD == null)
+                    return null;
+                return targetInfoCache.GetValue(combatHUD);
+            }
+            catch (NullReferenceException e) {
+                Plugin.Log(e.ToString());
+                return null;
+            }
+        }
+
+        public static TextMeshProUGUI DuplicateCombatHUDTargetInfo(Transform transform = null) {
+            try {
+                var combatHUD = GetCombatHUDComponent();
+                if (combatHUD == null)
+                    return null;
+                var infoPrefab = targetInfoCache.GetValue(combatHUD);
+                if (infoPrefab == null)
+                    return null;
+                var info = UnityEngine.Object.Instantiate(infoPrefab, transform == null ? combatHUD.iconLayer : transform);
+                return info;
+            }
+            catch (NullReferenceException e) {
+                Plugin.Log(e.ToString());
+                return null;
+            }
+        }
+
+        public static FlightHud GetFlightHUDComponent() {
+            try {
+                var flightHUD = SceneSingleton<FlightHud>.i;
+                return flightHUD != null ? flightHUD : null;
             }
             catch (NullReferenceException e) {
                 Plugin.Log(e.ToString());
@@ -500,7 +554,7 @@ public class UIBindings {
         public static Transform GetFlightHUDTransform() {
             // HUD
             try {
-                return SceneSingleton<FlightHud>.i.transform;
+                return GetFlightHUDComponent()?.transform;
             }
             catch (NullReferenceException e) {
                 Plugin.Log(e.ToString());
@@ -510,7 +564,10 @@ public class UIBindings {
 
         public static Transform GetFlightHUDCenterTransform() {
             try {
-                Transform hudLockedTransform = _flightHUDCenterCache.GetValue(SceneSingleton<FlightHud>.i);
+                var flightHUD = GetFlightHUDComponent();
+                if (flightHUD == null)
+                    return null;
+                Transform hudLockedTransform = _flightHUDCenterCache.GetValue(flightHUD);
                 return hudLockedTransform;
             }
             catch (NullReferenceException e) {
@@ -519,11 +576,41 @@ public class UIBindings {
             }
         }
 
-        // using find functions, get the first material from a text
+        //TODO Move to Draw ?
+        //First tries to get material from Text components, then from TextMeshProUGUI components
         public static Material GetFlightHUDFontMaterial() {
             try {
-                Text textComponent = SceneSingleton<FlightHud>.i.transform.GetComponentInChildren<Text>();
-                return textComponent.material;
+                var flightHUDTransform = GetFlightHUDTransform();
+                if (flightHUDTransform == null) {
+                    Plugin.Log("[UIBindings] GetFlightHUDFontMaterial(): flightHUDTransform is null");
+                    return null;
+                }
+
+                foreach (var text in flightHUDTransform.GetComponentsInChildren<Text>()) {
+                    if (text != null && text.material != null) {
+                        return text.material;
+                    }
+                }
+
+                foreach (var textMesh in flightHUDTransform.GetComponentsInChildren<TextMeshProUGUI>()) {
+                    if (textMesh != null && textMesh.material != null) {
+                        return textMesh.material;
+                    }
+                }
+
+                Plugin.Log("[UIBindings] GetFlightHUDFontMaterial(): material is null");
+                return null;
+            }
+            catch (NullReferenceException e) {
+                Plugin.Log(e.ToString());
+                return null;
+            }
+        }
+
+        public static TargetCam GetTargetCamComponent() {
+            try {
+                var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+                return aircraft != null ? aircraft.targetCam : null;
             }
             catch (NullReferenceException e) {
                 Plugin.Log(e.ToString());
@@ -533,7 +620,7 @@ public class UIBindings {
 
         public static Transform GetTargetScreenTransform(bool silent = false) {
             try {
-                TargetCam currentTargetCam = SceneSingleton<CombatHUD>.i.aircraft.targetCam;
+                TargetCam currentTargetCam = GetTargetCamComponent();
                 TargetScreenUI targetScreenUIObject = _targetScreenUICache.GetValue(currentTargetCam);
                 return targetScreenUIObject.transform;
             }
@@ -546,23 +633,13 @@ public class UIBindings {
 
         public static TargetScreenUI GetTargetScreenUIComponent(bool silent = false) {
             try {
-                TargetCam currentTargetCam = SceneSingleton<CombatHUD>.i.aircraft.targetCam;
+                TargetCam currentTargetCam = GetTargetCamComponent();
                 TargetScreenUI targetScreenUI = _targetScreenUICache.GetValue(currentTargetCam);
                 return targetScreenUI;
             }
             catch (NullReferenceException e) {
                 if (!silent)
                     Plugin.Log(e.ToString());
-                return null;
-            }
-        }
-
-        public static TargetCam GetTargetCamComponent() {
-            try {
-                return SceneSingleton<CombatHUD>.i.aircraft.targetCam;
-            }
-            catch (NullReferenceException e) {
-                Plugin.Log(e.ToString());
                 return null;
             }
         }
@@ -614,7 +691,7 @@ public class UIBindings {
 
         public static WeaponStatus GetWeaponStatus() {
             try {
-                CombatHUD currentCombatHUD = SceneSingleton<CombatHUD>.i;
+                CombatHUD currentCombatHUD = GetCombatHUDComponent();
                 GameObject topRightPanel = _topRightPanelCache.GetValue(currentCombatHUD);
                 WeaponStatus weaponStatus = topRightPanel.GetComponentInChildren<WeaponStatus>();
                 return weaponStatus;
@@ -659,15 +736,25 @@ public class UIBindings {
         }
 
         public static void HideWeaponPanel() {
-            CombatHUD currentCombatHUD = SceneSingleton<CombatHUD>.i;
+            CombatHUD currentCombatHUD = GetCombatHUDComponent();
             GameObject topRightPanel = _topRightPanelCache.GetValue(currentCombatHUD);
             topRightPanel.SetActive(false);
         }
 
         public static void ShowWeaponPanel() {
-            CombatHUD currentCombatHUD = SceneSingleton<CombatHUD>.i;
+            CombatHUD currentCombatHUD = GetCombatHUDComponent();
             GameObject topRightPanel = _topRightPanelCache.GetValue(currentCombatHUD);
             topRightPanel.SetActive(true);
+        }
+
+        public static HUDOptions GetHUDOptionsComponent() {
+            var hudOptions = SceneSingleton<HUDOptions>.i;
+            return hudOptions != null ? hudOptions : null;
+        }
+
+        public static MapOptions GetMapOptionsComponent() {
+            var mapOptions = SceneSingleton<MapOptions>.i;
+            return mapOptions != null ? mapOptions : null;
         }
     }
 
@@ -700,7 +787,7 @@ public class UIBindings {
                 SoundManager.PlayInterfaceOneShot(clip);
             }
 
-            SceneSingleton<CombatHUD>.i.StartCoroutine(PlayAudio(fileName));
+            Game.GetCombatHUDComponent().StartCoroutine(PlayAudio(fileName));
         }
 
         public static void LoadAllSounds() {

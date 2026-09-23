@@ -16,7 +16,11 @@ class UnitIconRecolorPlugin {
             Plugin.harmony.PatchAll(typeof(UnitIconRecolorComponent.OnPlatformUpdate));
             // we do it here instead of Init because we want the values to be read
             // before TacScreen.Initialize is called
-            UnitIconRecolorComponent.InternalState.targetUnitNames = FileUtilities.GetListFromConfigFile("UnitIconRecolor_TargetUnits.txt");
+            var bindings = new BindingHelper.Binding[] {
+                new (UnitIconRecolorComponent.InternalState.UnitNameREs, "Entries", Plugin.unitIconRecolorUnits),
+            };
+            BindingHelper.ApplyBindings(bindings);
+            UnitIconRecolorComponent.InternalState.targetUnitNames = new HashSet<string>(FileUtilities.GetListFromConfigFile("UnitIconRecolor_TargetUnits.txt"));
             UnitIconRecolorComponent.InternalState.unitIconRecolorEnemyColor = Plugin.unitIconRecolorEnemyColor.Value;
             initialized = true;
             Plugin.Log("[UIR] Unit Icon Recolor plugin successfully started !");
@@ -31,16 +35,18 @@ public static class UnitIconRecolorComponent {
         }
 
         public static void Update(UnitMapIcon __instance) {
+            var name = __instance.unit.unitName;
             InternalState.needsUpdate = 
-            __instance.unit.NetworkHQ != SceneSingleton<DynamicMap>.i.HQ &&
-            InternalState.targetUnitNames.Contains(__instance.unit.unitName) &&
+            __instance.unit.NetworkHQ != UIBindings.Game.GetDynamicMapComponent().HQ &&
+            (InternalState.UnitNameREs.Matches(name) || InternalState.targetUnitNames.Contains(name)) &&
             __instance.iconImage.color != InternalState.unitIconRecolorEnemyColor;
         }
     }
 
     public static class InternalState {
         static public Color unitIconRecolorEnemyColor;
-        static public List<string> targetUnitNames;
+        static public RegexEntries UnitNameREs = new ();
+        static public HashSet<string> targetUnitNames;
         static public bool needsUpdate = false;
     }
     public static class DisplayEngine {

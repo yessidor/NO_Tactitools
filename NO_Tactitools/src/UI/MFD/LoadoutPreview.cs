@@ -2,6 +2,8 @@ using HarmonyLib;
 using UnityEngine;
 using NO_Tactitools.Core;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine.UI;
 
 namespace NO_Tactitools.UI.MFD;
@@ -12,10 +14,19 @@ class LoadoutPreviewPlugin {
     static void Postfix() {
         if (!initialized) {
             Plugin.Log($"[LP] Loadout Preview plugin starting !");
+
             Plugin.harmony.PatchAll(typeof(LoadoutPreviewComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(LoadoutPreviewComponent.OnPlatformUpdate));
             // TODO: Register a button if needed for toggling or interaction
+
+            var bindings = new BindingHelper.Binding[] {
+                new (typeof(LoadoutPreviewComponent.InternalState), "DisabledFor", Plugin.LoadoutPreview.DisabledFor),
+                new (typeof(LoadoutPreviewComponent.InternalState), "SendToHMDFor", Plugin.LoadoutPreview.SendToHMDFor),
+            };
+            BindingHelper.ApplyBindings(bindings);
+
             initialized = true;
+
             Plugin.Log("[LP] Loadout Preview plugin succesfully started !");
         }
     }
@@ -31,28 +42,60 @@ public class LoadoutPreviewComponent {
             InternalState.loadoutPreview?.Destroy();
             InternalState.loadoutPreview = null;
             InternalState.weaponStations.Clear();
+
+            string platformName = GameBindings.Player.Aircraft.GetPlatformName();
+            Plugin.Log($"[LP] Initializing Loadout Preview for {platformName}");
+
             InternalState.neverShown = true;
             InternalState.needsUpdate = false;
-            InternalState.displayDuration = Plugin.loadoutPreviewDuration.Value;
-            InternalState.onlyShowOnBoot = Plugin.loadoutPreviewOnlyShowOnBoot.Value;
-            InternalState.sendToHMD = Plugin.loadoutPreviewSendToHMD.Value;
-            InternalState.hmdShowBorders = Plugin.loadoutPreviewHMDShowBorders.Value;
+            InternalState.displayDuration = Plugin.LoadoutPreview.Duration.Value;
+            InternalState.onlyShowOnBoot = Plugin.LoadoutPreview.OnlyShowOnBoot.Value;
+            InternalState.sendToHMD = Plugin.LoadoutPreview.SendToHMD.Value;
+            InternalState.hmdShowBorders = Plugin.LoadoutPreview.HMDShowBorders.Value;
             InternalState.vanillaUIEnabled = Plugin.weaponDisplayVanillaUIEnabled.Value; // WE READ THIS SETTING HERE BECAUSE WE NEED IT, WE COULD CALL IT FROM WEAPON DISPLAY BUT THIS LETS US AVOID LOAD ORDER ISSUES
-            InternalState.manualPlacement = Plugin.loadoutPreviewManualPlacement.Value;
-            InternalState.horizontalOffset = Plugin.loadoutPreviewPositionX.Value;
-            InternalState.verticalOffset = Plugin.loadoutPreviewPositionY.Value;
-            InternalState.backgroundTransparency = Plugin.loadoutPreviewBackgroundTransparency.Value;
-            InternalState.textAndBorderTransparency = Plugin.loadoutPreviewTextAndBorderTransparency.Value;
+            InternalState.manualPlacement = Plugin.LoadoutPreview.ManualPlacement.Value;
+            InternalState.horizontalOffset = Plugin.LoadoutPreview.PositionX.Value;
+            InternalState.verticalOffset = Plugin.LoadoutPreview.PositionY.Value;
+            InternalState.hmdFontSize = Plugin.LoadoutPreview.HMDFontSize.Value;
+            InternalState.hmdMainColor = Plugin.LoadoutPreview.HMDMainColor.Value;
+            InternalState.hmdBackgroundColor = Plugin.LoadoutPreview.HMDBackgroundColor.Value;
             
-            string platformName = GameBindings.Player.Aircraft.GetPlatformName();
             InternalState.isAircraftRecognized = AircraftRecognition.IsAircraftRecognized(platformName);
             
+            InternalState.isDisabled = false;
+            if (InternalState.disabledForIsStale) {
+                InternalState.disabledForRegexes = InternalState.DisabledFor.Split(";").Where(s => s.Length > 0).Select(s => new Regex(s)).ToArray();
+                InternalState.disabledForIsStale = false;
+            }
+            foreach (var regex in InternalState.disabledForRegexes) {
+                Match m = regex.Match(platformName);
+                if (m.Success) {
+                    InternalState.isDisabled = true;
+                    Plugin.Log($"[LP] Disabled for platform {platformName}");
+                    break;
+                }
+            }
+
+            if (InternalState.sendToHMDForHasUpdated) {
+                InternalState.sendToHMDForRegexes = InternalState.SendToHMDFor.Split(";").Where(s => s.Length > 0).Select(s => new Regex(s)).ToArray();
+                InternalState.sendToHMDForHasUpdated = false;
+            }
+            foreach (var regex in InternalState.sendToHMDForRegexes) {
+                Match m = regex.Match(platformName);
+                if (m.Success) {
+                    InternalState.sendToHMD = true;
+                    Plugin.Log($"[LP] Sending to HMD for platform {platformName}");
+                    break;
+                }
+            }
+
             InternalState.hasStations = GameBindings.Player.Aircraft.Weapons.GetStationCount() > 1;
             if (InternalState.hasStations) {
-                InternalState.currentWeaponStation = GameBindings.Player.Aircraft.Weapons.GetActiveStationName();
+                InternalState.currentWeaponStationIndex = GameBindings.Player.Aircraft.Weapons.GetActiveStationIndex();
                 for (int i = 0; i < GameBindings.Player.Aircraft.Weapons.GetStationCount(); i++) {
                 InternalState.WeaponStationInfo stationInfo = new() {
                     stationName = GameBindings.Player.Aircraft.Weapons.GetStationNameByIndex(i),
+                    stationIndex = i,
                     ammo = GameBindings.Player.Aircraft.Weapons.GetStationAmmoByIndex(i),
                     maxAmmo = GameBindings.Player.Aircraft.Weapons.GetStationMaxAmmoByIndex(i)
                 };
@@ -62,23 +105,23 @@ public class LoadoutPreviewComponent {
         }
 
         static public void Update() {
-            if (GameBindings.GameState.IsGamePaused() || GameBindings.Player.Aircraft.GetAircraft() == null || !InternalState.hasStations || !InternalState.isAircraftRecognized)
+            if (GameBindings.GameState.IsGamePaused() || GameBindings.Player.Aircraft.GetAircraft() == null || InternalState.loadoutPreview == null)
                 return;
             if (InternalState.onlyShowOnBoot 
                 && InternalState.neverShown 
                 && BootScreenComponent.InternalState.hasBooted) {
-                InternalState.lastUpdateTime = Time.time;
-                InternalState.currentWeaponStation = GameBindings.Player.Aircraft.Weapons.GetActiveStationName();
+                InternalState.lastUpdateTime = Time.realtimeSinceStartup;
+                InternalState.currentWeaponStationIndex = GameBindings.Player.Aircraft.Weapons.GetActiveStationIndex();
                 InternalState.neverShown = false;
             }
             else if (
-                InternalState.currentWeaponStation != GameBindings.Player.Aircraft.Weapons.GetActiveStationName() 
+                InternalState.currentWeaponStationIndex != GameBindings.Player.Aircraft.Weapons.GetActiveStationIndex()
                 && BootScreenComponent.InternalState.hasBooted 
                 && !InternalState.onlyShowOnBoot) {
-                InternalState.lastUpdateTime = Time.time;
-                InternalState.currentWeaponStation = GameBindings.Player.Aircraft.Weapons.GetActiveStationName();
+                InternalState.lastUpdateTime = Time.realtimeSinceStartup;
+                InternalState.currentWeaponStationIndex = GameBindings.Player.Aircraft.Weapons.GetActiveStationIndex();
             }
-            InternalState.needsUpdate = ((Time.time - InternalState.lastUpdateTime) < InternalState.displayDuration);
+            InternalState.needsUpdate = ((Time.realtimeSinceStartup - InternalState.lastUpdateTime) < InternalState.displayDuration);
             if (InternalState.needsUpdate) {
                 for (int i = 0; i < GameBindings.Player.Aircraft.Weapons.GetStationCount(); i++) {
                     InternalState.weaponStations[i].stationName = GameBindings.Player.Aircraft.Weapons.GetStationNameByIndex(i);
@@ -87,14 +130,22 @@ public class LoadoutPreviewComponent {
                 }
             }
             InternalState.configNeedsUpdate = (
-                InternalState.horizontalOffset != Plugin.loadoutPreviewPositionX.Value ||
-                InternalState.verticalOffset != Plugin.loadoutPreviewPositionY.Value ||
-                InternalState.manualPlacement != Plugin.loadoutPreviewManualPlacement.Value
+                InternalState.displayDuration != Plugin.LoadoutPreview.Duration.Value ||
+                InternalState.horizontalOffset != Plugin.LoadoutPreview.PositionX.Value ||
+                InternalState.verticalOffset != Plugin.LoadoutPreview.PositionY.Value ||
+                InternalState.manualPlacement != Plugin.LoadoutPreview.ManualPlacement.Value ||
+                InternalState.hmdFontSize != Plugin.LoadoutPreview.HMDFontSize.Value ||
+                InternalState.hmdMainColor != Plugin.LoadoutPreview.HMDMainColor.Value ||
+                InternalState.hmdBackgroundColor != Plugin.LoadoutPreview.HMDBackgroundColor.Value
             );
             if (InternalState.configNeedsUpdate) {
-                InternalState.horizontalOffset = Plugin.loadoutPreviewPositionX.Value;
-                InternalState.verticalOffset = Plugin.loadoutPreviewPositionY.Value;
-                InternalState.manualPlacement = Plugin.loadoutPreviewManualPlacement.Value;
+                InternalState.displayDuration = Plugin.LoadoutPreview.Duration.Value;
+                InternalState.horizontalOffset = Plugin.LoadoutPreview.PositionX.Value;
+                InternalState.verticalOffset = Plugin.LoadoutPreview.PositionY.Value;
+                InternalState.manualPlacement = Plugin.LoadoutPreview.ManualPlacement.Value;
+                InternalState.hmdFontSize = Plugin.LoadoutPreview.HMDFontSize.Value;
+                InternalState.hmdMainColor = Plugin.LoadoutPreview.HMDMainColor.Value;
+                InternalState.hmdBackgroundColor = Plugin.LoadoutPreview.HMDBackgroundColor.Value;
             }
         }
     }
@@ -103,30 +154,56 @@ public class LoadoutPreviewComponent {
     public static class InternalState {
         public class WeaponStationInfo {
             public string stationName;
+            public int stationIndex;
             public int ammo;
             public int maxAmmo;
         }
-        public static string currentWeaponStation = "";
+        public static int currentWeaponStationIndex = -1;
         public static float lastUpdateTime = 0;
         public static bool needsUpdate = false;
         public static bool configNeedsUpdate = false;
         public static bool onlyShowOnBoot;
         public static bool neverShown = true;
         public static List<WeaponStationInfo> weaponStations = [];
-        public static LoadoutPreview loadoutPreview;
+        public static LoadoutPreview loadoutPreview = null;
         public static bool sendToHMD = false;
         public static bool hmdShowBorders = true;
         public static bool vanillaUIEnabled = true;
         public static bool manualPlacement = false;
         public static int horizontalOffset = 0;
         public static int verticalOffset = 0;
-        public static float backgroundTransparency = 0.6f;
-        public static float textAndBorderTransparency = 0.9f;
+        public static int hmdFontSize = 34;
+        public static Color hmdMainColor = Color.green;
+        public static Color hmdBackgroundColor = Color.black;
         public static bool hasStations = true;
+
         public static bool isAircraftRecognized = true;
+
+        static public Regex[] disabledForRegexes;
+        static public string DisabledFor {
+            set {
+                field = value;
+                InternalState.disabledForIsStale = true;
+            }
+            get;
+        } = new ("");
+        static public bool disabledForIsStale = true;
+        static public bool isDisabled = false;
+
+        static public Regex[] sendToHMDForRegexes;
+        static public string SendToHMDFor {
+            set {
+                field = value;
+                InternalState.sendToHMDForHasUpdated = true;
+            }
+            get;
+        } = new ("");
+        static public bool sendToHMDForHasUpdated = true;
+
         public static float displayDuration = 1f;
         public static Color mainColor = Color.green;
         public static Color textColor = Color.green;
+        public static Color backgroundColor = Color.black;
     }
 
     static class AircraftRecognition {
@@ -147,11 +224,9 @@ public class LoadoutPreviewComponent {
                 "Alkyon AB-4" or
                 "AB-4 Alkyon" or
                 "FastBomber1" or
+                "VT-7 Vagrant" or
                 "FQ-106 Kestrel" or
                 "MiG-15" or
-                "F-16M King Viper" or
-                "RAH-72 Knockout" or
-                "F-99 Shrike" or
                 "HMD" => true,
                 _ => false
             };
@@ -160,15 +235,22 @@ public class LoadoutPreviewComponent {
 
     static class DisplayEngine {
         static public void Init() {
-            if (InternalState.hasStations && InternalState.isAircraftRecognized) {
+            if (InternalState.hasStations) {
+                Plugin.Log("[LP] Initializing Loadout Preview for Tac Screen");
                 if (InternalState.sendToHMD) {
-                    InternalState.mainColor = Color.green;
-                    InternalState.textColor = Color.green;
+                    InternalState.mainColor = InternalState.hmdMainColor;
+                    InternalState.textColor = InternalState.hmdMainColor;
+                    InternalState.backgroundColor = InternalState.hmdBackgroundColor;
                 }
-                else {
-                    Plugin.Log("[LP] Initializing Loadout Preview for Tac Screen");
+                else if (!InternalState.isAircraftRecognized) {
+                    Plugin.Log("[LP] Aircraft is not recognized, only HMD Loadout Preview is available.");
+                    return;
                 }
-                InternalState.loadoutPreview = new LoadoutPreview(sendToHMD: InternalState.sendToHMD);
+                else if (InternalState.isDisabled) {
+                    Plugin.Log("[LP] Loadout Preview is disabled");
+                    return;
+                }
+                InternalState.loadoutPreview = new LoadoutPreview();
                 Plugin.Log("[LP] Loadout Preview initialized.");
             }
         }
@@ -176,37 +258,23 @@ public class LoadoutPreviewComponent {
         static public void Update() {
             if (GameBindings.GameState.IsGamePaused() ||
                 GameBindings.Player.Aircraft.GetAircraft() == null ||
-                !InternalState.hasStations ||
-                !InternalState.isAircraftRecognized)
+                InternalState.loadoutPreview == null)
                 return;
-            if (!InternalState.needsUpdate) {
-                // if loadout preview is inactive, hide it
-                InternalState.loadoutPreview.SetActive(false);
-                return;
-            }
-            InternalState.loadoutPreview.SetActive(true);
             if (InternalState.configNeedsUpdate && InternalState.sendToHMD) {
-                InternalState.loadoutPreview.RefreshPosition();
+                InternalState.loadoutPreview.UpdatePlacement();
+                InternalState.loadoutPreview.UpdateColors();
+                InternalState.loadoutPreview.borderRect.SetFillColor(InternalState.backgroundColor);
+                InternalState.loadoutPreview.borderRect.SetBorderColor(InternalState.mainColor);
+                //Label colors will be updated in UpdateLabels()
             }
-            for (int i = 0; i < InternalState.weaponStations.Count; i++) {
-                InternalState.loadoutPreview.stationLabels[i].SetColor(
-                    (InternalState.weaponStations[i].ammo == 0) ? Color.red : InternalState.sendToHMD ? Color.green : InternalState.textColor);
+            if (InternalState.needsUpdate) {
+                InternalState.loadoutPreview.SetActive(true);
+                InternalState.loadoutPreview.UpdateLabels();
+                InternalState.loadoutPreview.containerTransform.SetAsLastSibling();
             }
-            for (int i = 0; i < InternalState.weaponStations.Count; i++) {
-                InternalState.WeaponStationInfo ws = InternalState.weaponStations[i];
-                InternalState.loadoutPreview.stationLabels[i].SetText(
-                    "[" + i.ToString() + "]" +
-                    ws.stationName + ": " +
-                    ws.ammo + "/" +
-                    ws.maxAmmo);
-                // keep color/size adjustments minimal here; DisplayEngine handles color each frame
-                InternalState.loadoutPreview.stationLabels[i].SetFontSize(
-                    (GameBindings.Player.Aircraft.Weapons.GetActiveStationName() == ws.stationName) ? (InternalState.loadoutPreview.fontSize + 6) : InternalState.loadoutPreview.fontSize);
-                InternalState.loadoutPreview.stationLabels[i].SetFontStyle(
-                    (GameBindings.Player.Aircraft.Weapons.GetActiveStationName() == ws.stationName) ? FontStyle.Bold : FontStyle.Normal);
+            else {
+                InternalState.loadoutPreview.SetActive(false);
             }
-            InternalState.loadoutPreview.UpdateLabelPositions();
-            InternalState.loadoutPreview.containerTransform.SetAsLastSibling();
         }
     }
 
@@ -219,13 +287,13 @@ public class LoadoutPreviewComponent {
         public float verticalOffset = 0;
         public float horizontalOffset = 0;
         public float padding = 0;
+        public float border = 0;
         public int fontSize = 34;
-        public LoadoutPreview(bool sendToHMD = false) {
-            maxLabelWidth = 0;
-            List<InternalState.WeaponStationInfo> weaponStations = InternalState.weaponStations;
+
+        public LoadoutPreview() {
             string platformName;
             Transform parentTransform;
-            if (!sendToHMD) {
+            if (!InternalState.sendToHMD) {
                 parentTransform = UIBindings.Game.GetTacScreenTransform();
                 platformName = GameBindings.Player.Aircraft.GetPlatformName();
             }
@@ -239,6 +307,7 @@ public class LoadoutPreviewComponent {
             containerObject.AddComponent<RectTransform>();
             containerTransform = containerObject.transform;
             containerTransform.SetParent(parentTransform, false);
+
             switch (platformName) {
                 case "CI-22 Cricket":
                     horizontalOffset = -105;
@@ -252,11 +321,6 @@ public class LoadoutPreviewComponent {
                 case "T/A-30 Compass":
                     horizontalOffset = 0;
                     verticalOffset = 80;
-                    break;
-                case "FS-3 Ternion":
-                    horizontalOffset = -215;
-                    verticalOffset = 80;
-                    fontSize = 30;
                     break;
                 case "FS-12 Revoker":
                     horizontalOffset = 0;
@@ -296,7 +360,16 @@ public class LoadoutPreviewComponent {
                     horizontalOffset = -180;
                     verticalOffset = 60;
                     break;
+                case "VT-7 Vagrant":
+                    horizontalOffset = 0;
+                    verticalOffset = 75;
+                    break;
                 //modded planes
+                case "FS-3 Ternion":
+                    horizontalOffset = -215;
+                    verticalOffset = 80;
+                    fontSize = 30;
+                    break;
                 case "FQ-106 Kestrel":
                     verticalOffset = 75;
                     break;
@@ -305,42 +378,19 @@ public class LoadoutPreviewComponent {
                     verticalOffset = 120;
                     fontSize = 20;
                     break;
-                case "F-16M King Viper":
-                    verticalOffset = 80;
-                    break;
-                case "MC-260 Chimera":
-                    horizontalOffset = -160;
-                    verticalOffset = 150;
-                    fontSize = 40;
-                    break;
-                case "RAH-72 Knockout":
-                    verticalOffset = -100;
-                    break;
-                case "F-99 Shrike":
-                    horizontalOffset = -240;
-                    verticalOffset = -70;
-                    fontSize = 30;
-                    break;
                 case "HMD":
                     horizontalOffset = 0;
                     verticalOffset = 0;
-                    fontSize = 14;
+                    fontSize = InternalState.hmdFontSize;
                     break;
                 default:
                     break;
             }
 
+            border = InternalState.sendToHMD && !InternalState.hmdShowBorders ? 0 : 2;
 
-            Color backgroundColor = Color.black;
-            int border = 2;
-            if (sendToHMD) {
-                InternalState.mainColor = new(0f, 1f, 0f, InternalState.textAndBorderTransparency);
-                InternalState.textColor = new(0f, 1f, 0f, InternalState.textAndBorderTransparency);
-                backgroundColor = new(0f, 0f, 0f, InternalState.backgroundTransparency);
-                if (!InternalState.hmdShowBorders) {
-                    border = 0;
-                }
-            }
+            UpdateColors();
+
             // Create background rectangle
             borderRect = new(
                 "i_lp_LoadoutPreviewBorder",
@@ -349,39 +399,53 @@ public class LoadoutPreviewComponent {
                 InternalState.mainColor,
                 border,
                 containerTransform,
-                backgroundColor
+                InternalState.backgroundColor
             );
+
             // Create labels
-            for (int i = 0; i < weaponStations.Count; i++) {
+            maxLabelWidth = 0;
+            for (int i = 0; i < InternalState.weaponStations.Count; i++) {
                 UIBindings.Draw.UILabel stationLabel = new(
                     "i_lp_Slot " + i,
                     new Vector2(0, 0),
                     containerTransform,
-                    fontStyle: FontStyle.Bold, // Default to bold; will be updated in DisplayEngine
+                    fontStyle: FontStyle.Bold, // Default to bold; will be updated in UpdateLabels()
                     color: InternalState.textColor,
-                    fontSize: fontSize + 6, // Default to 40; will be updated in DisplayEngine
+                    fontSize: fontSize + 6, // Default to 40; will be updated in UpdateLabels()
                     backgroundOpacity: 0f
                 );
-                stationLabel.SetText(
-                    "[" + i.ToString() + "]" +
-                    weaponStations[i].stationName + ": " +
-                    weaponStations[i].ammo + "/" +
-                    weaponStations[i].maxAmmo);
+                stationLabels.Add(stationLabel);
+            }
+
+            UpdatePlacement();
+            UpdateLabelPositions();
+        }
+
+        public void UpdatePlacement() {
+            if (InternalState.sendToHMD)
+                fontSize = InternalState.hmdFontSize;
+
+            maxLabelWidth = 0;
+
+            var weaponStations = InternalState.weaponStations;
+            for (int i = 0; i < weaponStations.Count; i++) {
+                var stationLabel = stationLabels[i];
+                UpdateLabelText(i);
                 stationLabel.SetFontSize(fontSize+6); // WE FORCE IT, otherwise the max size might not get taken into account
                 Vector2 textSize = stationLabel.GetTextSize();
                 if (textSize.x > maxLabelWidth) {
                     maxLabelWidth = textSize.x;
                 }
-                stationLabels.Add(stationLabel);
             }
-            // Adjust sizes and positions
+
             padding = (fontSize + 6) / 4;
             float rectHalfWidth = maxLabelWidth / 2f;
             float rectHalfHeight = weaponStations.Count / 2f * (fontSize + 6);
-            if (sendToHMD) {
+
+            if (InternalState.sendToHMD) {
                 if (InternalState.manualPlacement) {
-                    horizontalOffset += InternalState.horizontalOffset;
-                    verticalOffset += InternalState.verticalOffset;
+                    horizontalOffset = InternalState.horizontalOffset;
+                    verticalOffset = InternalState.verticalOffset;
                 }
                 else {
                     if (InternalState.vanillaUIEnabled) {
@@ -406,26 +470,47 @@ public class LoadoutPreviewComponent {
                     }
                 }
             }
-            // Center labels based on max width
-            UpdateLabelPositions();
+
             // Set background size
             borderRect.SetCorners(
                 a: new Vector2(-rectHalfWidth - padding, -rectHalfHeight - padding),
                 b: new Vector2(rectHalfWidth + padding, rectHalfHeight + padding)
             );
-            // APPLY STARTING POSITION
-            RefreshPosition();
+
+            if (containerTransform != null) {
+                containerTransform.localPosition = new Vector3(horizontalOffset, verticalOffset, 0);
+            }
         }
 
-        public void RefreshPosition() {
-            if (containerTransform != null) {
-                if (InternalState.manualPlacement) {
-                    containerTransform.localPosition = new Vector3(Plugin.loadoutPreviewPositionX.Value, Plugin.loadoutPreviewPositionY.Value, 0);
-                }
-                else {
-                    containerTransform.localPosition = new Vector3(horizontalOffset, verticalOffset, 0);
-                }
+        public void SetActive(bool active) {
+            containerObject?.SetActive(active);
+        }
+
+        public void Update() {
+            UpdateLabels();
+            containerTransform.SetAsLastSibling();
+        }
+
+        public void UpdateColors() {
+            if (InternalState.sendToHMD) {
+                InternalState.mainColor = InternalState.hmdMainColor;
+                InternalState.textColor = InternalState.hmdMainColor;
+                InternalState.backgroundColor = InternalState.hmdBackgroundColor;
             }
+        }
+
+        public void UpdateLabels() {
+            for (int i = 0; i < InternalState.weaponStations.Count; i++) {
+                UpdateLabelText(i);
+                var ws = InternalState.weaponStations[i];
+                // keep color/size adjustments minimal here; DisplayEngine handles color each frame
+                var label = stationLabels[i];
+                var isActiveStation = GameBindings.Player.Aircraft.Weapons.GetActiveStationIndex() == ws.stationIndex;
+                label.SetFontSize(isActiveStation ? (fontSize + 6) : fontSize);
+                label.SetFontStyle(isActiveStation ? FontStyle.Bold : FontStyle.Normal);
+                label.SetColor((ws.ammo == 0) ? Color.red : InternalState.textColor);
+            }
+            InternalState.loadoutPreview.UpdateLabelPositions();
         }
 
         public void UpdateLabelPositions() {
@@ -438,8 +523,10 @@ public class LoadoutPreviewComponent {
             }
         }
 
-        public void SetActive(bool active) {
-            containerObject?.SetActive(active);
+        public void UpdateLabelText(int index) {
+            var weaponStation = InternalState.weaponStations[index];
+            var stationLabel = stationLabels[index];
+            stationLabel.SetText($"[{index.ToString()}] {weaponStation.stationName}: {weaponStation.ammo}/{weaponStation.maxAmmo}");
         }
 
         public void Destroy() {

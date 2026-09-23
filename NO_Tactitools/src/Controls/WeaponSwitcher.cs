@@ -40,7 +40,7 @@ public class WeaponSwitcherComponent {
 
     public static void CycleWeaponStation(WeaponManager weaponManager, Aircraft aircraft, bool up) {
         var stationsCount = aircraft.weaponStations.Count;
-        if (stationsCount != 0 && stationsCount != 1) {
+        if (stationsCount > 1) {
             int currentStationNumber = weaponManager.currentWeaponStation.Number;
             int i = currentStationNumber;
             while (true) {
@@ -52,9 +52,8 @@ public class WeaponSwitcherComponent {
                 else
                     break;
             }
-            weaponManager.currentWeaponStation = aircraft.weaponStations[i];
             aircraft.SetActiveStation((byte)i);
-            SceneSingleton<CombatHUD>.i.ShowWeaponStation(weaponManager.currentWeaponStation);
+            UIBindings.Game.GetCombatHUDComponent().ShowWeaponStation(aircraft.weaponStations[i]);
         }
     }
 

@@ -14,6 +14,10 @@ class BankIndicatorPlugin {
             Plugin.Log($"[BI] Rotor Bank Indicator plugin starting !");
             Plugin.harmony.PatchAll(typeof(BankIndicatorComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(BankIndicatorComponent.OnPlatformUpdate));
+            var bindings = new BindingHelper.Binding[] {
+                new (BankIndicatorComponent.InternalState.AuthorizedFor, "Entries", Plugin.bankIndicatorAuthorizedFor),
+            };
+            BindingHelper.ApplyBindings(bindings);
             initialized = true;
             Plugin.Log("[BI] Rotor Bank Indicator plugin successfully started !");
         }
@@ -25,9 +29,20 @@ public class BankIndicatorComponent {
         static public void Init() {
             InternalState.BIWidget?.Destroy();
             InternalState.BIWidget = null;
-            InternalState.authorizedPlatforms = FileUtilities.GetListFromConfigFile("BankIndicator_AuthorizedPlatforms.txt");
-            InternalState.isAuthorized = InternalState.authorizedPlatforms.Contains(GameBindings.Player.Aircraft.GetPlatformName());
-            if (!InternalState.isAuthorized) return;
+
+            string name = GameBindings.Player.Aircraft.GetPlatformName();
+
+            InternalState.isAuthorized = InternalState.AuthorizedFor.Matches(name);
+
+            if (!InternalState.isAuthorized) {
+                InternalState.authorizedPlatforms = FileUtilities.GetListFromConfigFile("BankIndicator_AuthorizedPlatforms.txt");
+                InternalState.isAuthorized = InternalState.authorizedPlatforms.Contains(name);
+            }
+
+            if (!InternalState.isAuthorized) {
+                Plugin.Log($"[BI] Not authorized for platform {name}");
+                return;
+            }
 
             InternalState.currentBankAngle = 0f;
             InternalState.maxBankAngle = (int)Mathf.Clamp(
@@ -62,6 +77,7 @@ public class BankIndicatorComponent {
         public static int currentX;
         public static int currentY;
         public static bool needsUpdate = false;
+        static public RegexEntries AuthorizedFor = new ();
         public static bool isAuthorized = false;
         public static List<string> authorizedPlatforms = [];
         public static BankIndicatorWidget BIWidget = null;

@@ -1,6 +1,7 @@
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using NO_Tactitools.Core;
 using NO_Tactitools.Controls;
 using System.Collections.Generic;
@@ -68,7 +69,17 @@ public static class MFDColorComponent {
             Plugin.Log("[MFD] Resetting MFD colors");
             // Now onto the original elements
             Transform tacScreenTransform = UIBindings.Game.GetTacScreenTransform();
+            //Assuming NO 0.34 uses both Text and TextMeshProUGUI
             foreach (Text text in tacScreenTransform.GetComponentsInChildren<Text>(true)) { // TEXT HANDLING
+                Color originalTextColor = text.color;
+                Color newTextColor = Color.HSVToRGB(
+                    InternalState.textHue,
+                    InternalState.textSaturation,
+                    InternalState.textBrightness);
+                newTextColor.a = originalTextColor.a;
+                text.color = newTextColor;
+            }
+            foreach (TextMeshProUGUI text in tacScreenTransform.GetComponentsInChildren<TextMeshProUGUI>(true)) {
                 Color originalTextColor = text.color;
                 Color newTextColor = Color.HSVToRGB(
                     InternalState.textHue,
@@ -135,9 +146,6 @@ public static class MFDColorComponent {
             // Apply the main color to loadout preview
             LoadoutPreviewComponent.InternalState.mainColor = InternalState.otherComponentMainColor;
             LoadoutPreviewComponent.InternalState.textColor = InternalState.otherComponentTextColor;
-            // apply the color to autopilot
-            NOAutopilotComponent.InternalState.mainColor = InternalState.otherComponentMainColor;
-            NOAutopilotComponent.InternalState.textColor = InternalState.otherComponentTextColor;
             // apply the color to target list and interception vector task
             TargetListControllerComponent.InternalState.mainColor = InternalState.otherComponentMainColor;
             InterceptionVectorTask.mainColor = InternalState.otherComponentMainColor;
@@ -171,7 +179,12 @@ public static class MFDColorComponent {
     public static class OnSystemStatusRefresh {
         static void Postfix(SystemStatusDisplay __instance) {
             // Reapply the main color to system status texts and images
+            //Assuming NO 0.34 uses both Text and TextMeshProUGUI
             foreach (Text text in __instance.GetComponentsInChildren<Text>(true)) {
+                if (text.color == Color.green)
+                    text.color = InternalState.otherComponentTextColor;
+            }
+            foreach (TextMeshProUGUI text in __instance.GetComponentsInChildren<TextMeshProUGUI>(true)) {
                 if (text.color == Color.green)
                     text.color = InternalState.otherComponentTextColor;
             }

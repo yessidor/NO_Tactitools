@@ -130,8 +130,8 @@ class InterceptionVectorTask {
     }
 
     static void HandleIdleState() {
-        if (((List<Unit>)GameBindings.Player.TargetList.GetTargets()).Count == 1) {
-            targetUnit = ((List<Unit>)GameBindings.Player.TargetList.GetTargets())[0];
+        if (GameBindings.Player.TargetList.GetTargetCount() == 1) {
+            targetUnit = GameBindings.Player.TargetList.GetActiveTarget();
             if (playerFactionHQ.IsTargetPositionAccurate(targetUnit, 20f)) {
                 currentState = State.Intercepting;
                 Plugin.Log("[IV] Target is being tracked");
@@ -147,8 +147,8 @@ class InterceptionVectorTask {
     }
 
     static void HandleTargetInitiallyUntracked() {
-        if (((List<Unit>)GameBindings.Player.TargetList.GetTargets()).Count != 1
-            || ((List<Unit>)GameBindings.Player.TargetList.GetTargets())[0] != targetUnit) {
+        if (GameBindings.Player.TargetList.GetTargetCount() != 1
+            || GameBindings.Player.TargetList.GetActiveTarget() != targetUnit) {
             currentState = State.Init;
             Plugin.Log("[IV] Switched target, returning to Reset state");
             return;
@@ -161,8 +161,8 @@ class InterceptionVectorTask {
     }
 
     static void HandleInterception() {
-        if (((List<Unit>)GameBindings.Player.TargetList.GetTargets()).Count != 1
-            || ((List<Unit>)GameBindings.Player.TargetList.GetTargets())[0] != targetUnit ||
+        if (GameBindings.Player.TargetList.GetTargetCount() != 1
+            || GameBindings.Player.TargetList.GetActiveTarget() != targetUnit ||
             GameBindings.Player.Aircraft.GetAircraft() == null) {
             currentState = State.Init;
             Plugin.Log("[IV] Returning to Reset state");

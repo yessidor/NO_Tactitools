@@ -14,6 +14,10 @@ class SlipIndicatorPlugin {
             Plugin.Log($"[SI] Slip Indicator plugin starting !");
             Plugin.harmony.PatchAll(typeof(SlipIndicatorComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(SlipIndicatorComponent.OnPlatformUpdate));
+            var bindings = new BindingHelper.Binding[] {
+                new (SlipIndicatorComponent.InternalState.AuthorizedFor, "Entries", Plugin.slipIndicatorAuthorizedFor),
+            };
+            BindingHelper.ApplyBindings(bindings);
             initialized = true;
             Plugin.Log("[SI] Slip Indicator plugin successfully started !");
         }
@@ -25,9 +29,20 @@ public class SlipIndicatorComponent {
         static public void Init() {
             InternalState.SIWidget?.Destroy();
             InternalState.SIWidget = null;
-            InternalState.authorizedPlatforms = FileUtilities.GetListFromConfigFile("SlipIndicator_AuthorizedPlatforms.txt");
-            InternalState.isAuthorized = InternalState.authorizedPlatforms.Contains(GameBindings.Player.Aircraft.GetPlatformName());
-            if (!InternalState.isAuthorized) return;
+
+            string name = GameBindings.Player.Aircraft.GetPlatformName();
+
+            InternalState.isAuthorized = InternalState.AuthorizedFor.Matches(name);
+
+            if (!InternalState.isAuthorized) {
+                InternalState.authorizedPlatforms = FileUtilities.GetListFromConfigFile("SlipIndicator_AuthorizedPlatforms.txt");
+                InternalState.isAuthorized = InternalState.authorizedPlatforms.Contains(name);
+            }
+
+            if (!InternalState.isAuthorized) {
+                Plugin.Log($"[SI] Not authorized for platform {name}");
+                return;
+            }
 
             InternalState.slipBallOffset = 0f;
             InternalState.slipBallVelocity = 0f;
@@ -101,6 +116,7 @@ public class SlipIndicatorComponent {
         public static int currentX;
         public static int currentY;
         public static bool needsUpdate = false;
+        static public RegexEntries AuthorizedFor = new ();
         public static bool isAuthorized = false;
         public static List<string> authorizedPlatforms = [];
         public static SlipIndicatorWidget SIWidget = null;

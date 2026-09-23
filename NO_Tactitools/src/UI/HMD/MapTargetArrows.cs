@@ -41,11 +41,13 @@ public class MapTargetArrowsComponent {
             if (ShowT) {
                 if (text != null)
                     UnityEngine.Object.Destroy(text.gameObject);
-                text = GameObject.Instantiate(targetTextCache.GetValue(combatHUD), dynamicMap.iconLayer.transform);
-                text.color = ActiveColor;
-                text.text = "T";
-                text.raycastTarget = false;
-                text.enabled = false;
+                if (combatHUD != null) {
+                    text = GameObject.Instantiate(targetTextCache.GetValue(combatHUD), dynamicMap.iconLayer.transform);
+                    text.color = ActiveColor;
+                    text.text = "T";
+                    text.raycastTarget = false;
+                    text.enabled = false;
+                }
             }
             ClearAllArrows();
             cachedCombatHUD = combatHUD;
@@ -60,20 +62,22 @@ public class MapTargetArrowsComponent {
             ClearAllArrows();
             return;
         }
+
         var iconLookup = iconLookupCache.GetValue(dynamicMap);
         if (aircraft != cachedAircraft) {
             ClearAllArrows();
-            cachedAircraftIcon = iconLookup[aircraft];
             cachedAircraft = aircraft;
         }
-        var aircraftIconTransform = cachedAircraftIcon.transform;
+        Transform aircraftIconTransform = null;
+        if (iconLookup.TryGetValue(aircraft, out var aircraftIcon))
+            aircraftIconTransform = aircraftIcon.transform;
 
         ClearInactiveArrows();
 
         var mapRectTransform = mapRectTransformCache.GetValue(dynamicMap);
         var mapImageTransform = dynamicMap.mapImage.transform;
 
-        var insidePosition = DynamicMap.mapMaximized ? mapRectTransform.position : aircraftIconTransform.position;
+        var insidePosition = DynamicMap.mapMaximized || aircraftIconTransform == null ? mapRectTransform.position : aircraftIconTransform.position;
         Rect? rect;
         if (DynamicMap.mapMaximized) {
             float width = mapRectTransform.rect.width * mapRectTransform.lossyScale.x;
@@ -99,6 +103,8 @@ public class MapTargetArrowsComponent {
         else if (text != null)
             text.enabled = false;
 
+        float a = 360f - mapImageTransform.localEulerAngles.z;
+
         foreach (var icon in iconLookup.Values) {
             if (!arrows.TryGetValue(icon, out var arrow)) {
                 arrow = GameObject.Instantiate(targetArrowCache.GetValue(combatHUD), dynamicMap.iconLayer.transform);
@@ -120,8 +126,7 @@ public class MapTargetArrowsComponent {
             if (outsidePositionClipped != outsidePosition) {
                 var direction = outsidePositionClipped - insidePosition;
                 float z = -Mathf.Atan2(direction.x, direction.y) * Mathf.Rad2Deg;
-                if (!DynamicMap.mapMaximized)
-                    z = (z + aircraftIconTransform.localEulerAngles.z) % 360f;
+                z = (z + a) % 360f;
                 arrow.transform.localEulerAngles = new Vector3 (0, 0, z);
                 arrow.transform.position = outsidePositionClipped;
                 //makes arrow size fixed regardless of zoom
@@ -205,7 +210,6 @@ public class MapTargetArrowsComponent {
 
     private static Unit cachedAircraft;
     private static CombatHUD cachedCombatHUD;
-    private static UnitMapIcon cachedAircraftIcon;
     private static Dictionary<UnitMapIcon, Image> arrows = new ();
     private static Text text;
 }

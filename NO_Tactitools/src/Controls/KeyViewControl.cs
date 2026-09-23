@@ -17,25 +17,25 @@ public class KeyViewControlComponent {
 
                 InputCatcher.RegisterButtonInput(
                     Plugin.KeyViewControl.PanLeftKey,
-                    PlayerSettings.pressDelay,
+                    Plugin.PressDelay.Value,
                     onReleased: () => { pan = pan == -2 ? 0 : -1; },
                     onLongPress: () => { pan = -2; }
                     );
                 InputCatcher.RegisterButtonInput(
                     Plugin.KeyViewControl.PanRightKey,
-                    PlayerSettings.pressDelay,
+                    Plugin.PressDelay.Value,
                     onReleased: () => { pan = pan == 2 ? 0 : 1; },
                     onLongPress: () => { pan = 2; }
                     );
                 InputCatcher.RegisterButtonInput(
                     Plugin.KeyViewControl.TiltUpKey,
-                    PlayerSettings.pressDelay,
+                    Plugin.PressDelay.Value,
                     onReleased: () => { tilt = tilt == -2 ? 0 : -1; },
                     onLongPress: () => { tilt = -2; }
                     );
                 InputCatcher.RegisterButtonInput(
                     Plugin.KeyViewControl.TiltDownKey,
-                    PlayerSettings.pressDelay,
+                    Plugin.PressDelay.Value,
                     onReleased: () => { tilt = tilt == 2 ? 0 : 1; },
                     onLongPress: () => { tilt = 2; }
                     );

@@ -1,6 +1,7 @@
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI; //Image
+using TMPro;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Reflection;
@@ -69,7 +70,7 @@ class TargetArrowsComponent {
 
     private static FieldInfo hudumTransformInfo = AccessTools.Field(typeof(HUDUnitMarker), "_transform");
     private static TraverseCache<CombatHUD, Image> targetArrowCache = new ("targetArrow");
-    private static TraverseCache<CombatHUD, Text> targetTextCache = new ("targetText");
+    private static TraverseCache<CombatHUD, TextMeshProUGUI> targetTextCache = new ("targetText");
     private static TraverseCache<CombatHUD, Transform> targetArrowTailCache = new ("targetArrowTail");
 
     private static List<Image> arrows = new ();

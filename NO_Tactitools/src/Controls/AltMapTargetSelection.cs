@@ -36,11 +36,11 @@ class AltMapTargetSelectionComponent {
     public static bool PickActive = true;
 
     private static void SelectFromMap(bool paint = false) {
-        DynamicMap dynamicMap = SceneSingleton<DynamicMap>.i;
+        DynamicMap dynamicMap = UIBindings.Game.GetDynamicMapComponent();
         if (dynamicMap == null)
             return;
 
-        var iconLookup = (Dictionary<Unit, UnitMapIcon>)dynamicMapIconLookupInfo.GetValue(dynamicMap);
+        var iconLookup = dynamicMapIconLookupCache.GetValue(dynamicMap);
         List<UnitMapIcon> paintedIcons = new ();
         UnitMapIcon unselectedIcon = null, selectedIcon = null;
         float squareSelectionRadiusUnselected = SelectionRadius * SelectionRadius;
@@ -51,7 +51,7 @@ class AltMapTargetSelectionComponent {
             if (icon.gameObject.activeSelf) {
                 float squareDistance = FastMath.SquareDistance(mousePosition, icon.transform.position);
                 bool selected = !icon.iconImage.raycastTarget;
-                if (!selected && squareDistance <= squareSelectionRadiusUnselected && !SceneSingleton<TargetListSelector>.i.CheckExclusions(icon.unit)) {
+                if (!selected && squareDistance <= squareSelectionRadiusUnselected && !GameBindings.Player.TargetFilter.CheckExclusions(icon.unit)) {
                     if (paint) {
                         paintedIcons.Add(icon);
                     }
@@ -67,13 +67,22 @@ class AltMapTargetSelectionComponent {
             }
         }
 
-        bool disposessed = SceneSingleton<CombatHUD>.i?.aircraft?.disabled ?? true;
-        if (paint)
-            if (disposessed)
-                foreach (var icon in paintedIcons)
-                    icon.ClickIcon(MapIcon.ClickSource.Controller);
-            else
-                GameBindings.Player.TargetList.AddTargets(paintedIcons.ConvertAll(icon => icon.unit));
+        bool disposessed = true;
+        var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+        if (aircraft != null)
+            disposessed = aircraft.disabled;
+
+        if (paint) {
+            if (paintedIcons.Count > 0) {
+                if (disposessed) {
+                    foreach (var icon in paintedIcons)
+                        icon.ClickIcon(MapIcon.ClickSource.Controller);
+                }
+                else {
+                    GameBindings.Player.TargetList.AddTargets(paintedIcons.ConvertAll(icon => icon.unit));
+                }
+            }
+        }
         else {
             if (disposessed) {
                 var icon = unselectedIcon != null ? unselectedIcon : selectedIcon != null ? selectedIcon : null;
@@ -92,8 +101,8 @@ class AltMapTargetSelectionComponent {
         }
     }
 
-    private static FieldInfo dynamicMapIconLookupInfo = AccessTools.Field(typeof(DynamicMap), "iconLookup");
-    private static FieldInfo dynamicMapPlayerInfo = AccessTools.Field(typeof(DynamicMap), "player");
+    private static TraverseCache<DynamicMap, Dictionary<Unit, UnitMapIcon>> dynamicMapIconLookupCache = new ("iconLookup");
+    private static TraverseCache<DynamicMap, Rewired.Player> dynamicMapPlayerCache = new ("player");
 
     /*An icon is selected by calling ClickIcon() from DynamicMap.SelectFromMap() (which is disabled),
       and from MapIcon.IPointerClickHandler.OnPointerClick(). The latter causes unneeded additional selection.
@@ -117,12 +126,14 @@ class AltMapTargetSelectionComponent {
 
     [HarmonyPatch(typeof(DynamicMap), "MapControls")]
     public class OnDynamicMapMapControls {
-        public static bool Prefix() {
-            DynamicMap dynamicMap = SceneSingleton<DynamicMap>.i;
-            if (dynamicMap == null)
+        public static bool Prefix(DynamicMap __instance, ref RectTransform ___mapRectTransform) {
+            var dynamicMap = __instance;
+            var mapRectTransform = ___mapRectTransform;
+
+            if (dynamicMap == null || !DynamicMap.mapMaximized)
                 return false;
 
-            var player = (Rewired.Player)dynamicMapPlayerInfo.GetValue(dynamicMap);
+            var player = dynamicMapPlayerCache.GetValue(dynamicMap);
             if (player.GetButtonTimedPressUp("Select", 0f, PlayerSettings.clickDelay)) {
                 SelectFromMap(paint: false);
                 return false;
@@ -131,8 +142,14 @@ class AltMapTargetSelectionComponent {
                 SelectFromMap(paint: true);
                 return false;
             }
-            else
-                return true;
+            else {
+                //FIX Avoids processing any input if mouse cursor is outside maximized map
+                var position = mapRectTransform.position;
+                float width = mapRectTransform.rect.width * mapRectTransform.lossyScale.x;
+                float height = mapRectTransform.rect.height * mapRectTransform.lossyScale.y;
+                var rect = new Rect (position.x - 0.5f * width, position.y - 0.5f * height, width, height);
+                return MathUtils.IsInsideRect(rect, Input.mousePosition);
+            }
         }
     }
 }

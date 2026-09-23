@@ -30,39 +30,41 @@ public class TargetVelocityIndicatorPlugin {
 class TargetVelocityIndicatorComponent {
     private static readonly TraverseCache<CombatHUD, Dictionary<Unit, HUDUnitMarker>> markerLookupCache = new("markerLookup");
     private static CombatHUD combatHUD;
+    private static Unit target;
+    private static HUDUnitMarker marker;
     private static RectTransform combatHUDRectTransform;
     private static UIBindings.Draw.UILabel indicator;
     private static List<UIBindings.Draw.UILabel> dots = new ();
     public static float MaxSpeed = 1000.0f; //kph
     public static float MaxLength = 100.0f; //pixels
     public static float DotStep = 10.0f; //pixels
-    private static bool initialized = false;
 
     private static void Update() {
-        void Disable() {
-            indicator.GetGameObject().SetActive(false);
-            foreach (var dot in dots)
-                dot.GetGameObject().SetActive(false);
+        void Disable(bool resetTarget = false) {
+            var gameObject = indicator.GetGameObject();
+            if (gameObject.activeSelf) {
+                indicator.GetGameObject().SetActive(false);
+                foreach (var dot in dots)
+                    dot.GetGameObject().SetActive(false);
+            }
+            if (resetTarget && target != null) {
+                target = null;
+                marker = null;
+            }
+        }
+
+        var camera = UIBindings.Game.GetCameraStateManager().mainCamera;
+        if (camera == null) {
+            Disable(resetTarget: true);
             return;
         }
 
         CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
         if (currentCombatHUD == null) {
+            Disable(resetTarget: true);
             return;
         }
-        if (combatHUD != currentCombatHUD) {
-            initialized = false;
-            combatHUD = currentCombatHUD;
-        }
-
-        Dictionary<Unit, HUDUnitMarker> markerLookup = markerLookupCache.GetValue(currentCombatHUD);
-
-        var camera = SceneSingleton<CameraStateManager>.i.mainCamera;
-        if (camera == null) {
-            return;
-        }
-
-        if (!initialized) {
+        else if (combatHUD != currentCombatHUD) {
             combatHUDRectTransform = UIBindings.Game.GetCombatHUDTransform()?.GetComponent<RectTransform>();
             indicator = new UIBindings.Draw.UILabel (
                 name: "TargetVelocityIndicatorMarker",
@@ -71,38 +73,41 @@ class TargetVelocityIndicatorComponent {
                 color: Color.green,
                 backgroundOpacity: 0.0f);
             dots.Clear();
-
-            initialized = true;
+            combatHUD = currentCombatHUD;
         }
 
-        var targets = GameBindings.Player.TargetList.GetTargets();
-        if (targets == null) {
-            Disable();
+        var currentTarget = GameBindings.Player.TargetList.GetActiveTarget();
+        if (currentTarget == null) {
+            Disable(resetTarget: true);
             return;
         }
-        if (targets.Count == 0) {
-            Disable();
+        else if (target != currentTarget) {
+            target = currentTarget;
+            Dictionary<Unit, HUDUnitMarker> markerLookup = markerLookupCache.GetValue(currentCombatHUD);
+            if (!markerLookup.TryGetValue(target, out marker)) {
+                Disable(resetTarget: true);
+                return;
+            }
+        }
+
+        if (marker.outdated) {
+            Disable(resetTarget: false);
             return;
         }
 
-        var target = targets[0];
-        var marker = markerLookup[target];
         Rigidbody rb = target.rb;
         if (rb == null) {
-            Disable();
-            return;
-        }
-        if (marker.outdated) {
-            Disable();
+            Disable(resetTarget: false);
             return;
         }
 
         var velocity = rb.velocity;
         DirectionAndMagnitude(velocity, out var velocityDirection, out var speed);
         if (speed < 0.1f) {
-            Disable();
+            Disable(resetTarget: false);
             return;
         }
+
         //speed is in m/s, MaxSpeed is in km/h, 1 m/s = 3.6 km/h
         Vector3 screenOffset = 3.6f * speed / MaxSpeed * MaxLength * velocityDirection;
         DirectionAndMagnitude(screenOffset, out var screenOffsetDirection, out var screenOffsetMagnitude);
@@ -115,7 +120,7 @@ class TargetVelocityIndicatorComponent {
         var startScreenPosition = camera.WorldToScreenPoint(target.GlobalPosition().ToLocalPosition());
         var endScreenPosition = startScreenPosition + screenOffset;
         if (!IsPointOnscreen(startScreenPosition) && !IsPointOnscreen(endScreenPosition)) {
-            Disable();
+            Disable(resetTarget: false);
             return;
         }
 
@@ -125,9 +130,12 @@ class TargetVelocityIndicatorComponent {
             null,
             out Vector2 endCanvasPosition);
 
+        var color = marker.image.color;
+
         var indicatorMarker = Vector3.Dot(camera.transform.forward, velocity) > 0 ? "o" : "x";
         indicator.SetText(indicatorMarker);
         indicator.SetPosition(endCanvasPosition);
+        indicator.SetColor(color);
         indicator.GetGameObject().SetActive(true);
 
         var numDots = (int)(screenOffsetMagnitude / DotStep);
@@ -152,6 +160,7 @@ class TargetVelocityIndicatorComponent {
                 out Vector2 dotCanvasPosition);
             var currentDot = dots[i];
             currentDot.SetPosition(dotCanvasPosition);
+            currentDot.SetColor(color);
             currentDot.SetOpacity(Mathf.InverseLerp(0.0f, screenOffsetMagnitude, currentOffsetMagnitude));
             currentDot.GetGameObject().SetActive(true);
         }

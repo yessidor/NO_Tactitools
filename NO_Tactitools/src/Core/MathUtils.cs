@@ -63,4 +63,14 @@ public class MathUtils {
         u = tClosest;
         return result;
     }
+
+    public static bool IsInsideRect(Rect rect, Vector3 pos) {
+        return pos.x > rect.x && (pos.x < rect.x + rect.width) && pos.y > rect.y && (pos.y < rect.y + rect.height);
+    }
+
+    public static (Vector3, float) CalcNormalizedAndMagnitude(Vector3 vec) {
+        float magnitude = vec.magnitude;
+        Vector3 normalized = magnitude != 0f ? vec / magnitude : Vector3.zero;
+        return (normalized, magnitude);
+    }
 }

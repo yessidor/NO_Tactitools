@@ -34,6 +34,7 @@ public static class BootScreenComponent {
                 if (child.gameObject.activeSelf) InternalState.previouslyActiveObjects.Add(child.gameObject);
                 child.gameObject.SetActive(false);
             }
+            InternalState.isRecognized = true;
             string platformName = GameBindings.Player.Aircraft.GetPlatformName();
             switch (platformName) {
                 case "CI-22 Cricket":
@@ -76,11 +77,33 @@ public static class BootScreenComponent {
                     InternalState.horizontalOffset = -245;
                     InternalState.verticalOffset = 65;
                     break;
+                case "A-19 Brawler":
+                    InternalState.horizontalOffset = 0;
+                    InternalState.verticalOffset = 70;
+                    break;
+                case "Alkyon AB-4":
+                case "AB-4 Alkyon":
+                case "FastBomber1":
+                    InternalState.horizontalOffset = -180;
+                    InternalState.verticalOffset = 60;
+                    break;
+                case "VT-7 Vagrant":
+                    InternalState.horizontalOffset = 0;
+                    InternalState.verticalOffset = 75;
+                    break;
+                //modded planes
                 case "FS-3 Ternion":
                     InternalState.horizontalOffset = -215;
                     InternalState.verticalOffset = 80;
                     break;
+                case "MiG-15":
+                    InternalState.horizontalOffset = -250;
+                    InternalState.verticalOffset = 120;
+                    break;
                 default:
+                    Plugin.Log($"[BS] Platform {platformName} is not recognized.");
+                    //if platform is not recognized, Boot Screen will not show (possibly misplaced) boot label
+                    InternalState.isRecognized = false;
                     break;
             }
             InternalState.startTime = DateTime.Now;
@@ -91,7 +114,7 @@ public static class BootScreenComponent {
             if (InternalState.hasBooted) return;
             if ((DateTime.Now - InternalState.startTime).TotalSeconds <= 2) {
                 // PAS FAN DE CETTE SOLUTION
-                if (GameBindings.Player.TargetList.GetTargets().Count > 0) {
+                if (GameBindings.Player.TargetList.GetTargetCount() > 0) {
                     UIBindings.Game.GetTargetCamComponent()?.CancelTarget();
                     foreach (GameObject child in InternalState.previouslyActiveObjects) {
                         if (child.gameObject.activeSelf)
@@ -115,17 +138,19 @@ public static class BootScreenComponent {
             if (InternalState.bootLabel != null) {
                 GameObject.Destroy(InternalState.bootLabel.GetGameObject());
                 InternalState.bootLabel = null;
-                InternalState.updateBootingLabel = false;
-                InternalState.hasBooted = true;
             }
+
+            InternalState.updateBootingLabel = false;
+            InternalState.hasBooted = true;
         }
     }
 
     public static class InternalState {
+        public static bool isRecognized = true;
         public static DateTime startTime;
         public static bool hasBooted = true; // so that other plugins can check if boot is done, and initialized to true to avoid null refs
         public static bool updateBootingLabel = false;
-        public static UIBindings.Draw.UILabel bootLabel;
+        public static UIBindings.Draw.UILabel bootLabel = null;
         public static int horizontalOffset = 0;
         public static int verticalOffset = 0;
         public static List<GameObject> previouslyActiveObjects = [];
@@ -138,18 +163,21 @@ public static class BootScreenComponent {
             containerObject.AddComponent<RectTransform>();
             InternalState.containerTransform = containerObject.transform;
             InternalState.containerTransform.SetParent(InternalState.tacScreenTransform, false);
-            InternalState.bootLabel = new UIBindings.Draw.UILabel(
-                "Boot Label",
-                new Vector2(InternalState.horizontalOffset, InternalState.verticalOffset),
-                InternalState.containerTransform
-            );
-            InternalState.bootLabel.SetText("Booting " + GameBindings.Player.Aircraft.GetPlatformName() + "...");
+            if (InternalState.isRecognized) {
+                InternalState.bootLabel = new UIBindings.Draw.UILabel(
+                    "Boot Label",
+                    new Vector2(InternalState.horizontalOffset, InternalState.verticalOffset),
+                    InternalState.containerTransform
+                );
+                InternalState.bootLabel.SetText("Booting " + GameBindings.Player.Aircraft.GetPlatformName() + "...");
+            }
         }
         public static void Update() {
             if (GameBindings.GameState.IsGamePaused() ||
                 GameBindings.Player.Aircraft.GetAircraft() == null)
                 return;
-            if (InternalState.updateBootingLabel &&
+            if (InternalState.bootLabel != null &&
+                InternalState.updateBootingLabel &&
                 InternalState.hasBooted == false) {
                 InternalState.bootLabel.SetText("Booting " + GameBindings.Player.Aircraft.GetPlatformName() + new string('.', (int)((DateTime.Now - InternalState.startTime).TotalSeconds * 4f / 2f)));
             }

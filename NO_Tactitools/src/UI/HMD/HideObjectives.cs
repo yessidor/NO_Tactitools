@@ -27,7 +27,7 @@ class HideObjectivesComponent {
   [HarmonyPatch(typeof(AirbaseOverlay), "DisplayMarkers")]
   public class OnAirbaseOverlayDisplayMarkers {
       public static void Postfix(ref Image ___airbaseMarker, ref Text ___airbaseLabel) {
-        if (SceneSingleton<MapOptions>.i.showObjectives == false) {
+        if (UIBindings.Game.GetMapOptionsComponent().showObjectives == false) {
           ___airbaseMarker.enabled = false;
           ___airbaseLabel.enabled = false;
         }
@@ -37,7 +37,7 @@ class HideObjectivesComponent {
   [HarmonyPatch(typeof(ObjectiveOverlayManager), "UpdateOverlays")]
   public class OnObjectiveOverlayManagerUpdateOverlays {
       public static void Postfix(ref List<ObjectiveOverlay> ___overlays) {
-        if (SceneSingleton<MapOptions>.i.showObjectives == false) {
+        if (UIBindings.Game.GetMapOptionsComponent().showObjectives == false) {
           foreach (ObjectiveOverlay overlay in  ___overlays)
             overlay.HideOverlay();
         }

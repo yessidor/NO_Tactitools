@@ -11,32 +11,36 @@ namespace NO_Tactitools.UI.HMD;
 
 [HarmonyPatch(typeof(MainMenu), "Start")]
 public class MiniMapZoomPlugin {
-    private static bool initialized = false;
+    public static bool initialized = false;
     static void Postfix() {
         if (!initialized) {
             Plugin.Log($"[MMZ] MiniMap Zoom plugin starting !");
 
             Plugin.harmony.PatchAll(typeof(MiniMapZoomComponent.OnDynamicMapCenterMinimizedMap));
             Plugin.harmony.PatchAll(typeof(MiniMapZoomComponent.OnDynamicMapMinimize));
+            Plugin.harmony.PatchAll(typeof(MiniMapZoomComponent.OnDynamicMapMaximize));
 
             InputCatcher.RegisterNewInput(
                 Plugin.MiniMapZoom.CycleUpKey,
-                PlayerSettings.pressDelay,
+                Plugin.PressDelay.Value,
                 onRelease: () => MiniMapZoomComponent.CycleZoom(up: true),
                 onLongPress: MiniMapZoomComponent.ResetZoom);
 
             InputCatcher.RegisterNewInput(
                 Plugin.MiniMapZoom.CycleDownKey,
-                PlayerSettings.pressDelay,
+                Plugin.PressDelay.Value,
                 onRelease: () => MiniMapZoomComponent.CycleZoom(up: false),
                 onLongPress: MiniMapZoomComponent.ResetZoom);
 
-            var virtualJoystickBindings = new BindingHelper.Binding[] {
+            var bindings = new BindingHelper.Binding[] {
                 new (typeof(MiniMapZoomComponent), "ZoomsString", Plugin.MiniMapZoom.Zooms),
                 new (typeof(MiniMapZoomComponent), "Offset", Plugin.MiniMapZoom.Offset),
                 new (typeof(MiniMapZoomComponent), "Report", Plugin.MiniMapZoom.Report),
+                new (typeof(MiniMapZoomComponent), "CenterMinimizedMapInPrefix", Plugin.MiniMapZoom.CenterMinimizedMapInPrefix),
+                new (typeof(MiniMapZoomComponent), "IndependentZoomLevels", Plugin.MiniMapZoom.IndependentZoomLevels),
+                new (typeof(MiniMapZoomComponent), "SaveMaximizedPosition", Plugin.MiniMapZoom.SaveMaximizedPosition)
             };
-            BindingHelper.ApplyBindings(virtualJoystickBindings);
+            BindingHelper.ApplyBindings(bindings);
 
             initialized = true;
             Plugin.Log($"[MMZ] MiniMap Zoom plugin started !");
@@ -44,7 +48,7 @@ public class MiniMapZoomPlugin {
     }
 }
 
-class MiniMapZoomComponent {
+public class MiniMapZoomComponent {
     public static List<float> Zooms {
          set {
               field = [.. value];
@@ -70,14 +74,28 @@ class MiniMapZoomComponent {
     }
     public static float Offset { set; get; } = 4000f;
     public static bool Report { set; get; } = true;
+    public static bool CenterMinimizedMapInPrefix { set; get; } = true;
+    public static bool IndependentZoomLevels = true;
+    public static bool SaveMaximizedPosition = true;
 
     private static CombatHUD currentCombatHUD;
-    private static int idx = 0;
-    private static float minimizedZoomLevel = 2.0f;
-    private static float currentZoomLevel = minimizedZoomLevel;
     private static FieldInfo OnMapChangedInfo = AccessTools.Field(typeof(DynamicMap), "onMapChanged");
 
+    private static int idx = 0;
+    private static float defaultZoomLevel = 2.0f;
+    private static float currentZoomLevel = defaultZoomLevel;
+    private static float minimizedZoomLevel = defaultZoomLevel;
+    private static float maximizedZoomLevel = defaultZoomLevel;
+    private static Vector2 positionOffset = Vector2.zero;
+    private static Vector2 stationaryOffset = Vector2.zero;
+
+
     public static void CycleZoom(bool up = true) {
+        if (!MiniMapZoomPlugin.initialized) {
+            Plugin.Log("[MMZ] Not initialized");
+            return;
+        }
+
         if (Zooms.Count == 0)
             return;
         idx = (up ? (idx + 1) : (idx - 1 + Zooms.Count)) % Zooms.Count;
@@ -88,7 +106,12 @@ class MiniMapZoomComponent {
     }
 
     public static void ResetZoom() {
-        var zoom = (float)minimizedZoomLevel;
+        if (!MiniMapZoomPlugin.initialized) {
+            Plugin.Log("[MMZ] Not initialized");
+            return;
+        }
+
+        var zoom = defaultZoomLevel;
         idx = Zooms.IndexOf(zoom);
         if (idx == -1) idx = 0;
         SetZoomLevel(zoom);
@@ -96,18 +119,20 @@ class MiniMapZoomComponent {
           UIBindings.Game.DisplayToast(string.Format("Minimap zoom: <b>{0}</b>", zoom), 3f);
     }
 
-    private static void SetZoomLevel(float zoomLevel)
-    {
-        var combatHUD = SceneSingleton<CombatHUD>.i;
+    private static void SetZoomLevel(float zoomLevel) {
+        var combatHUD = UIBindings.Game.GetCombatHUDComponent();
         if (combatHUD == null)
             return;
-        var aircraftTransform = combatHUD.aircraft?.transform;
+        var aircraft = combatHUD.aircraft;
+        if (aircraft == null)
+            return;
+        var aircraftTransform = aircraft.transform;
         if (aircraftTransform == null)
             return;
 
         currentZoomLevel = zoomLevel;
 
-        var dynamicMap = SceneSingleton<DynamicMap>.i;
+        var dynamicMap = UIBindings.Game.GetDynamicMapComponent();
         var mapScaleProxy = dynamicMap.mapScaleProxy;
         var mapScaleCenter = dynamicMap.mapScaleCenter;
         var mapImage = dynamicMap.mapImage;
@@ -133,15 +158,19 @@ class MiniMapZoomComponent {
     }
 
     private static void CenterMinimizedMap(ref DynamicMap instance) {
-        var combatHUD = SceneSingleton<CombatHUD>.i;
+        var combatHUD = UIBindings.Game.GetCombatHUDComponent();
         if (combatHUD == null)
             return;
         else if (combatHUD != currentCombatHUD) {
             currentCombatHUD = combatHUD;
             ResetZoom();
+            minimizedZoomLevel = maximizedZoomLevel = instance.mapScaleCenter.localScale.x;
         }
 
-        var aircraftTransform = combatHUD.aircraft?.transform;
+        var aircraft = combatHUD.aircraft;
+        if (aircraft == null)
+            return;
+        var aircraftTransform = aircraft.transform;
         if (aircraftTransform == null)
             return;
 
@@ -151,10 +180,10 @@ class MiniMapZoomComponent {
         var viewIndicator = instance.viewIndicator;
         var viewIndicatorTransform = viewIndicator.transform;
         var mapBackground = instance.mapBackground;
-        var cameraStateManagerTransform = SceneSingleton<CameraStateManager>.i.transform;
+        var cameraStateManagerTransform = UIBindings.Game.GetCameraStateManager().transform;
 
         //Default zoom in minimap mode = 2.0f
-        float factor = (float)minimizedZoomLevel / currentZoomLevel;
+        float factor = defaultZoomLevel / currentZoomLevel;
 
         Vector3 cameraPos = cameraStateManagerTransform.position.ToGlobalPosition().AsVector3() * mapDisplayFactor;
         Vector3 forward = aircraftTransform.forward;
@@ -171,15 +200,49 @@ class MiniMapZoomComponent {
     [HarmonyPatch(typeof(DynamicMap), "CenterMinimizedMap")]
     public class OnDynamicMapCenterMinimizedMap {
         public static bool Prefix(ref DynamicMap __instance) {
-            CenterMinimizedMap(ref __instance);
-            return false;
+            if (CenterMinimizedMapInPrefix) {
+                CenterMinimizedMap(ref __instance);
+                return false;
+            }
+            else
+                return true;
+        }
+
+        public static void Postfix(ref DynamicMap __instance) {
+            if (!CenterMinimizedMapInPrefix)
+                CenterMinimizedMap(ref __instance);
         }
     }
 
     [HarmonyPatch(typeof(DynamicMap), "Minimize")]
     public class OnDynamicMapMinimize {
+        public static void Prefix(ref DynamicMap __instance, ref Vector2 ___positionOffset, ref Vector2 ___stationaryOffset) {
+            if (IndependentZoomLevels)
+                maximizedZoomLevel = __instance.mapScaleCenter.localScale.x;
+            if (SaveMaximizedPosition) {
+                stationaryOffset = ___stationaryOffset;
+                positionOffset = ___positionOffset;
+            }
+        }
+
         public static void Postfix(ref DynamicMap __instance) {
-            SetZoomLevel(currentZoomLevel);
+            SetZoomLevel(IndependentZoomLevels ? minimizedZoomLevel : currentZoomLevel);
+        }
+    }
+
+    [HarmonyPatch(typeof(DynamicMap), "Maximize")]
+    public class OnDynamicMapMaximize {
+        public static void Prefix(ref DynamicMap __instance) {
+            if (IndependentZoomLevels)
+                minimizedZoomLevel = __instance.mapScaleCenter.localScale.x;
+        }
+
+        public static void Postfix(ref DynamicMap __instance, ref Vector2 ___positionOffset, ref Vector2 ___stationaryOffset) {
+            SetZoomLevel(IndependentZoomLevels ? maximizedZoomLevel : currentZoomLevel);
+            if (SaveMaximizedPosition) {
+                ___stationaryOffset = stationaryOffset;
+                ___positionOffset = positionOffset;
+            }
         }
     }
 }

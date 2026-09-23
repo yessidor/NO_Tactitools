@@ -4,6 +4,8 @@ using UnityEngine;
 using NO_Tactitools.Core;
 using System.Collections.Generic;
 using System;
+using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine.Rendering;
 using JetBrains.Annotations;
 
@@ -21,6 +23,10 @@ class ArtificialHorizonPlugin {
             Plugin.Log($"[AH] Artificial Horizon plugin dependency check complete. IsThirdPersonModLoaded: {IsThirdPersonModLoaded.ToString()}");
             Plugin.harmony.PatchAll(typeof(ArtificialHorizonComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(ArtificialHorizonComponent.OnPlatformUpdate));
+            var bindings = new BindingHelper.Binding[] {
+                new (ArtificialHorizonComponent.InternalState.AuthorizedFor, "Entries", Plugin.artificialHorizonAuthorizedFor),
+            };
+            BindingHelper.ApplyBindings(bindings);
             initialized = true;
             Plugin.Log("[AH] Artificial Horizon plugin successfully started !");
         }
@@ -32,16 +38,24 @@ public class ArtificialHorizonComponent {
     static class LogicEngine {
         static public void Init() {
             Plugin.Log("[AH] Initializing Artificial Horizon");
-            InternalState.authorizedPlatforms = FileUtilities.GetListFromConfigFile("ArtificialHorizon_AuthorizedPlatforms.txt");
-            InternalState.isAuthorized = InternalState.authorizedPlatforms.Contains(GameBindings.Player.Aircraft.GetPlatformName());
+
+            string name = GameBindings.Player.Aircraft.GetPlatformName();
+
+            InternalState.isAuthorized = InternalState.AuthorizedFor.Matches(name);
+
             if (!InternalState.isAuthorized) {
-                Plugin.Log("[AH] Platform not authorized for Artificial Horizon");
-                if (InternalState.artificialHorizon != null) {
-                    InternalState.artificialHorizon.Reset();
-                    Plugin.Log("[AH] Artificial Horizon display removed");
+                InternalState.authorizedPlatforms = FileUtilities.GetListFromConfigFile("ArtificialHorizon_AuthorizedPlatforms.txt");
+                InternalState.isAuthorized = InternalState.authorizedPlatforms.Contains(name);
+                if (!InternalState.isAuthorized) {
+                    Plugin.Log("[AH] Platform not authorized for Artificial Horizon");
+                    if (InternalState.artificialHorizon != null) {
+                        InternalState.artificialHorizon.Reset();
+                        Plugin.Log("[AH] Artificial Horizon display removed");
+                    }
+                    return;
                 }
-                return;
             }
+
             InternalState.canvasRectTransform = UIBindings.Game.GetCombatHUDTransform()?.GetComponent<RectTransform>();
             InternalState.mainCamera = UIBindings.Game.GetCameraStateManager()?.mainCamera;
             Plugin.Log("[AH] Logic Engine initialized");
@@ -242,6 +256,7 @@ public class ArtificialHorizonComponent {
         static public Vector2 westLabelPos;
         static public string westLabelText = "270°";
         static public float westLabelOpacity = 1f;
+        static public RegexEntries AuthorizedFor = new ();
         static public bool isAuthorized = false;
         static public List<String> authorizedPlatforms = [];
     }

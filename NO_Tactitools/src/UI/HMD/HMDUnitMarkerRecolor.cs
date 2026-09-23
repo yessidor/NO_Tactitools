@@ -2,6 +2,7 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using System.Reflection;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.UI.HMD;
@@ -28,18 +29,32 @@ public class HMDUnitMarkerRecolorPlugin {
 }
 
 class HMDUnitMarkerRecolorComponent {
-  public static Color FriendlyColor = new Color (0.0f, 0.0f, 1.0f, 1.0f);
-  public static Color EnemyColor = new Color (1.0f, 1.0f, 0.0f, 1.0f);
-  public static Color NeutralColor = Color.grey;
+  public static Color FriendlyColor { set { field = value; UpdateMarkers(); } get; } = new Color (0.0f, 0.0f, 1.0f, 1.0f);
+  public static Color EnemyColor { set { field = value; UpdateMarkers(); } get; } = new Color (1.0f, 1.0f, 0.0f, 1.0f);
+  public static Color NeutralColor { set { field = value; UpdateMarkers(); } get; } = Color.grey;
+
+  private static MethodInfo updateColorInfo = AccessTools.Method(typeof(HUDUnitMarker), "UpdateColor");
+  private static TraverseCache<CombatHUD, List<HUDUnitMarker>> markersCache = new ("markers");
+
+  private static void UpdateMarkers() {
+      var combatHUD = UIBindings.Game.GetCombatHUDComponent();
+      if (combatHUD == null)
+          return;
+      var markers = markersCache.GetValue(combatHUD);
+      foreach (var marker in markers) {
+          if (marker != null)
+              updateColorInfo.Invoke(marker, null);
+      }
+  }
 
   [HarmonyPatch(typeof(HUDUnitMarker), "UpdateColor")]
   public class OnHUDUnitMarkerUpdateColor {
-      public static void Postfix(ref HUDUnitMarker __instance, ref Unit ___unit, ref Color ___color, ref Image ___image) {
-          if (__instance.selected)
+      public static void Postfix(ref HUDUnitMarker __instance, ref Color ___color) {
+          if (__instance.selected || HMDDeclutterComponent.IsSettingMarkerColor(__instance) || EMWSComponent.ProcessingMarker(__instance))
               return;
 
           Color? color = null;
-          switch (DynamicMap.GetFactionMode(___unit.NetworkHQ))
+          switch (DynamicMap.GetFactionMode(__instance.unit.NetworkHQ))
           {
               case FactionMode.NoFaction:
                   color = NeutralColor;
@@ -52,7 +67,7 @@ class HMDUnitMarkerRecolorComponent {
                   break;
           }
           ___color = (Color)color;
-          ___image.color = (Color)color;
+          __instance.image.color = (Color)color;
       }
   }
 }

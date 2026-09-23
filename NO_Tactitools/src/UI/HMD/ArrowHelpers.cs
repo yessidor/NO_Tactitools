@@ -6,7 +6,7 @@ namespace NO_Tactitools.UI.HMD;
 class ArrowHelpers {
     public static bool PinToScreenEdge(Vector3 coords, out Vector3 rayToScreen, out float arrowAngle) {
         //rayToScreen will jump when screenCoords.z passes through 0f
-        Vector3 screenCoords = SceneSingleton<CameraStateManager>.i.mainCamera.WorldToScreenPoint(coords);
+        Vector3 screenCoords = UIBindings.Game.GetCameraStateManager().mainCamera.WorldToScreenPoint(coords);
         var screenCoordsWTS = screenCoords;
         bool zPositive = screenCoords.z >= 0f;
         screenCoords.z = 0f;

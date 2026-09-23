@@ -5,13 +5,17 @@ using System.Globalization;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Reflection;
+using System.IO;
+using System;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.UI.HMD;
 
 [HarmonyPatch(typeof(MainMenu), "Start")]
 class HUDOptionsPresetPlugin {
-    private static bool initialized = false;
+    public static bool initialized = false;
 
     static void Postfix() {
         if (!initialized) {
@@ -25,7 +29,7 @@ class HUDOptionsPresetPlugin {
               int j = i;
               InputCatcher.RegisterNewInput(
                   Plugin.HUDOptionsPreset.Presets[i],
-                  PlayerSettings.pressDelay,
+                  Plugin.PressDelay.Value,
                   onRelease: () => HUDOptionsPresetComponent.Recall(j),
                   onLongPress: () => HUDOptionsPresetComponent.Remember(j)
               );
@@ -44,21 +48,37 @@ class HUDOptionsPresetPlugin {
 }
 
 
-class HUDOptionsPresetComponent {
+public class HUDOptionsPresetComponent {
     public static bool EnableBuiltinSettings = false;
 
     private static float reportDelay = 2f;
     private static string configName = "HUDOptionsPreset.cfg";
     private static Dictionary<int, HUDOptions_Priorities> presets = new ();
-    private static string entryFormat = @"""{0}"" : {1}";
     private static string entryPattern = @" *""(\d*?)"" *: *({.*}) *";
     private static FieldInfo currentSettingInfo = AccessTools.Field(typeof(HUDOptions), "currentSetting");
 
     public static void Recall(int i) {
         Plugin.Log(string.Format("[HOP] Recall({0})", i));
+
+        if (!HUDOptionsPresetPlugin.initialized) {
+            Plugin.Log("[HOP] Not initialized");
+            return;
+        }
+
         string report = null;
         if (presets.TryGetValue(i, out var preset)) {
-            SceneSingleton<HUDOptions>.i.ApplySettings(ClonePriorities(preset));
+            var hudOptions = UIBindings.Game.GetHUDOptionsComponent();
+            if (hudOptions == null) {
+                Plugin.Log("[HOP] hudOptions is null");
+                return;
+            }
+            var clone = ClonePriorities(preset);
+            hudOptions.ApplySettings(clone);
+            if (!EnableBuiltinSettings) {
+                foreach (var listMode in hudOptions.listModes) {
+                    listMode.settings = clone;
+                }
+            }
             report = string.Format("Recalled HUD options preset <b>{0}</b> <b>({1})</b>", i, GetShown(preset));
         }
         else {
@@ -70,35 +90,96 @@ class HUDOptionsPresetComponent {
 
     public static void Remember(int i) {
         Plugin.Log(string.Format("[HOP] Remember({0})", i));
-        presets[i] = ClonePriorities((HUDOptions_Priorities)currentSettingInfo.GetValue(SceneSingleton<HUDOptions>.i));
+
+        if (!HUDOptionsPresetPlugin.initialized) {
+            Plugin.Log("[HOP] Not initialized");
+            return;
+        }
+
+        presets[i] = ClonePriorities((HUDOptions_Priorities)currentSettingInfo.GetValue(UIBindings.Game.GetHUDOptionsComponent()));
         string report = string.Format("Saved HUD options preset <b>{0}</b> <b>({1})</b>", i, GetShown(presets[i]));
         UIBindings.Game.DisplayToast(report, reportDelay);
         UIBindings.Sound.PlaySound("beep_remember");
         SaveConfig();
     }
 
+    public static void Preview(int i) {
+        Plugin.Log(string.Format("[HOP] Preview({0})", i));
+
+        if (!HUDOptionsPresetPlugin.initialized) {
+            Plugin.Log("[HOP] Not initialized");
+            return;
+        }
+
+        string report = null;
+        if (presets.TryGetValue(i, out var preset)) {
+            report = string.Format("HUD options preset <b>{0}</b> <b>({1})</b>", i, GetShown(preset));
+        }
+        else {
+            report = string.Format("HUD options preset <b>{0}</b> not found", i);
+        }
+        UIBindings.Game.DisplayToast(report, reportDelay);
+    }
+
     private static void SaveConfig() {
-      List<string> entries = new ();
-      foreach (var idAndPreset in presets) {
-          var id = idAndPreset.Key;
-          var preset = idAndPreset.Value;
-          var jsonString = JsonUtility.ToJson(preset, prettyPrint: false);
-          string entry = string.Format(entryFormat, id, jsonString);
-          entries.Add(entry);
-      }
-      FileUtilities.WriteListToConfigFile(configName, entries);
+        Plugin.Log("[HOP] SaveConfig");
+        var resolver = new FileUtilities.IgnorePropertiesResolver(["encyclopedia", "name", "hideFlags"]);
+        var settings = new JsonSerializerSettings { ContractResolver = resolver };
+        var json = JsonConvert.SerializeObject(presets, Formatting.Indented, settings);
+        File.WriteAllText(FileUtilities.GetConfigPath(configName), json);
+    }
+
+    private class HUDOptions_PrioritiesConverter : CustomCreationConverter<HUDOptions_Priorities> {
+        public override HUDOptions_Priorities Create(Type type) {
+            return ScriptableObject.CreateInstance<HUDOptions_Priorities>();
+        }
     }
 
     private static void LoadConfig() {
+        Plugin.Log("[HOP] LoadConfig");
+        try {
+            var hudOptions = UIBindings.Game.GetHUDOptionsComponent();
+            if (hudOptions == null) {
+                Plugin.Log("[HOP] HUDOptions is null");
+                return;
+            }
+            var currentPriorities = (HUDOptions_Priorities)currentSettingInfo.GetValue(hudOptions);
+            var encyclopedia = currentPriorities != null ? currentPriorities.encyclopedia : null;
+
+            var configPath = FileUtilities.GetConfigPath(configName);
+            if (!File.Exists(configPath)) {
+                Plugin.Log($"[HOP] File {configPath} does not exist");
+                return;
+            }
+
+            var json = File.ReadAllText(configPath);
+            var settings = new JsonSerializerSettings ();
+            settings.Converters.Add(new HUDOptions_PrioritiesConverter ());
+            presets = JsonConvert.DeserializeObject<Dictionary<int, HUDOptions_Priorities>>(json, settings);
+            foreach (var preset in presets.Values)
+                preset.encyclopedia = encyclopedia;
+        }
+        catch (Exception e) when (e is JsonReaderException || e is JsonSerializationException) {
+            Plugin.Log($"[HOP] Failed to load JSON config. Trying legacy config parser.");
+            LoadLegacyConfig();
+        }
+        catch (Exception e) {
+            Plugin.Log($"[HOP] Unexpected exception when trying to load JSON config: {e}.");
+        }
+    }
+
+    private static void LoadLegacyConfig() {
+        Plugin.Log("[HOP] LoadLegacyConfig");
         List<string> entries = FileUtilities.GetListFromConfigFile(configName);
         foreach (var entry in entries) {
             Match m = Regex.Match(entry, entryPattern);
             if (m.Success) {
-                if (!int.TryParse(m.Groups[1].Value, out var id)) {
-                    Plugin.Log(string.Format("[HOP] Cannot parse {0} as preset id}", m.Groups[1].Value));
+                var presetIdString = m.Groups[1].Value;
+                if (!int.TryParse(presetIdString, out var id)) {
+                    Plugin.Log($"[HOP] Cannot parse {presetIdString} as preset id");
                     continue;
                 }
-                HUDOptions_Priorities preset = (HUDOptions_Priorities)ScriptableObject.CreateInstance(typeof(HUDOptions_Priorities));
+                var preset = ScriptableObject.CreateInstance<HUDOptions_Priorities>();
                 JsonUtility.FromJsonOverwrite(m.Groups[2].Value, preset);
                 presets[id] = preset;
             }

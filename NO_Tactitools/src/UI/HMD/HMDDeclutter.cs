@@ -1,17 +1,19 @@
 using HarmonyLib;
 using UnityEngine;
-using UnityEngine.UI; //Text
+using UnityEngine.UI;
+using TMPro;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Reflection;
 using System;
+using NuclearOption.Networking;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.UI.HMD;
 
 [HarmonyPatch(typeof(MainMenu), "Start")]
 class HMDDeclutterPlugin {
-    private static bool initialized = false;
+    public static bool initialized = false;
     static void Postfix() {
         if (!initialized) {
             Plugin.Log($"[HMDD] HMD Declutter plugin starting !");
@@ -27,6 +29,9 @@ class HMDDeclutterPlugin {
             Plugin.harmony.PatchAll(typeof(HMDDeclutterComponent.OnHUDUnitMarkerSelectMarker));
             Plugin.harmony.PatchAll(typeof(HMDDeclutterComponent.OnHUDUnitMarkerDeselectMarker));
             Plugin.harmony.PatchAll(typeof(HMDDeclutterComponent.OnHUDUnitMarkerRemoveIcon));
+            Plugin.harmony.PatchAll(typeof(HMDDeclutterComponent.OnUnitMapIconSetIcon));
+            Plugin.harmony.PatchAll(typeof(HMDDeclutterComponent.OnUnitMapIconUpdateIcon));
+            Plugin.harmony.PatchAll(typeof(HMDDeclutterComponent.OnAllyInfoLateUpdate));
 
             InputCatcher.RegisterNewInput(
                 Plugin.HMDDeclutter.CycleHMDMarkerDrawDistanceUp,
@@ -44,13 +49,21 @@ class HMDDeclutterPlugin {
                 new (typeof(HMDDeclutterComponent), "MaximizeTargetableMarkers", Plugin.TargetFilterPreset.MaximizeTargetable),
                 new (typeof(HMDDeclutterComponent), "NeutralsAreFriendly", Plugin.TargetFilterPreset.NeutralsAreFriendly),
                 new (typeof(HMDDeclutterComponent), "DistancesString", Plugin.HMDDeclutter.DistancesString),
-                new (typeof(HMDDeclutterComponent), "Unit", Plugin.HMDDeclutter.Unit),
+                new (typeof(HMDDeclutterComponent), "DistanceUnit", Plugin.HMDDeclutter.DistanceUnit),
                 new (typeof(HMDDeclutterComponent), "Report", Plugin.HMDDeclutter.Report),
                 new (typeof(HMDDeclutterComponent), "NotAlwaysMaximized", Plugin.HMDDeclutter.NotAlwaysMaximized),
                 new (typeof(HMDDeclutterComponent), "HideMinimized", Plugin.HMDDeclutter.HideMinimized),
                 new (typeof(HMDDeclutterComponent), "MinimizeMaximized", Plugin.HMDDeclutter.MinimizeMaximized),
                 new (typeof(HMDDeclutterComponent), "EnemyMinimizedMarkerScale", Plugin.HMDDeclutter.EnemyMinimizedMarkerScale),
                 new (typeof(HMDDeclutterComponent), "FriendlyMinimizedMarkerScale", Plugin.HMDDeclutter.FriendlyMinimizedMarkerScale),
+                new (typeof(HMDDeclutterComponent), "MaximizeOwnMissiles", Plugin.HMDDeclutter.MaximizeOwnMissiles),
+                new (typeof(HMDDeclutterComponent), "AlwaysDrawOwnMissiles", Plugin.HMDDeclutter.AlwaysDrawOwnMissiles),
+                new (typeof(HMDDeclutterComponent), "IncludeDerivedMissiles", Plugin.HMDDeclutter.IncludeDerivedMissiles),
+                new (typeof(HMDDeclutterComponent), "OwnMissilesColor", Plugin.HMDDeclutter.OwnMissilesColor),
+                new (typeof(HMDDeclutterComponent), "OwnMissedMissilesColor", Plugin.HMDDeclutter.OwnMissedMissilesColor),
+                new (typeof(HMDDeclutterComponent), "OwnMissilesScale", Plugin.HMDDeclutter.OwnMissilesScale),
+                new (typeof(HMDDeclutterComponent), "OwnMissilesMapScale", Plugin.HMDDeclutter.OwnMissilesMapScale),
+                new (typeof(HMDDeclutterComponent), "FlashBeforeImpactTime", Plugin.HMDDeclutter.FlashBeforeImpactTime),
                 new (typeof(HMDDeclutterComponent), "OutdatedTime", Plugin.HMDDeclutter.OutdatedTime),
                 new (typeof(HMDDeclutterComponent), "ShowOutdatedTime", Plugin.HMDDeclutter.ShowOutdatedTime),
                 new (typeof(HMDDeclutterComponent), "HideOutdatedMarker", Plugin.HMDDeclutter.HideOutdatedMarker),
@@ -72,27 +85,42 @@ public class HMDDeclutterComponent {
 
     public static bool MaximizeTargetableMarkers {
         set {
+            field = value;
             if (!value)
                 foreach (var p in prevAlwaysMaximized)
                     if (p.Key != null)
                         p.Key.alwaysMaximized = p.Value;
             prevAlwaysMaximized.Clear();
-            field = value;
+            if (value)
+                ProcessMarkers();
         }
         get;
     } = false;
+
+    public static bool MaximizeOwnMissiles = false;
+    public static bool AlwaysDrawOwnMissiles = false;
+    public static bool IncludeDerivedMissiles = false;
+    public static Color OwnMissilesColor = Color.cyan;
+    public static Color OwnMissedMissilesColor = Color.magenta;
+    public static float OwnMissilesScale = 1f;
+    public static float OwnMissilesMapScale = 1f;
+    public static float FlashBeforeImpactTime = 3f;
 
     public static bool NeutralsAreFriendly = true;
 
     public static List<float> Distances {
         set {
             field = [.. value];
-            squaredDistances = field.ConvertAll(x => Mathf.Pow(ConvertToMeters(x, Unit), 2));
+            squaredDistances = field.ConvertAll(x => Mathf.Pow(GameBindings.Units.ConvertToMeters(x, DistanceUnit), 2));
             distancesStrings = field.ConvertAll(x => x.ToString());
             idx = 0;
         }
         get;
     } = new ();
+
+    public static float GetCurrentDistance() {
+        return Distances.Count > 0 ? GameBindings.Units.ConvertToMeters(Distances[idx], DistanceUnit) : 0;
+    }
 
     public static string DistancesString {
         set {
@@ -114,15 +142,13 @@ public class HMDDeclutterComponent {
         private get;
     }
 
-    public enum Units { m, km, ft, mi };
-
-    public static Units Unit {
+    public static GameBindings.Units.DistanceUnits DistanceUnit {
         set {
             field = value;
-            squaredDistances = Distances.ConvertAll(x => Mathf.Pow(ConvertToMeters(x, field), 2));
+            squaredDistances = Distances.ConvertAll(x => Mathf.Pow(GameBindings.Units.ConvertToMeters(x, field), 2));
         }
         get;
-    } = Units.m;
+    } = GameBindings.Units.DistanceUnits.m;
 
     public static bool Report = true;
     public static bool HideMinimized = false;
@@ -136,21 +162,41 @@ public class HMDDeclutterComponent {
     public static float EndOutdatedMarkerOpacity = 0.25f;
 
     public static void CycleDistance(bool up = true) {
+        if (!HMDDeclutterPlugin.initialized) {
+            Plugin.Log("[HMDD] Not initialized");
+            return;
+        }
+
         if (Distances.Count == 0)
             return;
         idx = (up ? (idx + 1) : (idx - 1 + Distances.Count))  % Distances.Count;
         if (Report) {
-          UIBindings.Game.DisplayToast(string.Format("HMD markers draw distance: <b>{0}</b>", Distances[idx] == 0f ? "unlimited" : string.Format("{0} {1}", distancesStrings[idx], Unit.ToString())), 3f);
+            var distanceString = Distances[idx] == 0f ? "unlimited" : string.Format("{0} {1}", distancesStrings[idx], DistanceUnit.ToString());
+            var message = string.Format("HMD markers draw distance: <b>{0}</b>", distanceString);
+            UIBindings.Game.DisplayToast(message, 3f);
         }
+    }
+
+    public static bool IsSettingMarkerColor(HUDUnitMarker marker) {
+        return marker.unit is Missile missile && ownMissiles.ContainsKey(missile);
     }
 
     public static void OnTargetListSelectorStartCallback() {
         inProcess = false;
         prevAlwaysMaximized.Clear();
+
+        List<Missile> toRemove = new ();
+        foreach (var missile in ownMissiles.Keys) {
+            if (missile == null)
+                toRemove.Add(missile);
+        }
+        foreach (var missile in toRemove)
+            ownMissiles.Remove(missile);
     }
 
     private static TraverseCache<CombatHUD, List<HUDUnitMarker>> markersCache = new ("markers");
     private static MethodInfo updateHiddenInfo = AccessTools.Method(typeof(HUDUnitMarker), "UpdateHidden");
+    private static FieldInfo colorInfo = AccessTools.Field(typeof(HUDUnitMarker), "color");
     private static Dictionary<HUDUnitMarker, bool> prevAlwaysMaximized = new ();
     private static bool inProcess = false;
 
@@ -162,20 +208,32 @@ public class HMDDeclutterComponent {
         var unit = marker.unit;
         if (unit == null)
             return;
-        var targetListSelector = SceneSingleton<TargetListSelector>.i;
-        if (!prevAlwaysMaximized.TryGetValue(marker, out bool _))
-            prevAlwaysMaximized[marker] = NotAlwaysMaximized ? false : marker.alwaysMaximized;
-        if (targetListSelector.CheckExclusions(unit)) {
-            if (prevAlwaysMaximized.TryGetValue(marker, out bool alwaysMaximized))
-                marker.alwaysMaximized = alwaysMaximized;
-        }
-        else {
+
+        if (MaximizeOwnMissiles && unit is Missile missile && IsPlayersMissile(missile, false)) {
             marker.alwaysMaximized = true;
+            colorInfo.SetValue(marker, OwnMissilesColor);
+            marker.image.color = OwnMissilesColor;
+            marker.image.transform.localScale = Vector3.one * OwnMissilesScale;
+            if (TryGetMissileData(missile, out var missileData)) {
+                if (missileData.hudUnitMarker == null)
+                    missileData.hudUnitMarker = marker;
+            }
+            else
+                ownMissiles[missile] = new MissileData { hudUnitMarker = marker, unitMapIcon = null };
+        }
+        else if (MaximizeTargetableMarkers) {
+            if (!prevAlwaysMaximized.TryGetValue(marker, out bool alwaysMaximized)) {
+                alwaysMaximized = NotAlwaysMaximized ? false : marker.alwaysMaximized;
+                prevAlwaysMaximized[marker] = alwaysMaximized;
+            }
+
+            marker.alwaysMaximized = GameBindings.Player.TargetFilter.CheckExclusions(unit) ? alwaysMaximized : true;
         }
     }
 
     private static void ProcessMarkers() {
         try {
+            //TODO Check whether ProcessMarkers() recursion is possible, and remove inProcess check if not.
             if (!MaximizeTargetableMarkers || inProcess)
                 return;
 
@@ -191,8 +249,9 @@ public class HMDDeclutterComponent {
             var combatHUD = UIBindings.Game.GetCombatHUDComponent();
             if (combatHUD == null)
                 return;
+            var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+            bool gearDeployed = aircraft != null ? aircraft.gearDeployed : false;
             List<HUDUnitMarker> markers = markersCache.GetValue(combatHUD);
-            bool gearDeployed = combatHUD?.aircraft?.gearDeployed ?? false;
             foreach (var marker in markers) {
                 ProcessMarker(marker);
                 updateHiddenInfo.Invoke(marker, new object [] { gearDeployed });
@@ -203,18 +262,55 @@ public class HMDDeclutterComponent {
         }
     }
 
-    private static float ConvertToMeters(float distance, Units unit) {
-        switch (unit) {
-            case Units.m:
-                return distance;
-            case Units.km:
-                return distance * 1000f;
-            case Units.ft:
-                return distance * 0.3048f;
-            case Units.mi:
-                return distance * 1609.344f;
-            default:
-                throw new ArgumentException("Unsupported unit");
+    private static void SetIconIfOutdated(HUDUnitMarker marker, ref bool maximized, ref Sprite icon) {
+        if (!SetOutdatedIcon)
+            return;
+        if (marker.alwaysMaximized || (maximized && !MinimizeMaximized))
+            marker.image.sprite = (marker.outdated ? GameAssets.i.targetUnitSpriteOld : icon);
+    }
+
+    private static bool TryGetMissileData(Unit unit, out MissileData missileData) {
+        missileData = null;
+        if (unit is Missile missile) {
+            if (missile == null) {
+                if (ownMissiles.ContainsKey(missile)) {
+                    ownMissiles.Remove(missile);
+                }
+                return false;
+            }
+            else {
+                return ownMissiles.TryGetValue(missile, out missileData);
+            }
+        }
+        else
+            return false;
+    }
+
+    private static bool TryGetMissileData(UnitMapIcon unitMapIcon, out MissileData missileData) {
+        missileData = null;
+        return TryGetMissileData(unitMapIcon.unit, out missileData);
+    }
+
+    private static bool TryGetMissileData(HUDUnitMarker hudUnitMarker, out MissileData missileData) {
+        missileData = null;
+        return TryGetMissileData(hudUnitMarker.unit, out missileData);
+    }
+
+    /* If includeDerived is true, deliverables launched by player-owned units will also count as belonging to player */
+    private static bool IsPlayersMissile(Missile missile, bool includeDerived = true) {
+        if (missile == null)
+            return false;
+
+        if (includeDerived) {
+            if (UnitRegistry.TryGetPersistentUnit(missile.ownerID, out var missilePersistentUnit) &&
+                GameManager.GetLocalPlayer<NuclearOption.Networking.BasePlayer>(out var localPlayer))
+                return missilePersistentUnit.player == localPlayer;
+            else
+                return false;
+        }
+        else {
+            var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+            return aircraft == null ? false : missile.owner == aircraft;
         }
     }
 
@@ -227,13 +323,20 @@ public class HMDDeclutterComponent {
 
     [HarmonyPatch(typeof(HUDUnitMarker), "UpdatePosition")]
     public class OnHUDUnitMarkerUpdatePosition {
-        public static bool Prefix(FactionHQ hq, GlobalPosition viewPosition, ref HUDUnitMarker __instance, ref bool ___hidden, ref bool ___flashing, ref bool __state) {
+        public static void Prefix(FactionHQ hq, GlobalPosition viewPosition, ref HUDUnitMarker __instance, ref Color ___color, ref bool ___hidden, ref bool ___flashing, ref bool __state) {
             //HUDUnitMarker.UpdatePosition() will return immediately (and not update position) if hidden == true
-            //so saving and restoring 'hidden' and setting it to false to force updating position when marker is 'hidden' and selected' or 'flashing' at the same time
+            //so saving and restoring 'hidden' and setting it to false to force updating position when marker is 'hidden' and 'selected' or 'flashing' at the same time
             __state = ___hidden;
             bool enabled = !___hidden;
 
-            if (__instance.selected || ___flashing) {
+            bool? isPlayersMissileMarker = null;
+            bool IsPlayersMissileMarker(HUDUnitMarker marker) {
+                if (isPlayersMissileMarker == null)
+                    isPlayersMissileMarker = marker.unit is Missile missile && ownMissiles.ContainsKey(missile);
+                return (bool)isPlayersMissileMarker;
+            }
+
+            if (__instance.selected || ___flashing || EMWSComponent.ProcessingMarker(__instance)) {
                 enabled = true;
             }
             else {
@@ -242,10 +345,14 @@ public class HMDDeclutterComponent {
                     enabled = false;
                 }
                 else {
-                    float squaredComparedDistance = squaredDistances[idx];
-                    float squaredCurrentDistance = FastMath.SquareDistance(viewPosition, knownPosition);
+                    if (MaximizeOwnMissiles && AlwaysDrawOwnMissiles && IsPlayersMissileMarker(__instance))
+                        enabled = true;
+                    else {
+                        float squaredComparedDistance = squaredDistances[idx];
+                        float squaredCurrentDistance = FastMath.SquareDistance(viewPosition, knownPosition);
 
-                    enabled &= !(squaredComparedDistance != 0f && squaredCurrentDistance > squaredComparedDistance);
+                        enabled &= !(squaredComparedDistance != 0f && squaredCurrentDistance > squaredComparedDistance);
+                    }
                 }
             }
 
@@ -256,12 +363,30 @@ public class HMDDeclutterComponent {
                 }
             }
 
+            if (MaximizeOwnMissiles && IsPlayersMissileMarker(__instance)) {
+                if (FlashBeforeImpactTime > 0f) {
+                    var timeToImpact = (__instance.unit is Missile missile) ? GameBindings.Helpers.ComputeMissileTTI(missile) : -1f;
+
+                    if (timeToImpact > 0f) {
+                        ___color = OwnMissilesColor;
+                        __instance.image.color = OwnMissilesColor;
+                        if (timeToImpact < FlashBeforeImpactTime)
+                            ___flashing = true;
+                    }
+                    else {
+                        ___color = OwnMissedMissilesColor;
+                        __instance.image.color = OwnMissedMissilesColor;
+                    }
+                }
+            }
+
             __instance.image.enabled = enabled;
             ___hidden = !enabled;
-            return enabled;
         }
 
-        public static void Postfix(ref HUDUnitMarker __instance, ref bool ___hidden, ref bool __state, ref Sprite ___icon) {
+        //HUDUnitMarker.UpdatePosition() sets HUDUnitMarker.image.enabled to false if marker is off-screen and to true otherwise
+
+        public static void Postfix(ref HUDUnitMarker __instance, ref Color ___color, ref bool ___hidden, ref bool ___maximized, ref bool ___flashing, ref Sprite ___icon, ref bool __state) {
             var enabled = __instance.image.enabled;
             var outdated = __instance.outdated;
 
@@ -285,8 +410,8 @@ public class HMDDeclutterComponent {
                 }
             }
 
-            if (enabled && SetOutdatedIcon)
-                __instance.image.sprite = (outdated ? GameAssets.i.targetUnitSpriteOld : ___icon);
+            if (enabled)
+               SetIconIfOutdated(__instance, ref ___maximized, ref ___icon);
 
             ___hidden = __state;
         }
@@ -295,6 +420,14 @@ public class HMDDeclutterComponent {
     [HarmonyPatch(typeof(HUDUnitMarker), "UpdateMaximized")]
     public class OnHUDUnitMarkerUpdateMaximized {
         public static void Postfix(bool enemy, ref HUDUnitMarker __instance, ref bool ___hidden, ref bool ___flashing, ref bool ___maximized, ref Transform ____transform, ref Sprite ___icon) {
+            //Overriding scale set by UpdateMaximized()
+            if (MaximizeOwnMissiles && __instance.unit is Missile missile && ownMissiles.ContainsKey(missile)) {
+                __instance.alwaysMaximized = true;
+                ___hidden = false;
+                __instance.image.transform.localScale = Vector3.one * OwnMissilesScale;
+                return;
+            }
+
             if (__instance.alwaysMaximized || __instance.selected || ___flashing) {
                 return;
             }
@@ -308,37 +441,36 @@ public class HMDDeclutterComponent {
                     ___hidden = true;
                 }
                 else {
-                    ___hidden = combatHUD?.aircraft?.gearDeployed ?? false;
+                    var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+                    ___hidden = aircraft != null ? aircraft.gearDeployed : false;
                 }
             }
 
-            if (MinimizeMaximized && ___maximized) {
+            if (!___hidden && (!___maximized || MinimizeMaximized)) {
                 ____transform.localScale = (enemy ? EnemyMinimizedMarkerScale : FriendlyMinimizedMarkerScale) * Vector3.one;
                 __instance.image.sprite = enemy ? combatHUD.minimizedHostile : combatHUD.minimizedFriendly;
             }
 
-            //Needed to override UpdateMaximized() setting image.sprite to icon if alwaysMaximized == true
-            if (SetOutdatedIcon)
-                __instance.image.sprite = (__instance.outdated ? GameAssets.i.targetUnitSpriteOld : ___icon);
+            SetIconIfOutdated(__instance, ref ___maximized, ref ___icon);
 
-            //OnHUDUnitMarkerUpdatePosition.Prefix() will set image.enabled based on value of 'hidden'
-            __instance.image.enabled = false;
+            /* For now 'image.enabled' will be true only if it was true and 'hidden' was false.
+               Later 'image.enabled' will be set by OnHUDUnitMarkerUpdatePosition.Prefix() and HUDUnitMarker.UpdatePosition().
+               If 'image.enabled' is just set to false here, minimized markers will blink. */
+            __instance.image.enabled &= !___hidden;
         }
     }
 
     [HarmonyPatch(typeof(HUDUnitMarker), "UpdateHidden")]
     public class OnHUDUnitMarkerUpdateHidden {
-        public static void Postfix(ref HUDUnitMarker __instance, ref Sprite ___icon) {
+        public static void Postfix(ref HUDUnitMarker __instance, ref bool ___maximized, ref Sprite ___icon) {
             //Needed to override UpdateHidden() setting image.sprite to icon if hidden != false
-            if (SetOutdatedIcon)
-                __instance.image.sprite = (__instance.outdated ? GameAssets.i.targetUnitSpriteOld : ___icon);
+            SetIconIfOutdated(__instance, ref ___maximized, ref ___icon);
         }
     }
 
     [HarmonyPatch(typeof(TargetListSelector), "CheckAllExclusions")]
     public class OnTargetListSelectorCheckAllExclusions {
         public static void Postfix() {
-            Plugin.Log("[TFP] CheckAllExclusions");
             ProcessMarkers();
         }
     }
@@ -346,7 +478,6 @@ public class HMDDeclutterComponent {
     [HarmonyPatch(typeof(HUDUnitMarker), "SetNew")]
     public class OnHUDUnitMarkerSetNew {
         public static void Postfix(ref HUDUnitMarker __instance) {
-            Plugin.Log("[TFP] SetNew");
             ProcessMarker(__instance);
         }
     }
@@ -366,17 +497,16 @@ public class HMDDeclutterComponent {
     }
 
     private struct MarkerInfo {
-        public Text text;
+        public TextMeshProUGUI text;
         public float lastSeen;
 
-        public MarkerInfo (Text text, float lastSeen) {
+        public MarkerInfo (TextMeshProUGUI text, float lastSeen) {
             this.text = text;
             this.lastSeen = lastSeen;
         }
     }
 
     private static Dictionary<HUDUnitMarker, MarkerInfo> infos = new ();
-    private static TraverseCache<CombatHUD, Text> targetInfoCache = new ("targetInfo");
 
     private static void RemoveFromInfos(HUDUnitMarker marker) {
         var text = infos[marker].text;
@@ -385,18 +515,23 @@ public class HMDDeclutterComponent {
         infos.Remove(marker);
     }
 
+    private class MissileData {
+        public HUDUnitMarker hudUnitMarker;
+        public UnitMapIcon unitMapIcon;
+    }
+    private static Dictionary<Missile, MissileData> ownMissiles = new ();
+
     [HarmonyPatch(typeof(HUDUnitMarker), "SetOutdated")]
     public class OnHUDUnitMarkerSetOutdated {
         private static TraverseCache<CombatHUD, Text> targetTextCache = new ("targetText");
-        public static void Postfix(bool newState, ref HUDUnitMarker __instance, ref Sprite ___icon) {
+        public static void Postfix(bool newState, ref HUDUnitMarker __instance, ref bool ___maximized, ref Sprite ___icon) {
             if (newState) {
-                Text text = null;
+                TextMeshProUGUI text = null;
                 if (ShowOutdatedTime) {
-                    var combatHUD = UIBindings.Game.GetCombatHUDComponent();
-                    text = GameObject.Instantiate(targetInfoCache.GetValue(combatHUD), combatHUD.iconLayer.transform);
+                    text = UIBindings.Game.DuplicateCombatHUDTargetInfo();
                     text.color = __instance.image.color;
                     text.text = "";
-                    text.alignment = TextAnchor.UpperRight;
+                    text.alignment = TextAlignmentOptions.TopRight;
                     text.raycastTarget = false;
                     text.enabled = true;
                 }
@@ -409,24 +544,21 @@ public class HMDDeclutterComponent {
                 }
             }
 
-            if (SetOutdatedIcon)
-                __instance.image.sprite = (newState ? GameAssets.i.targetUnitSpriteOld : ___icon);
+            SetIconIfOutdated(__instance, ref ___maximized, ref ___icon);
         }
     }
 
     [HarmonyPatch(typeof(HUDUnitMarker), "SelectMarker")]
     public class OnHUDUnitMarkerSelectMarker {
-        public static void Postfix(ref HUDUnitMarker __instance, ref Sprite ___icon) {
-            if (SetOutdatedIcon)
-                __instance.image.sprite = (__instance.outdated ? GameAssets.i.targetUnitSpriteOld : ___icon);
+        public static void Postfix(ref HUDUnitMarker __instance, ref bool ___maximized, ref Sprite ___icon) {
+            SetIconIfOutdated(__instance, ref ___maximized, ref ___icon);
         }
     }
 
     [HarmonyPatch(typeof(HUDUnitMarker), "DeselectMarker")]
     public class OnHUDUnitMarkerDeselectMarker {
-        public static void Postfix(ref HUDUnitMarker __instance, ref Sprite ___icon) {
-            if (SetOutdatedIcon)
-                __instance.image.sprite = (__instance.outdated ? GameAssets.i.targetUnitSpriteOld : ___icon);
+        public static void Postfix(ref HUDUnitMarker __instance, ref bool ___maximized, ref Sprite ___icon) {
+            SetIconIfOutdated(__instance, ref ___maximized, ref ___icon);
         }
     }
 
@@ -436,6 +568,44 @@ public class HMDDeclutterComponent {
             if (infos.ContainsKey(__instance)) {
                 RemoveFromInfos(__instance);
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(UnitMapIcon), "SetIcon")]
+    public class OnUnitMapIconSetIcon {
+        public static void Postfix(ref UnitMapIcon __instance, ref float ___unitSizeFactor) {
+            if (MaximizeOwnMissiles) {
+                var icon = __instance;
+                if (icon.unit is Missile missile && IsPlayersMissile(missile, IncludeDerivedMissiles)) {
+                    icon.iconImage.color = OwnMissilesColor;
+                    ___unitSizeFactor *= OwnMissilesMapScale;
+                    if (TryGetMissileData(missile, out var missileData))
+                        missileData.unitMapIcon = icon;
+                    else
+                        ownMissiles[missile] = new MissileData { hudUnitMarker = null, unitMapIcon = icon };
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(UnitMapIcon), "UpdateIcon")]
+    public class OnUnitMapIconUpdateIcon {
+        public static void Postfix(ref UnitMapIcon __instance) {
+            //TODO Optimize?
+            var icon = __instance;
+            if (MaximizeOwnMissiles && TryGetMissileData(icon, out var missileData)) {
+                var hudUnitMarker = missileData.hudUnitMarker;
+                if (hudUnitMarker != null)
+                    icon.iconImage.color = hudUnitMarker.image.color;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(AllyInfo), "LateUpdate")]
+    public class OnAllyInfoLateUpdate {
+        public static void Postfix(ref TextMeshProUGUI ___hoveredAllyInfo, ref HUDUnitMarker ___hoveredAllyMarker) {
+            if (___hoveredAllyMarker != null)
+                ___hoveredAllyInfo.enabled = ___hoveredAllyMarker.image.enabled;
         }
     }
 }

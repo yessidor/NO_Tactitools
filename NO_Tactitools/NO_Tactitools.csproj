@@ -2,8 +2,8 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>NO_Tactitools</AssemblyName>
-    <Product>Nuclear Option Tactical Tools</Product>
-    <Version>0.7.1.1</Version>
+    <Product>Nuclear Option Tactical Tools Plus</Product>
+    <Version>0.7.32.1</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <RestoreAdditionalProjectSources>
@@ -45,6 +45,7 @@
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
     <PackageReference Include="HarmonyX" Version="2.16.0" />
+    <PackageReference Include="MonoMod.Backports" Version="1.1.2" />
     <PackageReference Include="UnityEngine.Modules" Version="2022.3.6" IncludeAssets="compile" />
   </ItemGroup>
 
@@ -52,8 +53,14 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>$(GameDirectory)/NuclearOption_Data/Managed/Assembly-CSharp.dll</HintPath>
     </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(GameDirectory)/NuclearOption_Data/Managed/Assembly-CSharp-firstpass.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(GameDirectory)/NuclearOption_Data/Managed/UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(GameDirectory)/NuclearOption_Data/Managed/Unity.TextMeshPro.dll</HintPath>
     </Reference>
     <Reference Include="Mirage">
       <HintPath>$(GameDirectory)/NuclearOption_Data/Managed/Mirage.dll</HintPath>
@@ -61,8 +68,11 @@
     <Reference Include="Rewired_Core">
       <HintPath>$(GameDirectory)/NuclearOption_Data/Managed/Rewired_Core.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(GameDirectory)/NuclearOption_Data/Managed/Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="com.qwerty1423.NOAutopilot">
-      <HintPath>$(GameDirectory)/BepInEx/plugins/no-autopilot-mod/no-autopilot-mod/com.qwerty1423.NOAutopilot.dll</HintPath>
+      <HintPath>$(GameDirectory)/BepInEx/plugins/no-autopilot-mod/com.qwerty1423.NOAutopilot.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
@@ -86,21 +96,5 @@
       <FilesToDelete Include="$(OutputPath)*.dll" Exclude="$(OutputPath)$(AssemblyName).dll" />
     </ItemGroup>
     <Delete Files="@(FilesToDelete)" />
-  </Target>
-
-  <!-- Create a versioned release zip of the NOTT folder (contains dll + assets) after each build -->
-  <PropertyGroup>
-    <NottSourceDir>$(GameDirectory)\BepInEx\plugins\NOTT</NottSourceDir>
-    <ReleaseOutDir>$(MSBuildProjectDirectory)\releases</ReleaseOutDir>
-    <ReleaseZipName>NOTT_PR_$(Version).zip</ReleaseZipName>
-    <ReleaseZipPath>$(ReleaseOutDir)\$(ReleaseZipName)</ReleaseZipPath>
-  </PropertyGroup>
-
-    <Target Name="CreateReleaseZip" AfterTargets="Build">
-        <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$zipOut='$(ReleaseZipPath)'; $src='$(NottSourceDir)'; if (Test-Path 'C:\Program Files\7-Zip\7z.exe') { &amp; 'C:\Program Files\7-Zip\7z.exe' a $zipOut $src } else { Write-Host '7-Zip not found at default path' }&quot;" />
-    </Target>
-
-  <Target Name="RunGameAfterBuild" AfterTargets="Build" DependsOnTargets="CreateReleaseZip">
-    <Exec Command="&quot;$(GameDirectory)\NuclearOption.exe&quot;" />
   </Target>
 </Project>

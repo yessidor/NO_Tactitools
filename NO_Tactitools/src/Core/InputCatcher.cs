@@ -238,20 +238,7 @@ public class InputCatcher {
         };
         buttonRegistrations.Add(reg);
 
-        string controllerName = config.ControllerName.Value.Trim();
-        int buttonIndex = config.ButtonIndex.Value;
-        if (controllerName == "") {
-            Plugin.Log("[IC] No controller name provided for button registration. Skipping.");
-            return;
-        }
-        else if (buttonIndex < 0) {
-            Plugin.Log("[IC] No input code string provided for button registration. Skipping.");
-            return;
-        }
-
-        HashSet<Modifier> modifiers = ModifierUtils.FromString(config.ModifiersString.Value);
-
-        TryRegisterButtonInputOrQueue(reg, controllerName, buttonIndex, modifiers);
+        TryRegisterButtonInputOrQueue(reg);
     }
 
     //For backward compatibility
@@ -270,24 +257,8 @@ public class InputCatcher {
     }
 
     public static void RegisterButtonBinding(RewiredButtonConfig config) {
-        string controllerName = config.ControllerName.Value.Trim();
-        int buttonIndex = config.ButtonIndex.Value;
-        HashSet<Modifier> modifiers = ModifierUtils.FromString(config.ModifiersString.Value);
-
-        if (controllerName == "" || buttonIndex < 0) {
-            Plugin.Log(
-                string.Format(
-                    "[IC] Cannot register button {0} with modifiers {1} constructed from string {2}",
-                    new Modifier(controllerName, buttonIndex),
-                    ModifierUtils.ToString(modifiers),
-                    config.ModifiersString.Value
-                )
-            );
-            return;
-        }
-
         foreach (var reg in buttonRegistrations.Where(r => r.config == config)) {
-            TryRegisterButtonInputOrQueue(reg, controllerName, buttonIndex, modifiers);
+            TryRegisterButtonInputOrQueue(reg);
         }
     }
     
@@ -319,22 +290,25 @@ public class InputCatcher {
         }
     }
 
+    public static event Action onUpdate;
+
     public static void RegisterAxisInput(
         RewiredAxisConfig config,
         System.Action<float, float, float> onMove = null,
-        System.Action<float, float, float> onMoveRaw = null
+        System.Action<float, float, float> onMoveRaw = null,
+        bool convertAbsToRel = false
         ) {
         
         AxisRegistration reg = new() {
             config = config,
             onMove = onMove,
-            onMoveRaw = onMoveRaw
+            onMoveRaw = onMoveRaw,
+            convertAbsToRel = convertAbsToRel
         };
         axisRegistrations.Add(reg);
 
         string controllerName = config.ControllerName.Value.Trim();
         int axisIndex = config.AxisIndex.Value;
-        int axisDirection = config.AxisDirection.Value;
         if (controllerName == "") {
             Plugin.Log("[IC] No controller name provided for axis registration. Skipping.");
             return;
@@ -344,31 +318,12 @@ public class InputCatcher {
             return;
         }
 
-        HashSet<Modifier> modifiers = ModifierUtils.FromString(config.ModifiersString.Value);
-
-        TryRegisterAxisInputOrQueue(reg, controllerName, axisIndex, axisDirection, modifiers);
+        TryRegisterAxisInputOrQueue(reg);
     }
 
     public static void RegisterAxisBinding(RewiredAxisConfig config) {
-        string controllerName = config.ControllerName.Value.Trim();
-        int axisIndex = config.AxisIndex.Value;
-        int axisDirection = config.AxisDirection.Value;
-        HashSet<Modifier> modifiers = ModifierUtils.FromString(config.ModifiersString.Value);
-
-        if (controllerName == "" || axisIndex < 0) {
-            Plugin.Log(
-                string.Format(
-                    "[IC] Cannot register axis {0} with modifiers {1} constructed from string {2}",
-                    new Modifier(controllerName, axisIndex),
-                    ModifierUtils.ToString(modifiers),
-                    config.ModifiersString.Value
-                )
-            );
-            return;
-        }
-
         foreach (var reg in axisRegistrations.Where(r => r.config == config)) {
-            TryRegisterAxisInputOrQueue(reg, controllerName, axisIndex, axisDirection, modifiers);
+            TryRegisterAxisInputOrQueue(reg);
         }
     }
 
@@ -418,6 +373,7 @@ public class InputCatcher {
         public ButtonRegistration registration;
         public int buttonIndex;
         public HashSet<Modifier> modifiers;
+        public bool exactModifiers;
         public bool currentButtonState;
         public bool previousButtonState;
         public float buttonPressTime;
@@ -438,11 +394,12 @@ public class InputCatcher {
             }
         }
 
-        public ButtonInput(ButtonRegistration registration, Controller controller, int buttonIndex, HashSet<Modifier> modifiers) {
+        public ButtonInput(ButtonRegistration registration, Controller controller, int buttonIndex, HashSet<Modifier> modifiers, bool exactModifiers) {
             this.registration = registration;
             this.buttonIndex = buttonIndex;
             this.modifiers = modifiers;
-            this.buttonPressTime = Time.time;
+            this.exactModifiers = exactModifiers;
+            this.buttonPressTime = Time.realtimeSinceStartup;
             this.longPressHandled = true; // Assume it's already handled if they're holding it down on registration
             this.holdLongHandled = true;
             this.OnController(controller);
@@ -460,6 +417,7 @@ public class InputCatcher {
         public RewiredAxisConfig config;
         public System.Action<float, float, float> onMove;
         public System.Action<float, float, float> onMoveRaw;
+        public bool convertAbsToRel;
     }
 
     private class AxisInput : Input {
@@ -467,6 +425,7 @@ public class InputCatcher {
         public int axisIndex;
         public int axisDirection;
         public HashSet<Modifier> modifiers;
+        public bool exactModifiers;
 
         public Controller.Axis axis;
 
@@ -481,11 +440,12 @@ public class InputCatcher {
                 this.axis = null;
         }
 
-        public AxisInput (AxisRegistration registration, Controller controller, int axisIndex, int axisDirection, HashSet<Modifier> modifiers) {
+        public AxisInput (AxisRegistration registration, Controller controller, int axisIndex, int axisDirection, HashSet<Modifier> modifiers, bool exactModifiers) {
             this.registration = registration;
             this.axisIndex = axisIndex;
             this.axisDirection = axisDirection;
             this.modifiers = modifiers;
+            this.exactModifiers = exactModifiers;
             this.OnController(controller);
 
             if (registration.onMove == null && registration.onMoveRaw == null) {
@@ -497,8 +457,27 @@ public class InputCatcher {
         }
     }
 
-    private static void TryRegisterButtonInputOrQueue(ButtonRegistration registration, string controllerName, int buttonIndex, HashSet<Modifier> modifiers) {
-        ButtonInput buttonInput = new (registration, null, buttonIndex, modifiers);
+    private static void TryRegisterButtonInputOrQueue(ButtonRegistration registration) {
+        var config = registration.config;
+
+        string controllerName = config.ControllerName.Value.Trim();
+        int buttonIndex = config.ButtonIndex.Value;
+        HashSet<Modifier> modifiers = ModifierUtils.FromString(config.ModifiersString.Value);
+        bool exactModifiers = config.ExactModifiers.Value;
+
+        if (controllerName == "" || buttonIndex < 0) {
+            Plugin.Log(
+                string.Format(
+                    "[IC] Cannot register button {0} with modifiers {1} constructed from string {2}",
+                    new Modifier(controllerName, buttonIndex),
+                    ModifierUtils.ToString(modifiers),
+                    config.ModifiersString.Value
+                )
+            );
+            return;
+        }
+
+        ButtonInput buttonInput = new (registration, null, buttonIndex, modifiers, exactModifiers);
 
         foreach (Controller controller in buttonInputs.Keys) {
             if (controller.name.Trim() != controllerName) continue;
@@ -527,8 +506,28 @@ public class InputCatcher {
         controllerButtonInputs.Add(buttonInput);
     }
 
-    private static void TryRegisterAxisInputOrQueue(AxisRegistration registration, string controllerName, int axisIndex, int axisDirection, HashSet<Modifier> modifiers) {
-        AxisInput axisInput = new (registration, null, axisIndex, axisDirection, modifiers);
+    private static void TryRegisterAxisInputOrQueue(AxisRegistration registration) {
+        var config = registration.config;
+
+        string controllerName = config.ControllerName.Value.Trim();
+        int axisIndex = config.AxisIndex.Value;
+        int axisDirection = config.AxisDirection.Value;
+        HashSet<Modifier> modifiers = ModifierUtils.FromString(config.ModifiersString.Value);
+        bool exactModifiers = config.ExactModifiers.Value;
+
+        if (controllerName == "" || axisIndex < 0) {
+            Plugin.Log(
+                string.Format(
+                    "[IC] Cannot register axis {0} with modifiers {1} constructed from string {2}",
+                    new Modifier(controllerName, axisIndex),
+                    ModifierUtils.ToString(modifiers),
+                    config.ModifiersString.Value
+                )
+            );
+            return;
+        }
+
+        AxisInput axisInput = new (registration, null, axisIndex, axisDirection, modifiers, exactModifiers);
 
         foreach (Controller controller in axisInputs.Keys) {
             if (controller.name.Trim() != controllerName) continue;
@@ -582,7 +581,7 @@ public class InputCatcher {
 
     private static Dictionary<string, List<Input>> pendingInputs = [];
 
-    [HarmonyPatch(typeof(Rewired.Controller), "pBrAJYWOGkILyqjLrMpmCdajATI")]
+    [HarmonyPatch(typeof(Rewired.Controller), "IABYVXCCfipGKoUulcRWScgoDgfh")]
     private class ControllerInputInterceptionPatch {
         static void Prefix(Controller __instance) {
             ModsTracker.UpdateModifiersState(__instance);
@@ -598,7 +597,8 @@ public class InputCatcher {
                     foreach (ButtonInput button in buttonInputs[controller]) {
                         try {
                             button.currentButtonState = button.button.value;
-                            if (!button.previousButtonState && button.currentButtonState && button.modifiers.SetEquals(activeModifiers)) {
+                            if (!button.previousButtonState && button.currentButtonState &&
+                                (button.exactModifiers ? button.modifiers.SetEquals(activeModifiers) : button.modifiers.IsSubsetOf(activeModifiers))) {
                                 // button.previousButtonState should not be changed from false to true if modifiers don't match
                                 // so setting button.previousButtonState is moved inside 'if' branches
                                 button.previousButtonState = button.currentButtonState;
@@ -608,7 +608,7 @@ public class InputCatcher {
                                         new Modifier(controllerName, button.buttonIndex),
                                         ModifierUtils.ToString(button.modifiers)));
                                 // Button just pressed
-                                button.buttonPressTime = Time.time;
+                                button.buttonPressTime = Time.realtimeSinceStartup;
                                 button.longPressHandled = false;
                                 button.holdLongHandled = false;
                                 button.registration.onPress?.Invoke();
@@ -616,7 +616,7 @@ public class InputCatcher {
                             else if (button.previousButtonState && button.currentButtonState) {
                                 // Button is being held down
                                 button.previousButtonState = button.currentButtonState;
-                                float holdDuration = Time.time - button.buttonPressTime;
+                                float holdDuration = Time.realtimeSinceStartup - button.buttonPressTime;
                                 if (holdDuration >= button.registration.longPressThreshold && !button.longPressHandled && button.registration.onLongPress != null) {
                                     Plugin.Log(
                                         string.Format(
@@ -673,14 +673,21 @@ public class InputCatcher {
                 if (__instance == controller) {
                     foreach (AxisInput axisInput in axisInputs[controller]) {
                         var axis = axisInput.axis;
-                        var direction = axisInput.axisDirection;
-                        if (axis != null && axis.valueDelta != 0 && axisInput.modifiers.SetEquals(activeModifiers)) {
-                            axisInput.registration.onMove?.Invoke(direction*axis.value, direction*axis.valuePrev, direction*axis.valueDelta);
-                            axisInput.registration.onMoveRaw?.Invoke(direction*axis.valueRaw, direction*axis.valueRawPrev, direction*axis.valueDeltaRaw);
+                        float multiplier = axisInput.axisDirection;
+                        if (axis != null && axis.valueDelta != 0 &&
+                            (axisInput.exactModifiers ? axisInput.modifiers.SetEquals(activeModifiers) : axisInput.modifiers.IsSubsetOf(activeModifiers))) {
+                            if (axisInput.registration.convertAbsToRel && axis.axisCoordinateMode == AxisCoordinateMode.Absolute)
+                                multiplier *= Time.unscaledDeltaTime;
+                            //converted to relative valuePrev and valueDelta (and their Raw counterparts) might be (slightly) incorrect, because
+                            //Time.unscaledDeltaTime could be different on previous frame
+                            axisInput.registration.onMove?.Invoke(multiplier*axis.value, multiplier*axis.valuePrev, multiplier*axis.valueDelta);
+                            axisInput.registration.onMoveRaw?.Invoke(multiplier*axis.valueRaw, multiplier*axis.valueRawPrev, multiplier*axis.valueDeltaRaw);
                         }
                     }
                 }
             }
+
+            onUpdate?.Invoke();
         }
     }
 
@@ -689,6 +696,15 @@ public class InputCatcher {
         static void Postfix(Controller __instance) {
             string cleanedName = __instance.name.Trim();
             Plugin.Log($"[IC] Controller connected: {cleanedName}");
+
+            /* Creating controller-related structures right away after connection
+               to support the case when inputs will be registered after
+               controller has been connected */
+            if (!buttonInputs.ContainsKey(__instance))
+                buttonInputs[__instance] = new ();
+
+            if (!axisInputs.ContainsKey(__instance))
+                axisInputs[__instance] = new ();
 
             if (pendingInputs.TryGetValue(cleanedName, out var pendingControllerInputs)) {
                 Plugin.Instance.StartCoroutine(RegisterPendingInputsRoutine(__instance, pendingControllerInputs));

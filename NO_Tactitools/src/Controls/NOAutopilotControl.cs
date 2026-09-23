@@ -1,5 +1,6 @@
 using BepInEx.Bootstrap;
 using HarmonyLib;
+using System;
 using UnityEngine;
 using NOAutopilot.Core; // Reference from .csproj
 using Plugin = NO_Tactitools.Core.Plugin;
@@ -23,40 +24,58 @@ public static class NOAutopilotControlPlugin {
                 Plugin.harmony.PatchAll(typeof(NOAutopilotComponent.OnPlatformUpdate));
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavToggle,
-                    PlayerSettings.pressDelay,
+                    Plugin.PressDelay.Value,
                     onRelease:ToggleMenu,
                     onLongPress: () => { }
                 );
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavEnter,
                     999f, // High threshold so OnHold keeps running indefinitely
-                    SelectActionShort,
-                    SelectActionHold
+                    onShortPress: SelectActionShort,
+                    onHold: SelectActionHold
                 );
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavUp,
                     999f, // High threshold so OnHold keeps running
-                    NavigateUpShort,
-                    NavigateUpHold
+                    onShortPress: NavigateUpShort,
+                    onHold: NavigateUpHold
                 );
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavDown,
                     999f, // High threshold so OnHold keeps running
-                    NavigateDownShort,
-                    NavigateDownHold
+                    onShortPress: NavigateDownShort,
+                    onHold: NavigateDownHold
                 );
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavLeft,
                     999f,
-                    NavigateLeftShort,
-                    NavigateLeftHold
+                    onShortPress: NavigateLeftShort,
+                    onHold: NavigateLeftHold
                 );
                 InputCatcher.RegisterNewInput(
                     Plugin.MFDNavRight,
                     999f,
-                    NavigateRightShort,
-                    NavigateRightHold
+                    onShortPress: NavigateRightShort,
+                    onHold: NavigateRightHold
                 );
+
+                var bindings = new BindingHelper.Binding[] {
+                    new (typeof(NOAutopilotComponent.InternalState), "sendToHMD", Plugin.NOAutopilotControl.SendToHMD),
+                    new (NOAutopilotComponent.InternalState.sendToHMDForEntries, "Entries", Plugin.NOAutopilotControl.SendToHMDFor),
+                    new (typeof(NOAutopilotComponent.InternalState), "mfdMainColor", Plugin.NOAutopilotControl.MFDMainColor),
+                    new (typeof(NOAutopilotComponent.InternalState), "hmdMainColor", Plugin.NOAutopilotControl.HMDMainColor),
+                    new (typeof(NOAutopilotComponent.InternalState), "hmdFontSize", Plugin.NOAutopilotControl.HMDFontSize),
+                    new (typeof(NOAutopilotComponent.InternalState), "hmdHorizontalOffset", Plugin.NOAutopilotControl.HMDPositionX),
+                    new (typeof(NOAutopilotComponent.InternalState), "hmdVerticalOffset", Plugin.NOAutopilotControl.HMDPositionY),
+                    new (typeof(NOAutopilotComponent.InternalState), "altIncrement", Plugin.NOAutopilotControl.AltIncrement),
+                    new (typeof(NOAutopilotComponent.InternalState), "climbIncrement", Plugin.NOAutopilotControl.ClimbIncrement),
+                    new (typeof(NOAutopilotComponent.InternalState), "speedIncrement", Plugin.NOAutopilotControl.SpeedIncrement),
+                    new (typeof(NOAutopilotComponent.InternalState), "machSpeedIncrement", Plugin.NOAutopilotControl.MachSpeedIncrement),
+                    new (typeof(NOAutopilotComponent.InternalState), "rollIncrement", Plugin.NOAutopilotControl.RollIncrement),
+                    new (typeof(NOAutopilotComponent.InternalState), "courseIncrement", Plugin.NOAutopilotControl.CourseIncrement),
+                    new (typeof(NOAutopilotComponent.InternalState), "pressDelay", Plugin.PressDelay),
+                };
+                BindingHelper.ApplyBindings(bindings);
             }
             else {
                 Plugin.Log("[AP] 'no-autopilot-mod' not found. Autopilot controls disabled.");
@@ -128,7 +147,7 @@ public static class NOAutopilotControlPlugin {
         bool isToggleable = isBearingValue || isSpeedValue || isVerticalSpeedValue;
         bool isCButton = menu.selectedCol == 2 && menu.selectedRow < 5;
 
-        float time = Time.time;
+        float time = Time.realtimeSinceStartup;
 
         // First frame of hold - initialize timer
         if (NOAutopilotComponent.InternalState.lastRepeatTime == 0) {
@@ -183,7 +202,6 @@ public static class NOAutopilotControlPlugin {
                 }
                 
                 APData.SpeedHoldIsMach = !APData.SpeedHoldIsMach;
-                NOAutopilotComponent.LogicEngine.UpdateIncrements();
 
                 // Reset staged speed to match current target (or OFF) in new units
                 if (APData.TargetSpeed < 0) {
@@ -209,14 +227,14 @@ public static class NOAutopilotControlPlugin {
         }
 
         // Handle repeatable buttons (+/-) - fast repeat after initial delay
-        if (isRepeatable && holdDuration >= 0.15f) {
+        if (isRepeatable && holdDuration >= 0.5f*NOAutopilotComponent.InternalState.pressDelay) {
             if (NOAutopilotComponent.InternalState.selectRepeatTime == 0) {
                 NOAutopilotComponent.InternalState.selectRepeatTime = time;
             }
             else if (time >= NOAutopilotComponent.InternalState.selectRepeatTime) {
                 menu.OnSelect();
                 NOAutopilotComponent.InternalState.selectNumberRepeatCount++;
-                NOAutopilotComponent.InternalState.selectRepeatTime = time + 0.08f;
+                NOAutopilotComponent.InternalState.selectRepeatTime = time + 0.5f*NOAutopilotComponent.InternalState.pressDelay;
             }
         }
     }
@@ -249,16 +267,16 @@ public static class NOAutopilotControlPlugin {
         var menu = GetActiveMenu();
         if (menu == null || menu.selectedCol is 0 or 5) return;
 
-        float time = Time.time;
+        float time = Time.realtimeSinceStartup;
         ref float startTime = ref NOAutopilotComponent.InternalState.upHoldStartTime;
         ref float repeatTime = ref NOAutopilotComponent.InternalState.lastUpRepeatTime;
 
         if (startTime == 0) { startTime = time; return; }
-        if (time - startTime < 0.3f) return;
+        if (time - startTime < NOAutopilotComponent.InternalState.pressDelay) return;
 
         if (repeatTime == 0 || time >= repeatTime) {
             NavigateRow(-1);
-            repeatTime = time + 0.15f;
+            repeatTime = time + 0.5f*NOAutopilotComponent.InternalState.pressDelay;
         }
     }
 
@@ -272,16 +290,16 @@ public static class NOAutopilotControlPlugin {
         var menu = GetActiveMenu();
         if (menu == null || menu.selectedCol is 0 or 5) return;
 
-        float time = Time.time;
+        float time = Time.realtimeSinceStartup;
         ref float startTime = ref NOAutopilotComponent.InternalState.downHoldStartTime;
         ref float repeatTime = ref NOAutopilotComponent.InternalState.lastDownRepeatTime;
 
         if (startTime == 0) { startTime = time; return; }
-        if (time - startTime < 0.3f) return;
+        if (time - startTime < NOAutopilotComponent.InternalState.pressDelay) return;
 
         if (repeatTime == 0 || time >= repeatTime) {
             NavigateRow(1);
-            repeatTime = time + 0.15f;
+            repeatTime = time + 0.5f*NOAutopilotComponent.InternalState.pressDelay;
         }
     }
 
@@ -295,16 +313,16 @@ public static class NOAutopilotControlPlugin {
         var menu = GetActiveMenu();
         if (menu == null) return;
 
-        float time = Time.time;
+        float time = Time.realtimeSinceStartup;
         ref float startTime = ref NOAutopilotComponent.InternalState.leftHoldStartTime;
         ref float repeatTime = ref NOAutopilotComponent.InternalState.lastLeftRepeatTime;
 
         if (startTime == 0) { startTime = time; return; }
-        if (time - startTime < 0.3f) return;
+        if (time - startTime < NOAutopilotComponent.InternalState.pressDelay) return;
 
         if (repeatTime == 0 || time >= repeatTime) {
             NavigateCol(-1);
-            repeatTime = time + 0.15f;
+            repeatTime = time + 0.5f*NOAutopilotComponent.InternalState.pressDelay;
         }
     }
 
@@ -318,16 +336,16 @@ public static class NOAutopilotControlPlugin {
         var menu = GetActiveMenu();
         if (menu == null) return;
 
-        float time = Time.time;
+        float time = Time.realtimeSinceStartup;
         ref float startTime = ref NOAutopilotComponent.InternalState.rightHoldStartTime;
         ref float repeatTime = ref NOAutopilotComponent.InternalState.lastRightRepeatTime;
 
         if (startTime == 0) { startTime = time; return; }
-        if (time - startTime < 0.3f) return;
+        if (time - startTime < NOAutopilotComponent.InternalState.pressDelay) return;
 
         if (repeatTime == 0 || time >= repeatTime) {
             NavigateCol(1);
-            repeatTime = time + 0.15f;
+            repeatTime = time + 0.5f*NOAutopilotComponent.InternalState.pressDelay;
         }
     }
 
@@ -353,7 +371,6 @@ public class NOAutopilotComponent {
     public static class LogicEngine {
         public static void Init() {
             InternalState.showMenu = false;
-            UpdateIncrements();
         }
 
         public static void ResetStagedValues() {
@@ -369,26 +386,6 @@ public class NOAutopilotComponent {
                 InternalState.stagedSpeed = GameBindings.Units.ConvertSpeed_ToDisplay(APData.TargetSpeed);
             }
             InternalState.stagedCourse = APData.TargetCourse;
-        }
-
-        public static void UpdateIncrements() {
-            if (GameBindings.Units.IsImperial()) {
-                InternalState.altIncrement = 500f;      // feet
-                InternalState.climbIncrement = 1000f;   // feet per minute
-                InternalState.speedIncrement = 25f;     // knots
-            } else {
-                InternalState.altIncrement = 100f;      // meters
-                InternalState.climbIncrement = 5f;      // m/s
-                InternalState.speedIncrement = 50f;     // km/h
-            }
-            
-            if (APData.SpeedHoldIsMach) {
-                InternalState.speedIncrement = 0.05f; // Mach increment
-            }
-
-            // Roll and course increments are independent of unit system
-            InternalState.rollIncrement = 5f;
-            InternalState.courseIncrement = 1f;
         }
 
         public static void Update() {
@@ -433,11 +430,50 @@ public class NOAutopilotComponent {
     }
 
     public static class InternalState {
+        public class NotInitializedException : Exception {}
+
         public static NOAutoPilotMenu autopilotMenu;
         public static bool showMenu = false;
         public static Color mainColor = Color.green;
-        public static Color textColor = Color.green;
+        public static Color mfdMainColor { set { field = value; if (!sendToHMD) mainColor = value; } get; } = Color.green;
+        public static Color hmdMainColor { set { field = value; if (sendToHMD) mainColor = value; } get; } = Color.green;
         public static int lastGridCol = 1;
+
+        // HMD
+        public static bool sendToHMD;
+        static public RegexEntries sendToHMDForEntries = new ();
+        public static int hmdFontSize {
+            set {
+                field = value;
+                if (autopilotMenu != null)
+                    DisplayEngine.Init(); //just recreate menu
+            }
+            get;
+        } = 34;
+        public static float hmdHorizontalOffset {
+            set {
+                field = value;
+                if (autopilotMenu != null) {
+                    var containerTransform = autopilotMenu.containerTransform;
+                    var localPosition = containerTransform.localPosition;
+                    localPosition.x = value;
+                    containerTransform.localPosition = localPosition;
+                }
+            }
+            get;
+        } = 0.0f;
+        public static float hmdVerticalOffset {
+            set {
+                field = value;
+                if (autopilotMenu != null) {
+                    var containerTransform = autopilotMenu.containerTransform;
+                    var localPosition = containerTransform.localPosition;
+                    localPosition.y = value;
+                    containerTransform.localPosition = localPosition;
+                }
+            }
+            get;
+        } = 0.0f;
 
         // Autopilot Data
         public static float currentAlt;
@@ -466,11 +502,13 @@ public class NOAutopilotComponent {
         // Increments
         public static float altIncrement = 100f;
         public static float climbIncrement = 5f;
-        public static float rollIncrement = 5f;
         public static float speedIncrement = 50f;
+        public static float machSpeedIncrement = 50f;
+        public static float rollIncrement = 5f;
         public static float courseIncrement = 1f;
 
         // Repeat Logic
+        public static float pressDelay;
         public static float lastRepeatTime;
         public static float selectRepeatTime;
         public static bool selectToggleHandled;
@@ -493,9 +531,22 @@ public class NOAutopilotComponent {
     private static class DisplayEngine {
         public static void Init() {
             // Initialization logic
+            var platformName = GameBindings.Player.Aircraft.GetPlatformName();
+            if (InternalState.sendToHMDForEntries.Matches(platformName)) {
+                InternalState.sendToHMD = true;
+                Plugin.Log($"[AP] Sending to HMD for platform {platformName}");
+            }
+            else
+                Plugin.Log($"[AP] Default placement rules applied to platform {platformName}");
+
+
             InternalState.autopilotMenu?.Destroy();
-            InternalState.autopilotMenu = null;
-            InternalState.autopilotMenu = new NOAutoPilotMenu();
+            try {
+                InternalState.autopilotMenu = new NOAutoPilotMenu();
+            }
+            catch (InternalState.NotInitializedException) {
+                InternalState.autopilotMenu = null;
+            }
         }
 
         public static void Update() {
@@ -512,7 +563,7 @@ public class NOAutopilotComponent {
 
             InternalState.autopilotMenu.SetVisible();
             if (InternalState.showMenu) {
-                InternalState.autopilotMenu.UpdateColors(InternalState.textColor);
+                InternalState.autopilotMenu.UpdateColors(InternalState.mainColor);
                 InternalState.autopilotMenu.DisplayCurrentTargetValues();
             }
         }
@@ -522,6 +573,7 @@ public class NOAutopilotComponent {
         public GameObject containerObject;
         public Transform containerTransform;
 
+        public UIBindings.Draw.UIAdvancedRectangle background;
         public UIBindings.Draw.UIAdvancedRectangleLabeled engagedBar;
         public UIBindings.Draw.UIAdvancedRectangleLabeled setBar;
         public UIBindings.Draw.UIAdvancedRectangleLabeled ajButton;
@@ -538,8 +590,16 @@ public class NOAutopilotComponent {
         public float padding = 0;
 
         public NOAutoPilotMenu() {
-            Transform parentTransform = UIBindings.Game.GetTacScreenTransform();
-            string platformName = GameBindings.Player.Aircraft.GetPlatformName();
+            string platformName;
+            Transform parentTransform;
+            if (!InternalState.sendToHMD) {
+                parentTransform = UIBindings.Game.GetTacScreenTransform();
+                platformName = GameBindings.Player.Aircraft.GetPlatformName();
+            }
+            else {
+                parentTransform = UIBindings.Game.GetCombatHUDTransform();
+                platformName = "HMD";
+            }
 
             containerObject = new GameObject("i_ap_NOAutopilotMenu");
             _ = containerObject.AddComponent<RectTransform>();
@@ -548,6 +608,7 @@ public class NOAutopilotComponent {
 
             float xOffset = 0;
             float yOffset = 0;
+            InternalState.mainColor = InternalState.mfdMainColor;
 
             // Positioning offsets - adjusted to keep similar positions to loadout preview or platform specific needs
             switch (platformName) {
@@ -564,7 +625,6 @@ public class NOAutopilotComponent {
                     xOffset = 0;
                     yOffset = 80;
                     break;
-                case "FS-3 Ternion":
                 case "FS-12 Revoker":
                     xOffset = 0;
                     yOffset = 75;
@@ -603,25 +663,23 @@ public class NOAutopilotComponent {
                     xOffset = -180;
                     yOffset = 60;
                     break;
-                //modded planes
-                case "MiG-15":
-                    xOffset = -260;
-                    yOffset = 110;
-                    fontSize = 25;
-                    break;
-                case "F-16M King Viper":
+                case "VT-7 Vagrant":
                     xOffset = 0;
-                    yOffset = 70;
-                    break;
-                case "FQ-106 Kestrel":
                     yOffset = 75;
                     break;
-                default:
+                case "HMD":
+                    xOffset = InternalState.hmdHorizontalOffset;
+                    yOffset = InternalState.hmdVerticalOffset;
+                    fontSize = InternalState.hmdFontSize;
+                    InternalState.mainColor = InternalState.hmdMainColor;
                     break;
+                default:
+                    Plugin.Log($"[AP] Cannot initialize for platform {platformName}");
+                    throw new InternalState.NotInitializedException ();
             }
 
             // Apply global offset to the container
-            containerTransform.localPosition += new Vector3(xOffset, yOffset, 0);
+            containerTransform.localPosition = new Vector3(xOffset, yOffset, 0);
 
 
             float unit = fontSize + 6;
@@ -657,7 +715,7 @@ public class NOAutopilotComponent {
             // Dimensions and Layout
             Vector2 bgSize = new(totalContentWidth + (2 * padding), totalContentHeight + (2 * padding));
             Vector2 bgCenter = Vector2.zero;
-            _ = new UIBindings.Draw.UIAdvancedRectangle(
+            background = new UIBindings.Draw.UIAdvancedRectangle(
                 "i_ap_Background",
                 bgCenter - (bgSize / 2f),
                 bgCenter + (bgSize / 2f),
@@ -673,7 +731,7 @@ public class NOAutopilotComponent {
                 Color.green, 2, containerTransform,
                 Color.clear, // Transparent fill
                 FontStyle.Bold,
-                Color.green, // Text matches border
+                InternalState.mainColor, // Text matches border
                 fontSize - 10 // Slightly smaller for vertical bar text? Or keep font size.
             );
             engagedBar.SetText("ENGAGED");
@@ -792,10 +850,10 @@ public class NOAutopilotComponent {
             gcasButton = new UIBindings.Draw.UIAdvancedRectangleLabeled(
                 "i_ap_GCASButton",
                 gcasCenter - (gcasSize / 2f), gcasCenter + (gcasSize / 2f),
-                Color.green, 2, containerTransform,
+                InternalState.mainColor, 2, containerTransform,
                 Color.clear,
                 FontStyle.Bold,
-                Color.green,
+                InternalState.mainColor,
                 fontSize
             );
             gcasButton.SetText("GCAS");
@@ -831,7 +889,7 @@ public class NOAutopilotComponent {
             valueRects[1].SetText(InternalState.stagedMaxClimbRate.ToString("0") + " " + vsUnit);
 
             // Row 3: Roll
-            valueRects[2].SetText((InternalState.stagedRoll <= -900f ? "OFF" : InternalState.stagedRoll.ToString("0")) + "° bnk");
+            valueRects[2].SetText(InternalState.stagedRoll.ToString("0") + "° bnk");
 
             // Row 4: Speed (InternalState.stagedSpeed is already in display units from ResetStagedValues)
             if (APData.SpeedHoldIsMach) {
@@ -922,7 +980,7 @@ public class NOAutopilotComponent {
                         float sos = 340f; 
                         try { float currentAlt = (APData.LocalAircraft != null) ? APData.LocalAircraft.GlobalPosition().y : 0f; sos = LevelInfo.GetSpeedOfSound(currentAlt); } catch { }
                         float currentMach = InternalState.currentTAS / sos;
-                        InternalState.stagedSpeed = Mathf.Round(currentMach / InternalState.speedIncrement) * InternalState.speedIncrement;
+                        InternalState.stagedSpeed = Mathf.Round(currentMach / InternalState.machSpeedIncrement) * InternalState.machSpeedIncrement;
                     } else {
                         float displaySpeed = GameBindings.Units.ConvertSpeed_ToDisplay(InternalState.currentTAS);
                         InternalState.stagedSpeed = Mathf.Round(displaySpeed / InternalState.speedIncrement) * InternalState.speedIncrement;
@@ -937,8 +995,8 @@ public class NOAutopilotComponent {
         private void ClearStagedValue(int row) {
             switch (row) {
                 case 0: InternalState.stagedAlt = -1f; break;
-                case 1: InternalState.stagedMaxClimbRate = InternalState.climbIncrement * 2f; break; // Defaulting to 10
-                case 2: InternalState.stagedRoll = -999f; break;
+                case 1: InternalState.stagedMaxClimbRate = 0f; break;
+                case 2: InternalState.stagedRoll = 0f; break;
                 case 3: InternalState.stagedSpeed = -1f; break;
                 case 4: InternalState.stagedCourse = -1f; break;
                 default:
@@ -959,7 +1017,13 @@ public class NOAutopilotComponent {
 
         private void AdjustStagedValue(int row, int direction) {
             // Calculate multiplier: 10x after 10 repeats
-            float multiplier = InternalState.selectNumberRepeatCount >= 10 ? (InternalState.selectNumberRepeatCount >= 20 ? 10f : 5f ) : 1f;
+            float multiplier = 1f;
+            if (InternalState.selectNumberRepeatCount >= 30)
+                multiplier = 1000f;
+            else if (InternalState.selectNumberRepeatCount >= 20)
+                multiplier = 100f;
+            else if (InternalState.selectNumberRepeatCount >= 10)
+                multiplier = 10f;
 
             switch (row) {
                 case 0: // Alt
@@ -968,27 +1032,24 @@ public class NOAutopilotComponent {
                     }
 
                     float altAdjustment = direction * InternalState.altIncrement * multiplier;
-                    InternalState.stagedAlt = Mathf.Max(0, Mathf.Round((InternalState.stagedAlt + altAdjustment) / InternalState.altIncrement) * InternalState.altIncrement);
+                    InternalState.stagedAlt = Mathf.Max(0, Mathf.Round((InternalState.stagedAlt + altAdjustment) / altAdjustment) * altAdjustment);
                     break;
                 case 1: // Climb
                     float climbAdjustment = direction * InternalState.climbIncrement * multiplier;
-                    InternalState.stagedMaxClimbRate = Mathf.Max(1, Mathf.Round((InternalState.stagedMaxClimbRate + climbAdjustment) / InternalState.climbIncrement) * InternalState.climbIncrement);
+                    InternalState.stagedMaxClimbRate = Mathf.Max(0, Mathf.Round((InternalState.stagedMaxClimbRate + climbAdjustment) / climbAdjustment) * climbAdjustment);
                     break;
                 case 2: // Roll
-                    if (InternalState.stagedRoll <= -900f) {
-                        InternalState.stagedRoll = 0f;
-                    }
-
                     float rollAdjustment = direction * InternalState.rollIncrement * multiplier;
-                    InternalState.stagedRoll = Mathf.Clamp(Mathf.Round((InternalState.stagedRoll + rollAdjustment) / InternalState.rollIncrement) * InternalState.rollIncrement, -60f, 60f);
+                    InternalState.stagedRoll = Mathf.Clamp(Mathf.Round((InternalState.stagedRoll + rollAdjustment) / rollAdjustment) * rollAdjustment, -60f, 60f);
                     break;
                 case 3: // Speed
                     if (InternalState.stagedSpeed < 0) {
                         InternalState.stagedSpeed = 0f;
                     }
 
-                    float speedAdjustment = direction * InternalState.speedIncrement * multiplier;
-                    InternalState.stagedSpeed = Mathf.Max(0, Mathf.Round((InternalState.stagedSpeed + speedAdjustment) / InternalState.speedIncrement) * InternalState.speedIncrement);
+                    float speedIncrement = APData.SpeedHoldIsMach ? InternalState.machSpeedIncrement : InternalState.speedIncrement;
+                    float speedAdjustment = direction * speedIncrement * multiplier;
+                    InternalState.stagedSpeed = Mathf.Max(0, Mathf.Round((InternalState.stagedSpeed + speedAdjustment) / speedAdjustment) * speedAdjustment);
                     break;
                 case 4: // Course
                     if (InternalState.stagedCourse < 0) {
@@ -996,7 +1057,7 @@ public class NOAutopilotComponent {
                     }
 
                     float courseAdjustment = direction * InternalState.courseIncrement * multiplier;
-                    float targetCourse = Mathf.Round((InternalState.stagedCourse + courseAdjustment) / InternalState.courseIncrement) * InternalState.courseIncrement;
+                    float targetCourse = Mathf.Round((InternalState.stagedCourse + courseAdjustment) / courseAdjustment) * courseAdjustment;
                     InternalState.stagedCourse = (targetCourse + 360f) % 360f;
                     break;
                 default:
@@ -1032,24 +1093,32 @@ public class NOAutopilotComponent {
             Plugin.Log("[AP] Values Applied.");
         }
 
-        public void UpdateColors(Color textColor) {
+        public void UpdateColors(Color mainColor) {
             bool isSelected;
             bool row5 = selectedRow == 5;
 
             // Detect if text color is green or green-adjacent
-            bool isGreenTheme = IsGreenColor(textColor);
-            Color toggleIndicatorColor = isGreenTheme ? Color.yellow : Color.green;
+            Color toggleIndicatorColor = Color.yellow;
+            toggleIndicatorColor.a = mainColor.a;
+
+            Color altColor = Color.black;
+            altColor.a = mainColor.a;
+
+            // Background
+            background.SetColor(mainColor);
+            background.SetFillColor(altColor);
 
             // Engaged Bars (Col 0)
             isSelected = selectedCol == 0;
             Color apColor = InternalState.apEnabled ? Color.green : Color.red;
-            ApplyStyle(engagedBar, isSelected ? apColor : Color.clear, apColor, isSelected ? Color.black : apColor);
+            apColor.a = mainColor.a;
+            ApplyStyle(engagedBar, isSelected ? apColor : Color.clear, apColor, isSelected ? altColor : apColor);
 
             // Grid (Rows 0-4, Cols 1-4)
             for (int i = 0; i < 5; i++) {
                 // Value (Col 1)
                 isSelected = selectedRow == i && selectedCol == 1;
-                Color valueColor = textColor;
+                Color valueColor = mainColor;
                 Color valueBgColor = Color.clear;
                 
                 // Bearing value (row 4) and speed value (row 3) show toggle state with appropriate color
@@ -1057,7 +1126,7 @@ public class NOAutopilotComponent {
                     i == 4 && InternalState.navEnabled
                     || i == 1 && InternalState.extremeThrottleEnabled
                     ) {
-                    valueBgColor = Color.black;
+                    valueBgColor = Color.clear;
                     valueColor = toggleIndicatorColor;
                 }
                 
@@ -1067,11 +1136,11 @@ public class NOAutopilotComponent {
                         || i == 1 && InternalState.extremeThrottleEnabled
                         ) {
                         valueBgColor = toggleIndicatorColor;
-                        valueColor = Color.black;
+                        valueColor = altColor;
                     }
                     else {
-                        valueBgColor = textColor;
-                        valueColor = Color.black;
+                        valueBgColor = mainColor;
+                        valueColor = altColor;
                     }
                 }
                 
@@ -1079,28 +1148,29 @@ public class NOAutopilotComponent {
 
                 // C (Col 2)
                 isSelected = selectedRow == i && selectedCol == 2;
-                ApplyStyle(cRects[i], isSelected ? textColor : Color.clear, textColor, isSelected ? Color.black : textColor);
+                ApplyStyle(cRects[i], isSelected ? mainColor : Color.clear, mainColor, isSelected ? altColor : mainColor);
 
                 // Minus (Col 3)
                 isSelected = selectedRow == i && selectedCol == 3;
-                ApplyStyle(minusRects[i], isSelected ? textColor : Color.clear, textColor, isSelected ? Color.black : textColor);
+                ApplyStyle(minusRects[i], isSelected ? mainColor : Color.clear, mainColor, isSelected ? altColor : mainColor);
 
                 // Plus (Col 4)
                 isSelected = selectedRow == i && selectedCol == 4;
-                ApplyStyle(plusRects[i], isSelected ? textColor : Color.clear, textColor, isSelected ? Color.black : textColor);
+                ApplyStyle(plusRects[i], isSelected ? mainColor : Color.clear, mainColor, isSelected ? altColor : mainColor);
             }
 
             // Set Bar (Col 5)
             isSelected = selectedCol == 5;
-            ApplyStyle(setBar, isSelected ? textColor : Color.clear, textColor, isSelected ? Color.black : textColor);
+            ApplyStyle(setBar, isSelected ? mainColor : Color.clear, mainColor, isSelected ? altColor : mainColor);
 
             // Bottom Buttons (Row 5)
             isSelected = row5 && (selectedCol == 1);
-            Color ajColor = InternalState.ajActive ? Color.green : Color.gray;
-            ApplyStyle(ajButton, isSelected ? ajColor : Color.clear, ajColor, isSelected ? Color.black : ajColor);
+            Color ajColor = InternalState.ajActive ? mainColor : Color.gray;
+            ajColor.a = mainColor.a;
+            ApplyStyle(ajButton, isSelected ? ajColor : Color.clear, ajColor, isSelected ? altColor : ajColor);
 
             isSelected = row5 && (selectedCol == 2);
-            Color gcasColor = Color.green;
+            Color gcasColor = mainColor;
             if (InternalState.gcasWarning) {
                 gcasColor = Color.yellow;
             }
@@ -1112,22 +1182,19 @@ public class NOAutopilotComponent {
             if (!InternalState.gcasEnabled) {
                 gcasColor = Color.gray;
             }
+            gcasColor.a = mainColor.a;
 
-            ApplyStyle(gcasButton, isSelected ? gcasColor : Color.clear, gcasColor, isSelected ? Color.black : gcasColor);
+            ApplyStyle(gcasButton, isSelected ? gcasColor : Color.clear, gcasColor, isSelected ? altColor : gcasColor);
         }
 
-        private bool IsGreenColor(Color color) {
-            return color.g > 0.75f && color.g > color.r && color.g > color.b;
-        }
-
-        private void ApplyStyle(UIBindings.Draw.UIAdvancedRectangleLabeled rect, Color bgColor, Color borderColor, Color textColor) {
+        private void ApplyStyle(UIBindings.Draw.UIAdvancedRectangleLabeled rect, Color bgColor, Color borderColor, Color mainColor) {
             if (rect == null) {
                 return;
             }
 
             rect.SetBorderColor(borderColor);
             rect.SetFillColor(bgColor);
-            rect.GetLabel().SetColor(textColor);
+            rect.GetLabel().SetColor(mainColor);
         }
 
         public void SetVisible() {

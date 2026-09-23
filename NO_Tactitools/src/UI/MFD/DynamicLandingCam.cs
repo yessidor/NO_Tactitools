@@ -13,14 +13,15 @@ public class DynamicLandingCamComponent {
     public class OnMainMenuStart {
         static void Postfix() {
             if (!initialized) {
-                Plugin.Log($"[DTC] Dynamic Target Cam plugin starting !");
+                Plugin.Log($"[DLC] Dynamic Landing Cam plugin starting !");
 
-                Plugin.harmony.PatchAll(typeof(OnTargetCamTargetCam_OnTouchdown));
-                Plugin.harmony.PatchAll(typeof(OnTargetCamInitialize));
-                Plugin.harmony.PatchAll(typeof(OnTargetCamUpdate));
-                Plugin.harmony.PatchAll(typeof(OnTargetCamSetLandingCam));
-                Plugin.harmony.PatchAll(typeof(OnTargetCamCancelTarget));
-                Plugin.harmony.PatchAll(typeof(OnLandingScreenUILateUpdate));
+                var harmony = new Harmony("yessidor.no_tactitools_plus.dynamic_landing_cam");
+                harmony.PatchAll(typeof(OnTargetCamTargetCam_OnTouchdown));
+                harmony.PatchAll(typeof(OnTargetCamInitialize));
+                harmony.PatchAll(typeof(OnTargetCamUpdate));
+                harmony.PatchAll(typeof(OnTargetCamSetLandingCam));
+                harmony.PatchAll(typeof(OnTargetCamCancelTarget));
+                harmony.PatchAll(typeof(OnLandingScreenUILateUpdate));
 
                 BindingHelper.Binding[] bindings = new BindingHelper.Binding[] {
                     new (typeof(DynamicLandingCamComponent), "KeepOnAfterTouchDown", Plugin.DynamicLandingCam.KeepOnAfterTouchDown),
@@ -39,7 +40,7 @@ public class DynamicLandingCamComponent {
 
                 initialized = true;
 
-                Plugin.Log($"[DTC] Dynamic Target Cam plugin started !");
+                Plugin.Log($"[DLC] Dynamic Landing Cam plugin started !");
             }
         }
     }
@@ -59,18 +60,18 @@ public class DynamicLandingCamComponent {
 
 	[HarmonyPatch(typeof(TargetCam), "TargetCam_OnTouchdown")]
     public class OnTargetCamTargetCam_OnTouchdown {
-        public static bool Prefix(TargetCam __instance, ref Camera ___cam, ref TargetCam.CamMode ___currentMode, ref Aircraft ___aircraft) {
+        public static bool Prefix() {
             return !KeepOnAfterTouchDown;
         }
     }
 
-
 	[HarmonyPatch(typeof(TargetCam), "Initialize")]
     public class OnTargetCamInitialize {
         public static void Postfix(TargetCam __instance, ref TargetCam.CamMode ___currentMode, ref UnitPart ___attachedPart) {
-            Plugin.Log($"OnTargetCamInitialize.Postfix()");
+            if (___attachedPart == null)
+                return;
 
-            var aircraft = ___attachedPart?.parentUnit as Aircraft;
+            var aircraft = ___attachedPart.parentUnit as Aircraft;
             if (!KeepOnAfterTouchDown || aircraft == null || !aircraft.Identity.HasAuthority || !(aircraft.gearState == LandingGear.GearState.Extending || aircraft.gearState == LandingGear.GearState.LockedExtended))
                 return;
 
@@ -138,9 +139,12 @@ public class DynamicLandingCamComponent {
 	[HarmonyPatch(typeof(LandingScreenUI), "LateUpdate")]
     public class OnLandingScreenUILateUpdate {
         public static void Postfix(ref Image ___velocity) {
-            var aircraft = SceneSingleton<CombatHUD>.i?.aircraft;
-            if (aircraft != null) {
-                ___velocity.enabled = aircraft.rb.velocity.magnitude > 1f;
+            var combatHUD = UIBindings.Game.GetCombatHUDComponent();
+            if (combatHUD != null) {
+                var aircraft = combatHUD.aircraft;
+                if (aircraft != null) {
+                    ___velocity.enabled = aircraft.rb.velocity.magnitude > 1f;
+                }
             }
         }
     }

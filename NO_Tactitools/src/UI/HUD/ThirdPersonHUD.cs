@@ -3,6 +3,7 @@ using System;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI; //Text
+using TMPro;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.UI.HUD;
@@ -52,7 +53,7 @@ public class ThirdPersonHUDComponent {
         var cameraMode = CameraStateManager.cameraMode;
         var cameraModeMatch = cameraMode == CameraMode.orbit || cameraMode == CameraMode.chase;
 
-        if (SceneSingleton<CombatHUD>.i.aircraft == SceneSingleton<CameraStateManager>.i.followingUnit && cameraModeMatch) {
+        if (GameBindings.Player.Aircraft.GetAircraft() == UIBindings.Game.GetCameraStateManager().followingUnit && cameraModeMatch) {
             FlightHud.EnableCanvas(true);
             DynamicMap.EnableCanvas(true);
         }
@@ -65,7 +66,9 @@ public class ThirdPersonHUDComponent {
         if (SetTargetDesignatorPos && CameraStateManager.cameraMode != CameraMode.cockpit) {
             pos += TargetDesignatorScreenOffset;
         }
-        SceneSingleton<CombatHUD>.i.targetDesignator.gameObject.transform.position = pos;
+        var combatHUD =UIBindings.Game.GetCombatHUDComponent();
+        if (combatHUD != null)
+            combatHUD.targetDesignator.gameObject.transform.position = pos;
     }
 
 	[HarmonyPatch(typeof(DynamicMap), "Minimize")]
@@ -111,8 +114,8 @@ public class ThirdPersonHUDComponent {
         }
     }
 
-    private static FieldInfo flightHudPitchCompassCenterInfo = AccessTools.Field(typeof(FlightHud), "pitchCompassCenter");
-    private static FieldInfo flightHudCockpitTransformInfo = AccessTools.Field(typeof(FlightHud), "cockpitTransform");
+    private static TraverseCache<FlightHud, GameObject> flightHudPitchCompassCenterCache = new ("pitchCompassCenter");
+    private static TraverseCache<FlightHud, Transform> flightHudCockpitTransformCache = new ("cockpitTransform");
 
 	[HarmonyPatch(typeof(FlightHud), "Update")]
     public class OnFlightHudUpdate {
@@ -125,10 +128,13 @@ public class ThirdPersonHUDComponent {
                 angles.z = 0f;
                 HUDCenter.transform.eulerAngles = angles;
 
-                var pitchCompassCenter = (GameObject)flightHudPitchCompassCenterInfo.GetValue(__instance);
+                var pitchCompassCenter = flightHudPitchCompassCenterCache.GetValue(__instance);
                 angles = pitchCompassCenter.transform.eulerAngles;
-                angles.z = ((Transform)flightHudCockpitTransformInfo.GetValue(__instance)).eulerAngles.z;
-                pitchCompassCenter.transform.eulerAngles = angles;
+                var flightHudCockpitTransform = flightHudCockpitTransformCache.GetValue(__instance);
+                if (flightHudCockpitTransform != null) {
+                    angles.z = flightHudCockpitTransform.eulerAngles.z;
+                    pitchCompassCenter.transform.eulerAngles = angles;
+                }
             }
 
             if (cameraMode == CameraMode.orbit || cameraMode == CameraMode.chase) {
@@ -142,7 +148,7 @@ public class ThirdPersonHUDComponent {
         }
     }
 
-    private static FieldInfo fuelGaugeFuelReadingInfo = AccessTools.Field(typeof(FuelGauge), "fuelReading");
+    private static TraverseCache<FuelGauge, TextMeshProUGUI> fuelGaugeFuelReadingCache = new ("fuelReading");
 
 	[HarmonyPatch(typeof(FuelGauge), "Refresh")]
     public class OnFuelGaugeRefresh {
@@ -151,7 +157,7 @@ public class ThirdPersonHUDComponent {
             var cameraModeMatch = cameraMode == CameraMode.orbit || cameraMode == CameraMode.chase;
 
             if (!HUDRoll && cameraModeMatch) {
-                var fuelReading = (Text)fuelGaugeFuelReadingInfo.GetValue(__instance);
+                var fuelReading = fuelGaugeFuelReadingCache.GetValue(__instance);
                 var angles = fuelReading.transform.eulerAngles;
                 angles.z = 0f;
                 fuelReading.transform.eulerAngles = angles;
@@ -159,7 +165,7 @@ public class ThirdPersonHUDComponent {
         }
     }
 
-    private static FieldInfo throttleGaugeThrottleReadingInfo = AccessTools.Field(typeof(ThrottleGauge), "throttleReading");
+    private static TraverseCache<ThrottleGauge, TextMeshProUGUI> throttleGaugeThrottleReadingCache = new ("throttleReading");
 
 	[HarmonyPatch(typeof(ThrottleGauge), "Refresh")]
     public class OnThrottleGaugeRefresh {
@@ -168,7 +174,7 @@ public class ThirdPersonHUDComponent {
             var cameraModeMatch = cameraMode == CameraMode.orbit || cameraMode == CameraMode.chase;
 
             if (!HUDRoll && cameraModeMatch) {
-                var throttleReading = (Text)throttleGaugeThrottleReadingInfo.GetValue(__instance);
+                var throttleReading = throttleGaugeThrottleReadingCache.GetValue(__instance);
                 var angles = throttleReading.transform.eulerAngles;
                 angles.z = 0f;
                 throttleReading.transform.eulerAngles = angles;

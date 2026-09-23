@@ -7,10 +7,16 @@ using NO_Tactitools.Core;
 namespace NO_Tactitools.UI.MFD;
 
 [HarmonyPatch(typeof(TargetCam), "GetPositionAndSize")]
-class TargetCamModePlugin {
+public class TargetCamModePlugin {
     public static bool State {
         set {
             field = value;
+
+            if (!initialized) {
+                Plugin.Log("[TCM] Not initialized");
+                return;
+            }
+
             var msg = string.Format("Target Camera: <b>{0}</b>", (value ? "Focus on active target" : "Look at all targets"));
             UIBindings.Game.DisplayToast(msg, 3f);
         }
