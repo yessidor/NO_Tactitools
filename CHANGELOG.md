@@ -6,6 +6,11 @@
 
 # Changelog
 
+## 0.7.33.1
+
+  * Delivery Checker
+    + fixed to clear out stale deliverables on respawn, mission reload, etc.
+
 ## 0.7.33.0
 
   * UI Adjustments

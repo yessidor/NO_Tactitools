@@ -40,7 +40,14 @@ public class DeliveryCheckerComponent {
         static public void Init() {
             InternalState.deliveryChecker?.Destroy();
             InternalState.deliveryChecker = null;
-            //deliveries container is not cleared to retain player-owned deliverables across respawns
+            //just clearing out null deliveries from deliveries container to retain player-owned deliverables across respawns
+            List<Missile> toRemove = new ();
+            foreach (var missile in InternalState.deliveries.Keys) {
+                if (missile == null)
+                    toRemove.Add(missile);
+            }
+            foreach (var missile in toRemove)
+                InternalState.deliveries.Remove(missile);
             //...Updated fields are reset to true to force label updates after respawn
             InternalState.missileCountUpdated = true;
             InternalState.bombCountUpdated = true;
@@ -57,6 +64,12 @@ public class DeliveryCheckerComponent {
 
             List<Missile> deliveriesToRemove = [];
             foreach ((var missile, var deliveryInfo) in InternalState.deliveries) {
+                if (missile == null) {
+                   deliveriesToRemove.Add(missile);
+                   UpdateCountUpdated(deliveryInfo.Type);
+                   continue;
+                }
+
                 switch (deliveryInfo.Status) {
                    case InternalState.DeliveryStatus.InFlight:
                        // check if the delivery has been in flight for more than 120 seconds

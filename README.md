@@ -4,7 +4,7 @@
 
 [Original NOTT repository](https://github.com/clumzy/NO_Tactitools).
 
-**Original NOTT README.md content follows, see below for [Additional components and features](#additional-components-and-features) .**
+**Original NOTT README.md content follows, see below for [Additional components and features](#additional-components-and-features) . Also see [CHANGELOG.md](CHANGELOG.md) for history of changes.**
 
 ---
 
