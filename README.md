@@ -1140,7 +1140,7 @@ NOTT+ 0.7.33.0 was tested under Nuclear Option 0.34.2.
 
 ### NOAutopilot
 
-Compatible with [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod) mod by qwerty1234 (5.5.3).
+Compatible with [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod) mod by qwerty1423 (5.5.3).
 
 ### NO_Optimisation mod by Appulcake
 
