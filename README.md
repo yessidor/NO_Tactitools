@@ -4,8 +4,6 @@
 
 [Original NOTT repository](https://github.com/clumzy/NO_Tactitools).
 
-**Due to 2FA issues, NOTT (plus) main repository will be at** [Codeberg](https://codeberg.org/yessidor/NO_Tactitools).
-
 **Original NOTT README.md content follows, see below for [Additional components and features](#additional-components-and-features) .**
 
 ---
@@ -505,11 +503,11 @@ This component implements a simpler HMD target selection algorithm, which will s
 
 `Alternative Target Selection - Enabled` setting controls the state of the component (restart the game to apply changes).
 
-`Alternative Target Selection - Camera FOV Fraction` sets the fraction of camera vertical FOV to be used as apex angle (aperture) of selection cone. I.e., if this fraction is 0.1 and FOV is 90 degrees, aperture of selection cone will be 9 degrees, and units 4.5 degrees to the left, right, up, or down relative to target selection marker will be considiered for selection.  
-`Alternative Target Selection - Max Distance` sets the max distance to unit that will be considered for selection, measured in meters. Set to 0 do select targets (with enabled HMD markers) at any distance. **Note:** `HMD Declutter` component indirectly controls target selecton algorithm by setting HMD marker draw distance (units farther away will have their HMD markers disabled and thus won't be considered for selection).  
+`Alternative Target Selection - Camera FOV Fraction` sets the fraction of camera vertical FOV to be used as apex angle (aperture) of selection cone. I.e., if this fraction is 0.1 and FOV is 90 degrees, aperture of selection cone will be 9 degrees, and units 4.5 degrees to the left, right, up, or down relative to target selection marker will be considered for selection.  
+`Alternative Target Selection - Max Distance` sets the max distance to unit that will be considered for selection, measured in meters. Set to 0 do select targets (with enabled HMD markers) at any distance. **Note:** `HMD Declutter` component indirectly controls target selection algorithm by setting HMD marker draw distance (units farther away will have their HMD markers disabled and thus won't be considered for selection).  
 `Alternative Target Selection - Selection Mode` controls behaviour of single target selection mode. If set to 'distance', unit closest to camera will be selected. If set to 'angle', unit whose HMD marker is closest to target selection marker will be selected.  
 If `Alternative Target Selection - Pick Active` is enabled, when no target can be selected in single target selection mode, best matching target from already selected ones becomes active target.  
-If `Alternative Target Selection - Show Unit Info` is enabled, unit type and distance info will be displayed on HMD when target selection marker hovers above HMD marker of said unit. This essentially recreates "ally info" feature intorduced in NO 0.34, but for markers of targetable units. Restart the game to apply changes. **Note:** if this setting is enabled, set `Alternative Target Selection - Selection Mode` to `angle` and enable `UI Adjustments - Disable Ally Info` to get expected behaviour.  
+If `Alternative Target Selection - Show Unit Info` is enabled, unit type and distance info will be displayed on HMD when target selection marker hovers above HMD marker of said unit. This essentially recreates "ally info" feature introduced in NO 0.34, but for markers of targetable units. Restart the game to apply changes. **Note:** if this setting is enabled, set `Alternative Target Selection - Selection Mode` to `angle` and enable `UI Adjustments - Disable Ally Info` to get expected behaviour.  
 If `Alternative Target Selection - Show Unit Info For Selected Markers` is enabled, info will be displayed when target selection marker hovers above HMD marker of selected unit (except active target marker, which has default game target info). Disable this setting if two similarly looking unit infos cause confusion.
 
 #### Alternative Map Target Selection
@@ -611,7 +609,9 @@ If `HMD Declutter - Not Always Maximized` is enabled, no markers will be always 
 
 ##### Maximizing and recoloring markers of player-owned deliverables
 
-If `HMD Declutter - Maximize Own Missiles` setting is enabled, HMD markers of player-owned guided deliverables (missiles, bombs, and guided shells) will be maximized and recolored. (Mini)map icons of these deliverables will inherit color of corresponding HMD markers; also, the scale of these icons can be adjusted.
+If `HMD Declutter - Maximize Own Missiles` setting is enabled, HMD markers of player-owned guided deliverables (missiles, bombs, and guided shells) will be maximized.
+
+If `HMD Declutter - Colorize Own Missiles` setting is enabled, HMD markers of player-owned guided deliverables will be colorized with `HMD Declutter - Own Missiles Color` and `HMD Declutter - Own Missed Missiles Color`. (Mini)map icons of these deliverables will inherit color of corresponding HMD markers.
 
 If `HMD Declutter - Always Draw Own Missiles` is enabled, HMD markers of player-owned deliverables will be drawn regardless of current markers draw distance.
 
@@ -627,6 +627,20 @@ If `HMD Declutter - Include Derived Missiles` is enabled, missiles (and other de
 
 **Note**: this feature correctly recognizes missiles that belong to player and are still in flight after player has respawned.
 
+##### Maximizing and recoloring markers of player-owned units
+
+Basically, the same as above feature for player-owned deliverables, but applied to player-owned units.
+
+If `HMD Declutter - Maximize Own Units` setting is enabled, HMD markers of player-owned units will be maximized.
+
+If `HMD Declutter - Colorize Own Units` setting is enabled, HMD markers of player-owned units will be colorized with `HMD Declutter - Own Units Color`. (Mini)map icons of these deliverables will inherit color of corresponding HMD markers.
+
+`HMD Declutter - Own Units Scale` sets the scale of HMD markers designating player-owned units.
+
+`HMD Declutter - Own Units Map Scale` sets the scale of map icons belonging to own units if HMD markers of these units are maximized.
+
+**Note**: this feature correctly recognizes units that belong to player after player has respawned.
+
 #### Early Missile Warning System (EMWS)
 
 This component allows to display missile info and draw notch indicator on HMD, and to draw notch line on map for known enemy missiles that fly in general direction of players' aircraft. This component essentially semi-automates the tactic of looking at maximized map and figuring out which missiles have targeted player.
@@ -638,6 +652,8 @@ Different configurations for different missile seeker types are supported.
 `EMWS - Distance Unit` sets distance measurement unit.
 
 If `EMWS - Process Only Enemy Missiles` is enabled, only enemy missiles will be processed (enabled by default).
+
+If `EMWS - Hide On Missile Warning` is enabled, missile warnings of possible incoming missiles will be hidden when missile warning for actually incoming missile is active.
 
 `EMWS - Number of Entries` sets the number of entries (restart the game to apply changes). If negative, or 0, will create default entry for ARH and SARH missiles.
 
@@ -735,6 +751,10 @@ If `UI Adjustments - Colorize Player-related Messages` is enabled, player name a
 
 If `UI Adjustments - Center On Jump Map` is enabled, pressing `Jump Map` key when map is maximized and players aircraft is spawned will center map on cursor coordinates (restart the game to apply changes).
 
+If `UI Adjustments - Airbase Overlay - Always Display Glidepath` is enabled, airbase overlay will display glidepath and runway borders even for aircraft with vertical landing, like helicopters and VTOLs (restart the game to apply changes).
+
+If `UI Adjustments - Airbase Overlay - Ignore Runway Limits` is enabled, runway landing speed and size limits will be ignored when airbase overlay selects which runway to display glidepath and borders for (restart the game to apply changes). Enabling this setting will, for example, display glidepath and runway borders when landing on K92 or Dustbowl in Ifrit.
+
 If `UI Adjustments - Display NOAutopilot GCAS Chevron on HMD` is enabled, [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod/) Ground Collision Avoidance System (GCAS) Chevron will be displayed on HMD instead of HUD (restart the game to apply changes).
 
 #### Loadout Preview extensions
@@ -795,7 +815,7 @@ Default - default menu. Doubleclicking 'Radial Menu' or 'Weapon Wheel' key reset
 
  * Target List Controller
     + `RememberTargets(#)` - Remember Target List #
-    + `RecallTargets(#)` - Recall Target List # (Nubmer of lists is set by `MFD Nav - Extra Key - Number` setting.)
+    + `RecallTargets(#)` - Recall Target List # (Number of lists is set by `MFD Nav - Extra Key - Number` setting.)
     + `PopTarget` - Pop current target
     + `KeepTarget` - Keep current target
     + `NextTarget` - Next target
@@ -1116,19 +1136,21 @@ This component adds output from key (and encoder) controlled virtual axes to out
 
 ## Compatibility
 
-NOTT+ 0.7.23.0 was tested under Nuclear Option 0.34.2.
+NOTT+ 0.7.33.0 was tested under Nuclear Option 0.34.2.
 
-NOTT+ 0.7.21.0 was tested under Nuclear Option 0.34.1.
+### NOAutopilot
 
-NOTT+ 0.7.20.0 was tested under Nuclear Option 0.34.1.
+Compatible with [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod) mod by qwerty1234 (5.5.3).
 
-NOTT+ 0.7.19.0 was tested under Nuclear Option 0.34.1.
+### NO_Optimisation mod by Appulcake
 
-NOTT+ 0.7.18.5 was tested under Nuclear Option 0.34. Compatible with **NOAutopilot** (5.5.2), **MC-260** Chimera (1.1.7), **RAH-72** Knockout (1.0.8), **F-99** Shrike (1.1.1), **FS-41** Eclipse (1.1.3), **F-16M** King Viper (1.2.0).
+HUD optimization features in [NO_Optimisation](https://github.com/Appulcake/NO_Optimisation) mod by Appulcake (0.34.2.3) conflict with `HMD Declutter` component of NOTT+ by fighting over HMD marker state. This causes rapid blinking of said markers when `HMD Declutter` wants to disable markers beyond current HMD marker draw distance, and NO_Optimisation wants to enable these markers.
 
-NOTT+ 0.7.15.0 was tested under Nuclear Option 0.33.4. Compatible with **QoL** (1.1.8.1), **NOAutopilot** (5.2.0), **FQ-106** Kestrel (2.2.0), **RAH-72** Knockout (1.0.7), **F-99** Shrike (1.0.6), **FS-41** Eclipse (1.1.1), **F-16M** King Viper (1.1.8). Compatibility with **Vanilla Icons PLUS** and **ThirdPersonHud** was not tested.
+Solution: set all settings in `--- Client - HUD ---` section of `NO_Optimisation` configuration to 0 and enable `Show Objective HUD Markers`.
 
-NOTT+ 0.7.8.5 was tested under Nuclear Option 0.33.3. Compatible with **QoL** (1.1.7.1), **NOAutopilot** (5.2.0), **FQ-106** Kestrel (2.1.0; mind that it is bugged by itself), **MC-260** Chimera (1.0.9), **RAH-72** Knockout (1.0.0). Compatibility with **Vanilla Icons PLUS** and **ThirdPersonHud** was not tested.
+### Pauels Random Fixes mod fork by Appulcake
+
+Disable `FPSBoundMouseFix` feature in [Pauels Random Fixes](https://github.com/Appulcake/PauelsRandomFixes) mod fork by Appulcake (0.34.2.2RC) if using `Sensitivity fix` component of NOTT+, or vice versa.
 
 ## On possible "Could not load file or assembly MonoMod.Backports" error
 

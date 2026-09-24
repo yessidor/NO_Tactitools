@@ -56,19 +56,25 @@ class HMDDeclutterPlugin {
                 new (typeof(HMDDeclutterComponent), "MinimizeMaximized", Plugin.HMDDeclutter.MinimizeMaximized),
                 new (typeof(HMDDeclutterComponent), "EnemyMinimizedMarkerScale", Plugin.HMDDeclutter.EnemyMinimizedMarkerScale),
                 new (typeof(HMDDeclutterComponent), "FriendlyMinimizedMarkerScale", Plugin.HMDDeclutter.FriendlyMinimizedMarkerScale),
-                new (typeof(HMDDeclutterComponent), "MaximizeOwnMissiles", Plugin.HMDDeclutter.MaximizeOwnMissiles),
-                new (typeof(HMDDeclutterComponent), "AlwaysDrawOwnMissiles", Plugin.HMDDeclutter.AlwaysDrawOwnMissiles),
-                new (typeof(HMDDeclutterComponent), "IncludeDerivedMissiles", Plugin.HMDDeclutter.IncludeDerivedMissiles),
-                new (typeof(HMDDeclutterComponent), "OwnMissilesColor", Plugin.HMDDeclutter.OwnMissilesColor),
-                new (typeof(HMDDeclutterComponent), "OwnMissedMissilesColor", Plugin.HMDDeclutter.OwnMissedMissilesColor),
-                new (typeof(HMDDeclutterComponent), "OwnMissilesScale", Plugin.HMDDeclutter.OwnMissilesScale),
-                new (typeof(HMDDeclutterComponent), "OwnMissilesMapScale", Plugin.HMDDeclutter.OwnMissilesMapScale),
-                new (typeof(HMDDeclutterComponent), "FlashBeforeImpactTime", Plugin.HMDDeclutter.FlashBeforeImpactTime),
                 new (typeof(HMDDeclutterComponent), "OutdatedTime", Plugin.HMDDeclutter.OutdatedTime),
                 new (typeof(HMDDeclutterComponent), "ShowOutdatedTime", Plugin.HMDDeclutter.ShowOutdatedTime),
                 new (typeof(HMDDeclutterComponent), "HideOutdatedMarker", Plugin.HMDDeclutter.HideOutdatedMarker),
                 new (typeof(HMDDeclutterComponent), "SetOutdatedIcon", Plugin.HMDDeclutter.SetOutdatedIcon),
                 new (typeof(HMDDeclutterComponent), "EndOutdatedMarkerOpacity", Plugin.HMDDeclutter.EndOutdatedMarkerOpacity),
+                new (typeof(HMDDeclutterComponent), "MaximizeOwnMissiles", Plugin.HMDDeclutter.MaximizeOwnMissiles),
+                new (typeof(HMDDeclutterComponent), "ColorizeOwnMissiles", Plugin.HMDDeclutter.ColorizeOwnMissiles),
+                new (typeof(HMDDeclutterComponent), "AlwaysDrawOwnMissiles", Plugin.HMDDeclutter.AlwaysDrawOwnMissiles),
+                new (typeof(HMDDeclutterComponent), "IncludeDerivedMissiles", Plugin.HMDDeclutter.IncludeDerivedMissiles),
+                new (typeof(HMDDeclutterComponent), "OwnMissilesColor", Plugin.HMDDeclutter.OwnMissilesColor),
+                new (typeof(HMDDeclutterComponent), "OwnMissedMissilesColor", Plugin.HMDDeclutter.OwnMissedMissilesColor),
+                new (typeof(HMDDeclutterComponent), "OwnMissilesHMDMarkerScale", Plugin.HMDDeclutter.OwnMissilesHMDMarkerScale),
+                new (typeof(HMDDeclutterComponent), "OwnMissilesMapIconScale", Plugin.HMDDeclutter.OwnMissilesMapIconScale),
+                new (typeof(HMDDeclutterComponent), "FlashBeforeImpactTime", Plugin.HMDDeclutter.FlashBeforeImpactTime),
+                new (typeof(HMDDeclutterComponent), "MaximizeOwnUnits", Plugin.HMDDeclutter.MaximizeOwnUnits),
+                new (typeof(HMDDeclutterComponent), "ColorizeOwnUnits", Plugin.HMDDeclutter.ColorizeOwnUnits),
+                new (typeof(HMDDeclutterComponent), "OwnUnitsColor", Plugin.HMDDeclutter.OwnUnitsColor),
+                new (typeof(HMDDeclutterComponent), "OwnUnitsHMDMarkerScale", Plugin.HMDDeclutter.OwnUnitsHMDMarkerScale),
+                new (typeof(HMDDeclutterComponent), "OwnUnitsMapIconScale", Plugin.HMDDeclutter.OwnUnitsMapIconScale),
             };
             BindingHelper.ApplyBindings(bindings);
 
@@ -98,13 +104,20 @@ public class HMDDeclutterComponent {
     } = false;
 
     public static bool MaximizeOwnMissiles = false;
+    public static bool ColorizeOwnMissiles = false;
     public static bool AlwaysDrawOwnMissiles = false;
     public static bool IncludeDerivedMissiles = false;
     public static Color OwnMissilesColor = Color.cyan;
     public static Color OwnMissedMissilesColor = Color.magenta;
-    public static float OwnMissilesScale = 1f;
-    public static float OwnMissilesMapScale = 1f;
+    public static float OwnMissilesHMDMarkerScale = 1f;
+    public static float OwnMissilesMapIconScale = 1f;
     public static float FlashBeforeImpactTime = 3f;
+
+    public static bool MaximizeOwnUnits = false;
+    public static bool ColorizeOwnUnits = false;
+    public static Color OwnUnitsColor = Color.cyan;
+    public static float OwnUnitsHMDMarkerScale = 1f;
+    public static float OwnUnitsMapIconScale = 1f;
 
     public static bool NeutralsAreFriendly = true;
 
@@ -178,20 +191,26 @@ public class HMDDeclutterComponent {
     }
 
     public static bool IsSettingMarkerColor(HUDUnitMarker marker) {
-        return marker.unit is Missile missile && ownMissiles.ContainsKey(missile);
+        var unit = marker.unit;
+        return ownMissiles.ContainsKey(unit) || ownUnits.ContainsKey(unit);
     }
 
     public static void OnTargetListSelectorStartCallback() {
         inProcess = false;
         prevAlwaysMaximized.Clear();
 
-        List<Missile> toRemove = new ();
-        foreach (var missile in ownMissiles.Keys) {
-            if (missile == null)
-                toRemove.Add(missile);
+        ClearNullUnits(ownMissiles);
+        ClearNullUnits(ownUnits);
+    }
+
+    private static void ClearNullUnits(Dictionary<Unit, UnitData> datum) {
+        List<Unit> toRemove = new ();
+        foreach (var unit in datum.Keys) {
+            if (unit == null)
+                toRemove.Add(unit);
         }
-        foreach (var missile in toRemove)
-            ownMissiles.Remove(missile);
+        foreach (var unit in toRemove)
+            datum.Remove(unit);
     }
 
     private static TraverseCache<CombatHUD, List<HUDUnitMarker>> markersCache = new ("markers");
@@ -204,29 +223,45 @@ public class HMDDeclutterComponent {
     private static List<float> squaredDistances = new ();
     private static List<string> distancesStrings = new ();
 
+    private static void MaximizeColorizeMarker(HUDUnitMarker marker, Dictionary<Unit, UnitData> datum, bool maximize, bool colorize, float scale, Color color) {
+        var unit = marker.unit;
+
+        if (maximize) {
+            marker.alwaysMaximized = true;
+            marker.image.transform.localScale = Vector3.one * scale;
+        }
+        if (colorize) {
+            colorInfo.SetValue(marker, color);
+            marker.image.color = color;
+        }
+
+        if (TryGetUnitData(unit, datum, out var data)) {
+            if (data.hudUnitMarker == null)
+                data.hudUnitMarker = marker;
+        }
+        else
+            datum[unit] = new UnitData { hudUnitMarker = marker, unitMapIcon = null };
+    }
+
     private static void ProcessMarker(HUDUnitMarker marker) {
         var unit = marker.unit;
         if (unit == null)
             return;
 
-        if (MaximizeOwnMissiles && unit is Missile missile && IsPlayersMissile(missile, false)) {
-            marker.alwaysMaximized = true;
-            colorInfo.SetValue(marker, OwnMissilesColor);
-            marker.image.color = OwnMissilesColor;
-            marker.image.transform.localScale = Vector3.one * OwnMissilesScale;
-            if (TryGetMissileData(missile, out var missileData)) {
-                if (missileData.hudUnitMarker == null)
-                    missileData.hudUnitMarker = marker;
-            }
-            else
-                ownMissiles[missile] = new MissileData { hudUnitMarker = marker, unitMapIcon = null };
+        var missile = unit as Missile;
+        if ((MaximizeOwnMissiles || ColorizeOwnMissiles) && missile != null && IsPlayersMissile(missile, IncludeDerivedMissiles)) {
+            MaximizeColorizeMarker(marker, ownMissiles, MaximizeOwnMissiles, ColorizeOwnMissiles, OwnMissilesHMDMarkerScale, OwnMissilesColor);
+            return;
         }
-        else if (MaximizeTargetableMarkers) {
+        else if ((MaximizeOwnUnits || ColorizeOwnUnits) && missile == null && IsPlayersUnit(unit)) {
+            MaximizeColorizeMarker(marker, ownUnits, MaximizeOwnUnits, ColorizeOwnUnits, OwnUnitsHMDMarkerScale, OwnUnitsColor);
+        }
+
+        if (MaximizeTargetableMarkers) {
             if (!prevAlwaysMaximized.TryGetValue(marker, out bool alwaysMaximized)) {
                 alwaysMaximized = NotAlwaysMaximized ? false : marker.alwaysMaximized;
                 prevAlwaysMaximized[marker] = alwaysMaximized;
             }
-
             marker.alwaysMaximized = GameBindings.Player.TargetFilter.CheckExclusions(unit) ? alwaysMaximized : true;
         }
     }
@@ -269,31 +304,15 @@ public class HMDDeclutterComponent {
             marker.image.sprite = (marker.outdated ? GameAssets.i.targetUnitSpriteOld : icon);
     }
 
-    private static bool TryGetMissileData(Unit unit, out MissileData missileData) {
-        missileData = null;
-        if (unit is Missile missile) {
-            if (missile == null) {
-                if (ownMissiles.ContainsKey(missile)) {
-                    ownMissiles.Remove(missile);
-                }
-                return false;
-            }
-            else {
-                return ownMissiles.TryGetValue(missile, out missileData);
-            }
+    private static bool TryGetUnitData(Unit unit, Dictionary<Unit, UnitData> datum, out UnitData unitData) {
+        unitData = null;
+        if (unit == null) {
+            if (datum.ContainsKey(unit))
+                datum.Remove(unit);
+            return false;
         }
         else
-            return false;
-    }
-
-    private static bool TryGetMissileData(UnitMapIcon unitMapIcon, out MissileData missileData) {
-        missileData = null;
-        return TryGetMissileData(unitMapIcon.unit, out missileData);
-    }
-
-    private static bool TryGetMissileData(HUDUnitMarker hudUnitMarker, out MissileData missileData) {
-        missileData = null;
-        return TryGetMissileData(hudUnitMarker.unit, out missileData);
+            return datum.TryGetValue(unit, out unitData);
     }
 
     /* If includeDerived is true, deliverables launched by player-owned units will also count as belonging to player */
@@ -312,6 +331,19 @@ public class HMDDeclutterComponent {
             var aircraft = GameBindings.Player.Aircraft.GetAircraft();
             return aircraft == null ? false : missile.owner == aircraft;
         }
+    }
+
+    private static bool IsPlayersUnit(Unit unit) {
+        if (unit == null || GameManager.GetLocalAircraft(out var aircraft) && aircraft == unit)
+            return false;
+
+        if (UnitRegistry.TryGetPersistentUnit(unit.persistentID, out var unitPersistentUnit) &&
+            GameManager.GetLocalPlayer<NuclearOption.Networking.BasePlayer>(out var localPlayer)) {
+            var result = unitPersistentUnit.player == localPlayer;
+            return result;
+        }
+        else
+            return false;
     }
 
     [HarmonyPatch(typeof(TargetListSelector), "Start")]
@@ -345,7 +377,7 @@ public class HMDDeclutterComponent {
                     enabled = false;
                 }
                 else {
-                    if (MaximizeOwnMissiles && AlwaysDrawOwnMissiles && IsPlayersMissileMarker(__instance))
+                    if (AlwaysDrawOwnMissiles && IsPlayersMissileMarker(__instance))
                         enabled = true;
                     else {
                         float squaredComparedDistance = squaredDistances[idx];
@@ -363,20 +395,19 @@ public class HMDDeclutterComponent {
                 }
             }
 
-            if (MaximizeOwnMissiles && IsPlayersMissileMarker(__instance)) {
-                if (FlashBeforeImpactTime > 0f) {
-                    var timeToImpact = (__instance.unit is Missile missile) ? GameBindings.Helpers.ComputeMissileTTI(missile) : -1f;
+            if (ColorizeOwnMissiles && FlashBeforeImpactTime > 0f && IsPlayersMissileMarker(__instance)) {
+                var timeToImpact = (__instance.unit is Missile missile) ? GameBindings.Helpers.ComputeMissileTTI(missile) : -1f;
 
-                    if (timeToImpact > 0f) {
-                        ___color = OwnMissilesColor;
-                        __instance.image.color = OwnMissilesColor;
-                        if (timeToImpact < FlashBeforeImpactTime)
-                            ___flashing = true;
-                    }
-                    else {
-                        ___color = OwnMissedMissilesColor;
-                        __instance.image.color = OwnMissedMissilesColor;
-                    }
+                if (timeToImpact > 0f) {
+                    ___color = OwnMissilesColor;
+                    __instance.image.color = OwnMissilesColor;
+                    if (timeToImpact < FlashBeforeImpactTime)
+                        ___flashing = true;
+                }
+                else {
+                    ___color = OwnMissedMissilesColor;
+                    __instance.image.color = OwnMissedMissilesColor;
+                    ___flashing = false;
                 }
             }
 
@@ -424,7 +455,13 @@ public class HMDDeclutterComponent {
             if (MaximizeOwnMissiles && __instance.unit is Missile missile && ownMissiles.ContainsKey(missile)) {
                 __instance.alwaysMaximized = true;
                 ___hidden = false;
-                __instance.image.transform.localScale = Vector3.one * OwnMissilesScale;
+                __instance.image.transform.localScale = Vector3.one * OwnMissilesHMDMarkerScale;
+                return;
+            }
+            else if (MaximizeOwnUnits && ownUnits.ContainsKey(__instance.unit)) {
+                __instance.alwaysMaximized = true;
+                ___hidden = false;
+                __instance.image.transform.localScale = Vector3.one * OwnUnitsHMDMarkerScale;
                 return;
             }
 
@@ -515,11 +552,12 @@ public class HMDDeclutterComponent {
         infos.Remove(marker);
     }
 
-    private class MissileData {
+    private class UnitData {
         public HUDUnitMarker hudUnitMarker;
         public UnitMapIcon unitMapIcon;
     }
-    private static Dictionary<Missile, MissileData> ownMissiles = new ();
+    private static Dictionary<Unit, UnitData> ownMissiles = new ();
+    private static Dictionary<Unit, UnitData> ownUnits = new ();
 
     [HarmonyPatch(typeof(HUDUnitMarker), "SetOutdated")]
     public class OnHUDUnitMarkerSetOutdated {
@@ -571,19 +609,32 @@ public class HMDDeclutterComponent {
         }
     }
 
+    private static void MaximizeColorizeIcon(UnitMapIcon icon, Dictionary<Unit, UnitData> datum, bool maximize, bool colorize, float scale, Color color) {
+        var unit = icon.unit;
+
+        if (maximize)
+            unitSizeFactorInfo.SetValue(icon, (float)unitSizeFactorInfo.GetValue(icon)*scale);
+        if (colorize)
+            icon.iconImage.color = color;
+
+        if (TryGetUnitData(unit, datum, out var unitData))
+            unitData.unitMapIcon = icon;
+        else
+            ownUnits[unit] = new UnitData { hudUnitMarker = null, unitMapIcon = icon };
+    }
+
+    private static FieldInfo unitSizeFactorInfo = AccessTools.Field(typeof(UnitMapIcon), "unitSizeFactor");
+
     [HarmonyPatch(typeof(UnitMapIcon), "SetIcon")]
     public class OnUnitMapIconSetIcon {
-        public static void Postfix(ref UnitMapIcon __instance, ref float ___unitSizeFactor) {
-            if (MaximizeOwnMissiles) {
-                var icon = __instance;
-                if (icon.unit is Missile missile && IsPlayersMissile(missile, IncludeDerivedMissiles)) {
-                    icon.iconImage.color = OwnMissilesColor;
-                    ___unitSizeFactor *= OwnMissilesMapScale;
-                    if (TryGetMissileData(missile, out var missileData))
-                        missileData.unitMapIcon = icon;
-                    else
-                        ownMissiles[missile] = new MissileData { hudUnitMarker = null, unitMapIcon = icon };
-                }
+        public static void Postfix(ref UnitMapIcon __instance) {
+            var icon = __instance;
+            var unit = icon.unit;
+            if ((MaximizeOwnMissiles || ColorizeOwnMissiles) && unit is Missile missile && IsPlayersMissile(missile, IncludeDerivedMissiles)) {
+                MaximizeColorizeIcon(icon, ownMissiles, MaximizeOwnMissiles, ColorizeOwnMissiles, OwnMissilesMapIconScale, OwnMissilesColor);
+            }
+            else if ((MaximizeOwnUnits || ColorizeOwnUnits) && !(unit is Missile) && IsPlayersUnit(unit)) {
+                MaximizeColorizeIcon(icon, ownUnits, MaximizeOwnUnits, ColorizeOwnUnits, OwnUnitsMapIconScale, OwnUnitsColor);
             }
         }
     }
@@ -593,8 +644,10 @@ public class HMDDeclutterComponent {
         public static void Postfix(ref UnitMapIcon __instance) {
             //TODO Optimize?
             var icon = __instance;
-            if (MaximizeOwnMissiles && TryGetMissileData(icon, out var missileData)) {
-                var hudUnitMarker = missileData.hudUnitMarker;
+            var unit = icon.unit;
+            UnitData unitData;
+            if ((ColorizeOwnMissiles && TryGetUnitData(unit, ownMissiles, out unitData)) || (ColorizeOwnUnits && TryGetUnitData(unit, ownUnits, out unitData))) {
+                var hudUnitMarker = unitData.hudUnitMarker;
                 if (hudUnitMarker != null)
                     icon.iconImage.color = hudUnitMarker.image.color;
             }

@@ -29,6 +29,7 @@ public class EMWSComponent {
 
             bindings.Add(new BindingHelper.Binding (typeof(EMWSComponent), "DistanceUnit", Plugin.EMWS.DistanceUnit));
             bindings.Add(new BindingHelper.Binding (typeof(EMWSComponent), "ProcessOnlyEnemyMissiles", Plugin.EMWS.ProcessOnlyEnemyMissiles));
+            bindings.Add(new BindingHelper.Binding (typeof(EMWSComponent), "HideOnMissileWarning", Plugin.EMWS.HideOnMissileWarning));
 
             foreach (var missileConfigData in Plugin.EMWS.MissileConfigDatum) {
                 var missileData = new MissileData ();
@@ -69,6 +70,7 @@ public class EMWSComponent {
     } = GameBindings.Units.DistanceUnits.m;
 
     public static bool ProcessOnlyEnemyMissiles = true;
+    public static bool HideOnMissileWarning = false;
 
     private static bool initialized = false;
     private static MissileWarning missileWarningSystem = null;
@@ -455,20 +457,31 @@ public class EMWSComponent {
         var hq = aircraft.NetworkHQ;
         if (hq == null)
             return;
+
         if (aircraft != currentAircraft) {
             currentAircraft = aircraft;
             DestroyThreatItems();
         }
+        else {
+            foreach ((var missile, var threatItemData) in threatItems) {
+                if (missile == null) {
+                    threatItemData.Active = false;
+                    UnityEngine.Object.Destroy(threatItemData.threatItem.gameObject);
+                    toRemove.Add(missile);
+                }
+            }
+            foreach (var missile in toRemove)
+                threatItems.Remove(missile);
+        }
+
+        if (HideOnMissileWarning && missileWarningSystem.knownMissiles.Count > 0) {
+            foreach (var threatItemData in threatItems.Values)
+                threatItemData.Active = false;
+            return;
+        }
 
         var aircraftGlobalPos = aircraft.GlobalPosition();
         foreach ((var missile, var threatItemData) in threatItems) {
-            if (missile == null) {
-                threatItemData.Active = false;
-                UnityEngine.Object.Destroy(threatItemData.threatItem.gameObject);
-                toRemove.Add(missile);
-                continue;
-            }
-
             var shouldAnimate = false;
             if (!threatItemData.MissileManagedByThreatList() && hq.TryGetKnownPosition(missile, out var missileGlobalPos)) {
                 (var toAircraftNormalized, var toAircraftMagniture) = MathUtils.CalcNormalizedAndMagnitude(aircraftGlobalPos - missileGlobalPos);
@@ -492,9 +505,6 @@ public class EMWSComponent {
                 threatItemData.Active = false;
             }
         }
-
-        foreach (var missile in toRemove)
-            threatItems.Remove(missile);
     }
 
     private static void DestroyThreatItems() {

@@ -14,7 +14,7 @@ using NO_Tactitools.UI.MFD;
 using NO_Tactitools.UI.HUD;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.32.1")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.33.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -92,23 +92,32 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<GameBindings.Units.DistanceUnits> DistanceUnit;
             public static ConfigEntry<bool> Report;
             public static ConfigEntry<bool> NotAlwaysMaximized;
-            public static ConfigEntry<bool> HideMinimized;
-            public static ConfigEntry<bool> MaximizeOwnMissiles;
-            public static ConfigEntry<bool> AlwaysDrawOwnMissiles;
-            public static ConfigEntry<bool> IncludeDerivedMissiles;
-            public static ConfigEntry<Color> OwnMissilesColor;
-            public static ConfigEntry<Color> OwnMissedMissilesColor;
-            public static ConfigEntry<float> OwnMissilesScale;
-            public static ConfigEntry<float> OwnMissilesMapScale;
-            public static ConfigEntry<float> FlashBeforeImpactTime;
             public static ConfigEntry<bool> MinimizeMaximized;
+            public static ConfigEntry<bool> HideMinimized;
             public static ConfigEntry<float> EnemyMinimizedMarkerScale;
             public static ConfigEntry<float> FriendlyMinimizedMarkerScale;
+
             public static ConfigEntry<float> OutdatedTime;
             public static ConfigEntry<bool> ShowOutdatedTime;
             public static ConfigEntry<bool> HideOutdatedMarker;
             public static ConfigEntry<bool> SetOutdatedIcon;
             public static ConfigEntry<float> EndOutdatedMarkerOpacity;
+
+            public static ConfigEntry<bool> MaximizeOwnMissiles;
+            public static ConfigEntry<bool> ColorizeOwnMissiles;
+            public static ConfigEntry<bool> AlwaysDrawOwnMissiles;
+            public static ConfigEntry<bool> IncludeDerivedMissiles;
+            public static ConfigEntry<Color> OwnMissilesColor;
+            public static ConfigEntry<Color> OwnMissedMissilesColor;
+            public static ConfigEntry<float> OwnMissilesHMDMarkerScale;
+            public static ConfigEntry<float> OwnMissilesMapIconScale;
+            public static ConfigEntry<float> FlashBeforeImpactTime;
+
+            public static ConfigEntry<bool> MaximizeOwnUnits;
+            public static ConfigEntry<bool> ColorizeOwnUnits;
+            public static ConfigEntry<Color> OwnUnitsColor;
+            public static ConfigEntry<float> OwnUnitsHMDMarkerScale;
+            public static ConfigEntry<float> OwnUnitsMapIconScale;
         };
         public class HUDOptionsPreset {
             public static ConfigEntry<bool> Enabled;
@@ -357,6 +366,7 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<GameBindings.Units.DistanceUnits> DistanceUnit;
             public static ConfigEntry<bool> ProcessOnlyEnemyMissiles;
+            public static ConfigEntry<bool> HideOnMissileWarning;
             public static ConfigEntry<int> NumEntries;
 
             public class MissileConfigData {
@@ -854,62 +864,6 @@ namespace NO_Tactitools.Core {
                     "Should minimized markers be hidden.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.MaximizeOwnMissiles = Config.Bind("HMD Declutter",
-                "HMD Declutter - Maximize Own Missiles",
-                false,
-                new ConfigDescription(
-                    "Should markers of own missiles be maximized.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.AlwaysDrawOwnMissiles = Config.Bind("HMD Declutter",
-                "HMD Declutter - Always Draw Own Missiles",
-                false,
-                new ConfigDescription(
-                    "Always draw markers of own missiles, regardless of distance.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.IncludeDerivedMissiles = Config.Bind("HMD Declutter",
-                "HMD Declutter - Include Derived Missiles",
-                false,
-                new ConfigDescription(
-                    "If true, missiles (and other deliverables) launched by player-owned units will be counted as belonging to player. If false, only deliverables launched by player will be colorized.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.OwnMissilesColor = Config.Bind("HMD Declutter",
-                "HMD Declutter - Own Missiles Color",
-                Color.cyan,
-                new ConfigDescription(
-                    "Color of HMD markers and map icons belonging to own missiles.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.OwnMissedMissilesColor = Config.Bind("HMD Declutter",
-                "HMD Declutter - Own Missed Missiles Color",
-                Color.magenta,
-                new ConfigDescription(
-                    "Color of HMD markers and map icons belonging to own missiles that have missed target.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.OwnMissilesScale = Config.Bind("HMD Declutter",
-                "HMD Declutter - Own Missiles Scale",
-                5f,
-                new ConfigDescription(
-                    "Scale of HMD markers designating player-owned missiles.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.OwnMissilesMapScale = Config.Bind("HMD Declutter",
-                "HMD Declutter - Own Missiles Map Scale",
-                1.2f,
-                new ConfigDescription(
-                    "Scale of map icons belonging to own missiles if HMD markers of these missiles are maximized.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
-            HMDDeclutter.FlashBeforeImpactTime = Config.Bind("HMD Declutter",
-                "HMD Declutter - Flash Before Impact Time",
-                3f,
-                new ConfigDescription(
-                    "Time in seconds to flash own missile marker before impact (set to negative value to disable).",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
             HMDDeclutter.EnemyMinimizedMarkerScale = Config.Bind("HMD Declutter",
                 "HMD Declutter - Enemy Minimized Marker Scale",
                 6f,
@@ -924,6 +878,7 @@ namespace NO_Tactitools.Core {
                     "Friendly Minimized Marker Scale.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
+            //Outdated
             HMDDeclutter.OutdatedTime = Config.Bind("HMD Declutter",
                 "HMD Declutter - Outdated Time",
                 -1.0f,
@@ -957,6 +912,106 @@ namespace NO_Tactitools.Core {
                 0.25f,
                 new ConfigDescription(
                     "Outdated marker opacity when it's been outdated for 'Outdated Time'.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            //Missiles
+            HMDDeclutter.MaximizeOwnMissiles = Config.Bind("HMD Declutter",
+                "HMD Declutter - Maximize Own Missiles",
+                true,
+                new ConfigDescription(
+                    "Should markers of own missiles be maximized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.ColorizeOwnMissiles = Config.Bind("HMD Declutter",
+                "HMD Declutter - Colorize Own Missiles",
+                true,
+                new ConfigDescription(
+                    "Should markers of own missiles be maximized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.AlwaysDrawOwnMissiles = Config.Bind("HMD Declutter",
+                "HMD Declutter - Always Draw Own Missiles",
+                true,
+                new ConfigDescription(
+                    "Always draw markers of own missiles, regardless of distance.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.IncludeDerivedMissiles = Config.Bind("HMD Declutter",
+                "HMD Declutter - Include Derived Missiles",
+                false,
+                new ConfigDescription(
+                    "If true, missiles (and other deliverables) launched by player-owned units will be counted as belonging to player. If false, only deliverables launched by player will be colorized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OwnMissilesColor = Config.Bind("HMD Declutter",
+                "HMD Declutter - Own Missiles Color",
+                Color.cyan,
+                new ConfigDescription(
+                    "Color of HMD markers and map icons belonging to own missiles.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OwnMissedMissilesColor = Config.Bind("HMD Declutter",
+                "HMD Declutter - Own Missed Missiles Color",
+                Color.magenta,
+                new ConfigDescription(
+                    "Color of HMD markers and map icons belonging to own missiles that have missed target.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OwnMissilesHMDMarkerScale = Config.Bind("HMD Declutter",
+                "HMD Declutter - Own Missiles Scale",
+                5f,
+                new ConfigDescription(
+                    "Scale of HMD markers designating player-owned missiles.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OwnMissilesMapIconScale = Config.Bind("HMD Declutter",
+                "HMD Declutter - Own Missiles Map Scale",
+                1.2f,
+                new ConfigDescription(
+                    "Scale of map icons belonging to own missiles if HMD markers of these missiles are maximized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.FlashBeforeImpactTime = Config.Bind("HMD Declutter",
+                "HMD Declutter - Flash Before Impact Time",
+                3f,
+                new ConfigDescription(
+                    "Time in seconds to flash own missile marker before impact (set to negative value to disable).",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            //Units
+            HMDDeclutter.MaximizeOwnUnits = Config.Bind("HMD Declutter",
+                "HMD Declutter - Maximize Own Units",
+                true,
+                new ConfigDescription(
+                    "Should markers of player-owned units be maximized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.ColorizeOwnUnits = Config.Bind("HMD Declutter",
+                "HMD Declutter - Colorize Own Units",
+                true,
+                new ConfigDescription(
+                    "Should markers of player-owned units be maximized.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OwnUnitsColor = Config.Bind("HMD Declutter",
+                "HMD Declutter - Own Units Color",
+                Color.cyan,
+                new ConfigDescription(
+                    "Color of HMD markers and map icons belonging to player-owned units.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OwnUnitsHMDMarkerScale = Config.Bind("HMD Declutter",
+                "HMD Declutter - Own Units Scale",
+                5f,
+                new ConfigDescription(
+                    "Scale of HMD markers designating player-owned units.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            HMDDeclutter.OwnUnitsMapIconScale = Config.Bind("HMD Declutter",
+                "HMD Declutter - Own Units Map Scale",
+                1.2f,
+                new ConfigDescription(
+                    "Scale of map icons belonging to player-owned units if HMD markers of these units are maximized.",
                     null,
                     new ConfigurationManagerAttributes { Order = order-- }));
             // HUD Options Preset settings
@@ -1972,7 +2027,7 @@ namespace NO_Tactitools.Core {
                 "UI Adjustments - Airbase Overlay - Ignore Runway Limits",
                 true,
                 new ConfigDescription(
-                    "If enabled, runway landing speed and size limits will be ignored (restart the game to apply changes).",
+                    "If enabled, runway landing speed and size limits will be ignored when airbase overlay selects which runway to display glidepath and borders for (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes {
                         Order = order--
@@ -2554,6 +2609,15 @@ namespace NO_Tactitools.Core {
                 true,
                 new ConfigDescription(
                     "Should Early Missile Warning System process only enemy missiles.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            EMWS.HideOnMissileWarning = Config.Bind("EMWS",
+                "EMWS - Hide On Missile Warning",
+                false,
+                new ConfigDescription(
+                    "Should missile warnings of possible incoming missiles be hidden when missile warning for actually incoming missile is active.",
                     null,
                     new ConfigurationManagerAttributes {
                         Order = order--

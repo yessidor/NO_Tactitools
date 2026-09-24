@@ -1,10 +1,21 @@
 # Nuclear Option Tactical Tools (plus)
 
-[NOTT (plus) Codeberg repository](https://codeberg.org/yessidor/NO_Tactitools). [NOTT (plus) GitHub repository](https://github.com/yessidor/NO_Tactitools) (currently inactive).
+[NOTT (plus) Codeberg repository](https://codeberg.org/yessidor/NO_Tactitools). [NOTT (plus) GitHub repository](https://github.com/yessidor/NO_Tactitools).
 
 [Original NOTT repository](https://github.com/clumzy/NO_Tactitools).
 
 # Changelog
+
+## 0.7.33.0
+
+  * UI Adjustments
+    + added option to always show glidepath when landing, even for helicopters and VTOLs
+    + added option to make airbase overlay ignore runway limits when selecting runway to draw glidepath and borders for
+  * HMD Declutter
+    + added separate option to enable or disable colorizing markers of player-owned deliverables
+    + added options to maximize and/or colorize markers of player-owned units
+  * Early Missile Warning System (EMWS)
+    + added option to hide missile warning for possible incoming missiles when missile warning for actually incoming missile is active
 
 ## 0.7.32.1
 
