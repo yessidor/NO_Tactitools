@@ -25,7 +25,7 @@ class AltTargetSelectionComponent {
         if (!initialized) {
             Plugin.Log("[TS] Alternative Target Selection Plugin initializing");
 
-            TargetableMarkersCacheComponent.Init();
+            TargetableMarkersCache.Init();
 
             Plugin.harmony.PatchAll(typeof(OnCombatHUDTargetSelect));
 
@@ -66,7 +66,7 @@ class AltTargetSelectionComponent {
             return false;
 
         if (paint) {
-            var targetableMarkers = TargetableMarkersCacheComponent.GetTargetableMarkers();
+            var targetableMarkers = TargetableMarkersCache.GetTargetableMarkers();
             var markerDatum = PickMarkers(markers: targetableMarkers, pickActive: PickActive, paint: true);
             if (markerDatum.Count > 0)
                 GameBindings.Player.TargetList.AddTargets(markerDatum.ConvertAll(d => d.marker.unit));
@@ -77,7 +77,7 @@ class AltTargetSelectionComponent {
             if (previewedMarker != null)
                 marker = previewedMarker;
             else {
-                var targetableMarkers = TargetableMarkersCacheComponent.GetTargetableMarkers();
+                var targetableMarkers = TargetableMarkersCache.GetTargetableMarkers();
                 var markerDatum = PickMarkers(markers: targetableMarkers, pickActive: PickActive, paint: false);
                 if (markerDatum.Count > 0)
                     marker = markerDatum[0].marker;
@@ -108,7 +108,7 @@ class AltTargetSelectionComponent {
         HUDUnitMarker marker = null;
         float distance = -1f;
 
-        var targetableMarkers = TargetableMarkersCacheComponent.GetTargetableMarkers();
+        var targetableMarkers = TargetableMarkersCache.GetTargetableMarkers();
         var markerDatum = PickMarkers(markers: targetableMarkers, pickActive: true, paint: false);
         if (markerDatum.Count == 0) {
             marker = null;
@@ -273,7 +273,7 @@ class AltTargetSelectionComponent {
 }
 
 
-class TargetableMarkersCacheComponent {
+class TargetableMarkersCache {
     public static void Init() {
         if (!initialized) {
             Plugin.harmony.PatchAll(typeof(OnTargetListSelectorSetFilters));

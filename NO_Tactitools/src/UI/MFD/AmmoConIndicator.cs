@@ -15,8 +15,6 @@ class AmmoConIndicatorPlugin {
             Plugin.Log($"[AC] Ammo Conservation Indicator plugin starting !");
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnPlatformStart));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnPlatformUpdate));
-            Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnMissileStart));
-            Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnMissileSetTarget));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnHUDUnitMarkerUpdatePosition));
             Plugin.harmony.PatchAll(typeof(AmmoConIndicatorComponent.OnCombatHUDShowTargetInfo));
 
@@ -34,6 +32,9 @@ class AmmoConIndicatorPlugin {
             };
             BindingHelper.ApplyBindings(bindings);
 
+            MissileCacheComponent.Init();
+            AmmoConIndicatorComponent.InternalState.friendlyMissileCache = MissileCacheManager.GetCache<MissileData>("friendly");
+
             initialized = true;
             Plugin.Log("[AC] Ammo Conservation Indicator plugin successfully started !");
         }
@@ -41,89 +42,11 @@ class AmmoConIndicatorPlugin {
 }
 
 class AmmoConIndicatorComponent {
-    static public List<Unit> GetTrackedTargets() {
-        return InternalState.trackedTargets;
-    }
-
     static public class LogicEngine {
         public static void Init() {
-            InternalState.activeMissiles.Clear();
         }
 
         public static void Update() {
-            if (
-                GameBindings.GameState.IsGamePaused()
-                || GameBindings.Player.Aircraft.GetAircraft() == null)
-                return;
-
-            // Prune null or inactive missiles
-            List<Missile> toRemove = [];
-            foreach (Missile missile in InternalState.activeMissiles.Keys) {
-                if (missile == null) {
-                    toRemove.Add(missile);
-                }
-            }
-            foreach (var missile in toRemove) {
-                InternalState.activeMissiles.Remove(missile);
-            }
-
-            List<Unit> toRemoveUnits = [];
-            foreach (Unit unit in InternalState.trackedUnits) {
-                if (unit == null) {
-                    toRemoveUnits.Add(unit);
-                }
-            }
-            foreach (var unit in toRemoveUnits) {
-                InternalState.trackedUnits.Remove(unit);
-            }
-        }
-
-        public static void OnMissileStart(Missile missile) {
-            if (UIBindings.Game.GetTargetScreenTransform(true) == null ||
-                GameBindings.Player.Aircraft.GetAircraft() == null ||
-                UIBindings.Game.GetTacScreenTransform(true) == null) {
-                return;
-            }
-            // no target
-            if (missile.targetID == null)
-                return;
-            // processing only friendly missiles
-            var owner = missile.owner;
-            if (owner == null)
-                return;
-            if (GameBindings.GameState.GetFactionMode(owner) != FactionMode.Friendly)
-                return;
-            if (missile.targetID.TryGetUnit(out Unit unit)) {
-                InternalState.activeMissiles[missile] = unit;
-                InternalState.trackedUnits.Add(unit);
-            }
-        }
-
-        public static void OnMissileSetTarget(Missile missile, Unit unit) {
-            if (UIBindings.Game.GetTargetScreenTransform(true) == null ||
-                GameBindings.Player.Aircraft.GetAircraft() == null ||
-                UIBindings.Game.GetTacScreenTransform(true) == null) {
-                return;
-            }
-            // make the mod update proof
-            // unit == null always happens when a missile detonates
-            if (unit == null) {
-                if (InternalState.activeMissiles.TryGetValue(missile, out var prevUnit))
-                    InternalState.trackedUnits.Remove(prevUnit);
-                InternalState.activeMissiles.Remove(missile);
-            }
-            else {
-                // processing only friendly missiles
-                if (GameBindings.GameState.GetFactionMode(missile.owner) == FactionMode.Friendly) {
-                    Unit prevUnit = null;
-                    InternalState.activeMissiles.TryGetValue(missile, out prevUnit);
-                    if (unit != prevUnit) {
-                        InternalState.activeMissiles[missile] = unit;
-                        InternalState.trackedUnits.Remove(prevUnit);
-                        InternalState.trackedUnits.Add(unit);
-                    }
-                }
-            }
         }
     }
 
@@ -131,13 +54,8 @@ class AmmoConIndicatorComponent {
         static public readonly TraverseCache<TargetScreenUI, List<Image>> _targetBoxesCache = new("targetBoxes");
         static public readonly TraverseCache<CombatHUD, Dictionary<Unit, HUDUnitMarker>> _markerLookupCache = new("markerLookup");
 
-        //missile to target relation
-        static public Dictionary<Missile, Unit> activeMissiles = [];
-        //targets of currently active missiles
-        static public HashSet<Unit> trackedUnits = new ();
-        //player-selected targets that at the same time are targets of active missiles
-        static public List<Unit> trackedTargets = new ();
-        //markers of the above
+        static public MissileCache<MissileData> friendlyMissileCache = null;
+        //markers of tracked targets
         static public HashSet<HUDUnitMarker> trackedMarkers = new ();
         //marker of active target (whether it's tracked by missile or not)
         static public HUDUnitMarker activeMarker = null;
@@ -188,7 +106,6 @@ class AmmoConIndicatorComponent {
                 InternalState.trackedMarkers.Clear();
                 InternalState.activeMarker = null;
             }
-            InternalState.trackedTargets.Clear();
 
             //'targetIcons' is indexed by i, so have to walk 'targets' list
             for (int i = 0; i < targets.Count; i++) {
@@ -196,10 +113,7 @@ class AmmoConIndicatorComponent {
 
                 bool targetIconExists = targetIcons != null && i < targetIcons.Count;
 
-                bool isTracked = InternalState.trackedUnits.Contains(target);
-
-                if (isTracked)
-                    InternalState.trackedTargets.Add(target);
+                bool isTracked = InternalState.friendlyMissileCache.Targets.ContainsKey(target);
 
                 if (InternalState.DrawMFDDot && targetIconExists) {
                     if (!InternalState.trackerDots.TryGetValue(targetIcons[i], out var trackerDot)) {
@@ -254,20 +168,6 @@ class AmmoConIndicatorComponent {
     }
 
     // HARMONY PATCHES
-    [HarmonyPatch(typeof(Missile), "StartMissile")]
-    public static class OnMissileStart {
-        static void Postfix(Missile __instance) {
-            LogicEngine.OnMissileStart(__instance);
-        }
-    }
-
-    [HarmonyPatch(typeof(Missile), "SetTarget")]
-    public static class OnMissileSetTarget {
-        static void Postfix(Missile __instance, Unit target) {
-            LogicEngine.OnMissileSetTarget(__instance, target);
-        }
-    }
-
     [HarmonyPatch(typeof(TacScreen), "Initialize")]
     public static class OnPlatformStart {
         static void Postfix() {

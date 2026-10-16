@@ -74,6 +74,9 @@ public class UIAdjustmentsPlugin {
             if (Plugin.UIAdjustments.AirbaseOverlay.IgnoreRunwayLimits.Value == true) {
                 Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.AirbaseOverlayPatches.IgnoreRunwayLimits.OnAirbaseOverlayUpdateNearestAirbase));
             }
+            if (Plugin.UIAdjustments.ShowArmDelay.Value == true) {
+                Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.ShowArmDelay.OnHUDBombingStateUpdateWeaponDisplay));
+            }
             if (Plugin.UIAdjustments.NOAutopilotGCASChevron.Value == true) {
                 Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.NOAutopilotGCASChevron.OnFlightHudUpdate));
             }
@@ -932,6 +935,48 @@ class UIAdjustmentsComponent {
                 }
             }
         }
+    }
+
+    public class ShowArmDelay {
+        [HarmonyPatch(typeof(HUDBombingState), "UpdateWeaponDisplay")]
+        public class OnHUDBombingStateUpdateWeaponDisplay {
+            public static void Postfix(TextMeshProUGUI ___ccipFallTime, TextMeshProUGUI ___ccrpFallTime, WeaponStation ___weaponStation, float ___lastCCIPCheck) {
+                if (___weaponStation == null) {
+                    Plugin.Log("[UIA] ShowArmDelay(): weaponStation is null");
+                    return;
+                }
+                if (___weaponStation != weaponStation) {
+                    weaponStation = ___weaponStation;
+                    var weaponInfo = weaponStation.WeaponInfo;
+                    if (weaponInfo == null) {
+                        Plugin.Log("[UIA] ShowArmDelay(): weaponStation is null");
+                        return;
+                    }
+                    var missile = weaponInfo.weaponPrefab.GetComponent<Missile>();
+                    if (missile == null) {
+                        Plugin.Log("[UIA] ShowArmDelay(): missile is null");
+                        return;
+                    }
+                    var seeker = seekerCache.GetValue(missile);
+                    if (seeker == null)
+                        seeker = weaponInfo.weaponPrefab.GetComponent<MissileSeeker>();
+                    if (seeker == null) {
+                        Plugin.Log("[UIA] ShowArmDelay(): seeker is null");
+                        return;
+                    }
+                    var armDelay = armDelayCache.GetValue(seeker);
+                    armDelayText = $"\nArm {armDelay:F1}";
+                }
+                if (___ccipFallTime.enabled && Time.timeSinceLevelLoad == ___lastCCIPCheck)
+                    ___ccipFallTime.text += armDelayText;
+                if (___ccrpFallTime.enabled)
+                    ___ccrpFallTime.text = $"\n\n{___ccrpFallTime.text}{armDelayText}";
+            }
+        }
+        private static TraverseCache<Missile, MissileSeeker> seekerCache = new ("seeker");
+        private static TraverseCache<MissileSeeker, float> armDelayCache = new ("armDelay");
+        private static WeaponStation weaponStation = null;
+        private static string armDelayText = "";
     }
 
     public class NOAutopilotGCASChevron {

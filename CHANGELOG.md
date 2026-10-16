@@ -6,6 +6,14 @@
 
 # Changelog
 
+## 0.7.34.0
+
+  * HMD Target List
+    + new component that displays target list on HMD
+    + also displays time-to-impact for targets of player missiles
+  * UI Adjustments
+    + added option to show bomb arm delay
+
 ## 0.7.33.1
 
   * Delivery Checker

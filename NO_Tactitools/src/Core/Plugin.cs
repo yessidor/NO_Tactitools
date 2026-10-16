@@ -14,7 +14,7 @@ using NO_Tactitools.UI.MFD;
 using NO_Tactitools.UI.HUD;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.33.1")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.34.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -287,6 +287,7 @@ namespace NO_Tactitools.Core {
                 public static ConfigEntry<bool> AlwaysDisplayGlidepath;
                 public static ConfigEntry<bool> IgnoreRunwayLimits;
             }
+            public static ConfigEntry<bool> ShowArmDelay;
             public static ConfigEntry<bool> NOAutopilotGCASChevron;
         };
         public class SensitivityFix {
@@ -357,6 +358,7 @@ namespace NO_Tactitools.Core {
         }
         public class HMDCam {
             public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<UIBindings.Draw.Anchors> Anchor;
             public static ConfigEntry<Vector2> Position;
             public static ConfigEntry<Vector2> Size;
             public static ConfigEntry<float> Transparency;
@@ -474,6 +476,22 @@ namespace NO_Tactitools.Core {
             public static ConfigEntry<Color> HMDBackgroundColor;
             public static ConfigEntry<string> DisabledFor;
             public static ConfigEntry<string> SendToHMDFor;
+        }
+
+        public class HMDTargetList {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<UIBindings.Draw.Anchors> Anchor;
+            public static ConfigEntry<Vector2> Position;
+            public static ConfigEntry<int> Spacing;
+            public static ConfigEntry<int> FontSize;
+            public static ConfigEntry<Color> BackgroundColor;
+            public static ConfigEntry<bool> ShowMissileTargets;
+            public static ConfigEntry<Color> MissileTargetsLabelColor;
+            public static ConfigEntry<Color> FlashColor;
+            public static ConfigEntry<float> FlashBeforeImpactTime;
+            public static ConfigEntry<int> MaxNumEntries;
+            public static ConfigEntry<string> EntryFormatString;
+            public static ConfigEntry<float> UpdatePeriod;
         }
 
         public static ConfigEntry<bool> cameraTweaksEnabled;
@@ -2032,6 +2050,15 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
+            UIAdjustments.ShowArmDelay = Config.Bind("UI Adjustments",
+                "UI Adjustments - Show Arm Delay",
+                false,
+                new ConfigDescription(
+                    "Show bomb arm delay beside ToF value (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             UIAdjustments.NOAutopilotGCASChevron = Config.Bind("UI Adjustments",
                 "UI Adjustments - Display NOAutopilot GCAS Chevron on HMD",
                 false,
@@ -2550,9 +2577,18 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes {
                         Order = order--
                     }));
+            HMDCam.Anchor = Config.Bind("HMD Cam",
+                "HMD Cam - Anchor",
+                UIBindings.Draw.Anchors.BottomLeft,
+                new ConfigDescription(
+                    "HMD Cam anchor (the corner which position is set to 'HMD Cam - Position').",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
             HMDCam.Position = Config.Bind("HMD Cam",
                 "HMD Cam - Position",
-                new Vector2 (0, 400),
+                new Vector2 (0, 500),
                 new ConfigDescription(
                     "HMD Cam position.",
                     null,
@@ -3693,6 +3729,137 @@ namespace NO_Tactitools.Core {
                         Order = order--
                     }));
 
+            // HMD Target List settings
+            order = 100;
+            HMDTargetList.Enabled = Config.Bind("HMD Target List",
+                "HMD Target List - Enabled",
+                true,
+                new ConfigDescription(
+                    "Enable or disable the HMD Target List feature (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.Anchor = Config.Bind("HMD Target List",
+                "HMD Target List - Anchor",
+                UIBindings.Draw.Anchors.BottomRight,
+                new ConfigDescription(
+                    "HMD Target List screen anchor (the corner which position is set to 'HMD Target List - Position').",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.Position = Config.Bind("HMD Target List",
+                "HMD Target List - Position",
+                new Vector2 (0, 500),
+                new ConfigDescription(
+                    "HMD Target List screen position.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.Spacing = Config.Bind("HMD Target List",
+                "HMD Target List - Spacing",
+                0,
+                new ConfigDescription(
+                    "Spacing between HMD Target List entries.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.FontSize = Config.Bind("HMD Target List",
+                "HMD Target List - Font Size",
+                25,
+                new ConfigDescription(
+                    "Font size of HMD Target List entries.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.BackgroundColor = Config.Bind("HMD Target List",
+                "HMD Target List - Background Color",
+                new Color (0, 0, 0, 0.3f),
+                new ConfigDescription(
+                    "Color of HMD Target List background.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.ShowMissileTargets = Config.Bind("HMD Target List",
+                "HMD Target List - Show Missile Targets",
+                true,
+                new ConfigDescription(
+                    "If enabled, units that are targets of player missiles but not selected as targets will be shown below the list of currently selected targets.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.MissileTargetsLabelColor = Config.Bind("HMD Target List",
+                "HMD Target List - Missile Targets Label Color",
+                Color.grey,
+                new ConfigDescription(
+                    "Color of 'MISSILE TARGETS' label.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.FlashColor = Config.Bind("HMD Target List",
+                "HMD Target List - Entry Flash Color",
+                Color.yellow,
+                new ConfigDescription(
+                    "Alternative color of flashing labels.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.FlashBeforeImpactTime = Config.Bind("HMD Target List",
+                "HMD Target List - Entry Flash Time Before Impact",
+                2f,
+                new ConfigDescription(
+                    "If positive, and smallest missile TTI is less that this value, HMD Target List entry will flash and TTI time will be shown as decimal. Set to negative value to disable this.",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.MaxNumEntries = Config.Bind("HMD Target List",
+                "HMD Target List - Max Number of Entries",
+                -1,
+                new ConfigDescription(
+                    "Max number of HMD Target List entries (set to negative value to disable the limit).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.EntryFormatString = Config.Bind("HMD Target List",
+                "HMD Target List - Entry Format String",
+                "{lased}|{missiles}|{tti}|{code}|{name}|{distance}|{grid}",
+                new ConfigDescription(
+                    """
+                    HMD Target List entry format string.
+                    Available parameters:
+                    {name} - unit name;
+                    {code} - unit code;
+                    {distance} - distance to unit;
+                    {grid} - unit grid location;
+                    {lased} - lased status: [L] - lased by player, L - lased by ally;
+                    {missiles} - number of missiles attacking unit;
+                    {tti} - smallest time-to-impact.
+                    \n is newline.
+                    """,
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            HMDTargetList.UpdatePeriod = Config.Bind("HMD Target List",
+                "HMD Target List - Update Period",
+                0.1f,
+                new ConfigDescription(
+                    "HMD Target List update period (in seconds).",
+                    new AcceptableValueRange<float>(0f, 5f),
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+
             //PATCHES
             // GameBindings patch
             gameBindingsPatchEnabled = Config.Bind("Game Bindings Patch",
@@ -3771,6 +3938,11 @@ namespace NO_Tactitools.Core {
             if (LoadoutPreview.Enabled.Value) {
                 Log($"Loadout Preview is enabled, patching...");
                 harmony.PatchAll(typeof(LoadoutPreviewPlugin));
+            }
+            // Patch HMD Target List
+            if (HMDTargetList.Enabled.Value) {
+                Log($"HMD Target List is enabled, patching...");
+                harmony.PatchAll(typeof(HMDTargetListComponent.OnMainMenuStart));
             }
             // Patch Delivery Checker
             if (deliveryCheckerEnabled.Value) {

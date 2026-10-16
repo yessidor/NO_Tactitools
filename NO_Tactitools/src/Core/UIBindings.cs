@@ -115,7 +115,8 @@ public class UIBindings {
                 Color? color = null,
                 int fontSize = 24,
                 float backgroundOpacity = 0.8f,
-                Material material = null) : base(name, UIParent) {
+                Material material = null,
+                Font font = null) : base(name, UIParent) {
                 this.backgroundOpacity = backgroundOpacity;
                 rectTransform.anchoredPosition = position;
                 rectTransform.sizeDelta = new Vector2(200, 40);
@@ -127,19 +128,17 @@ public class UIBindings {
                 textRect.anchorMax = Vector2.one;
                 textRect.offsetMin = Vector2.zero;
                 textRect.offsetMax = Vector2.zero;
-                Text textComp = textObj.AddComponent<Text>();
-                textComp.font = UIBindings.Draw.GetDefaultFont();
-                textComp.fontSize = fontSize;
-                textComp.fontStyle = fontStyle;
-                textComp.color = color ?? Color.white;
-                this.textOpacity = textComp.color.a;
-                textComp.alignment = TextAnchor.MiddleCenter;
-                textComp.text = "";
-                textComp.horizontalOverflow = HorizontalWrapMode.Overflow;
-                textComp.verticalOverflow = VerticalWrapMode.Overflow;
-                rectTransform.sizeDelta = new Vector2(textComp.preferredWidth, textComp.fontSize);
-                Transform textTransform = gameObject.transform.Find("LabelText");
-                textComponent = textTransform.GetComponent<Text>();
+                textComponent = textObj.AddComponent<Text>();
+                textComponent.font = font == null ? UIBindings.Draw.GetDefaultFont() : font;
+                textComponent.fontSize = fontSize;
+                textComponent.fontStyle = fontStyle;
+                textComponent.color = color ?? Color.white;
+                this.textOpacity = textComponent.color.a;
+                textComponent.alignment = TextAnchor.MiddleCenter;
+                textComponent.text = "";
+                textComponent.horizontalOverflow = HorizontalWrapMode.Overflow;
+                textComponent.verticalOverflow = VerticalWrapMode.Overflow;
+                rectTransform.sizeDelta = new Vector2(textComponent.preferredWidth, textComponent.preferredHeight);
                 if (material != null) {
                     textComponent.material = material;
                 }
@@ -149,7 +148,7 @@ public class UIBindings {
 
             public void SetText(string text) {
                 textComponent.text = text;
-                rectTransform.sizeDelta = new Vector2(textComponent.preferredWidth, textComponent.fontSize);
+                rectTransform.sizeDelta = new Vector2(textComponent.preferredWidth, textComponent.preferredHeight);
             }
 
             public override void SetColor(Color color) {
@@ -440,10 +439,11 @@ public class UIBindings {
                 FontStyle fontStyle = FontStyle.Normal,
                 Color? textColor = null,
                 int fontSize = 24,
-                Material material = null)
+                Material material = null,
+                Font font = null)
                 : base(name, cornerA, cornerB, borderColor, borderThickness, UIParent, fillColor, material: material) {
                 label = new UILabel(name + "_Label", Vector2.zero, gameObject.transform, fontStyle, textColor, fontSize,
-                    0, material: material);
+                    0, material: material, font: font);
                 label.SetPosition(Vector2.zero);
             }
 
@@ -472,6 +472,47 @@ public class UIBindings {
             Plugin.Log("[UIBindings] GetDefaultFont(): font is null");
             return null;
         }
+
+        public static Font GetThreatItemFont() {
+            var combatHUD = UIBindings.Game.GetCombatHUDComponent();
+            if (combatHUD == null)
+                return null;
+
+            var threatList = threatListCache.GetValue(combatHUD);
+            var threatItemPrefab = threatItemPrefabCache.GetValue(threatList);
+            var threatItem = threatItemPrefab.GetComponent<ThreatItem>();
+            var text = textCache.GetValue(threatItem);
+            var font = text.font;
+            return font;
+        }
+
+        public static Font GetNotchIndicatorFont() {
+            var combatHUD = UIBindings.Game.GetCombatHUDComponent();
+            if (combatHUD == null)
+                return null;
+
+            var notchIndicatorLabel = combatHUD.notchIndicatorPrefab.GetComponentInChildren<Text>();
+            return notchIndicatorLabel.font;
+        }
+
+        public enum Anchors { BottomLeft, TopLeft, BottomRight, TopRight };
+
+        public static void SetAnchor(RectTransform rectTransform, Anchors anchor) {
+            if (rectTransform != null) {
+                var vec = anchor switch {
+                    Anchors.BottomLeft => Vector2.zero,
+                    Anchors.TopLeft => new Vector2 (0, 1),
+                    Anchors.BottomRight => new Vector2 (1, 0),
+                    Anchors.TopRight => Vector2.one,
+                    _ => throw new Exception ("Invalid anchor")
+                };
+                rectTransform.pivot = rectTransform.anchorMin = rectTransform.anchorMax = vec;
+            }
+        }
+
+        private static TraverseCache<CombatHUD, ThreatList> threatListCache = new ("threatList");
+        private static TraverseCache<ThreatList, GameObject> threatItemPrefabCache = new("threatItemPrefab");
+        private static TraverseCache<ThreatItem, Text> textCache = new("text");
     }
 
     public class Game {

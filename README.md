@@ -687,6 +687,47 @@ This component adds the marker on HMD showing velocity vector of the current (ac
 
 `Target Velocity Indicator - Max Speed` is the maximum speed (velocity magnitude; in km/h) for maximum offset of marker. `Target Velocity Indicator - Max Length` is the maximum offset of velocity marker (in pixels) for maximum speed. `Target Velocity Indicator - Dot Step` is distance between the dots connecting target and velocity markers.
 
+#### HMD Target List
+
+This component prints current target list on HMD.
+
+`HMD Target List - Enabled` controls the state (restart the game to apply changes).
+
+`HMD Target List - Anchor` sets HMD Target List screen anchor (the corner which position is set to `HMD Target List - Position).
+
+`HMD Target List - Position` sets HMD Target List screen position.
+
+`HMD Target List - Spacing` sets spacing between HMD Target List entries.
+
+`HMD Target List - Font Size` sets font size of HMD Target List entries.
+
+`HMD Target List - Background Color` sets color of HMD Target List background.
+
+If `HMD Target List - Show Missile Targets` is enabled, units that are targets of player missiles but not selected as targets will be shown below the list of currently selected targets.
+
+`HMD Target List - Missile Targets Label Color` sets the color of 'MISSILE TARGETS' label.
+
+`HMD Target List - Entry Flash Color` sets alternative color of flashing labels.
+
+If `HMD Target List - Entry Flash Time Before Impact` is positive and smallest missile TTI is less that this value, HMD Target List entry will flash and TTI time will be shown as decimal. Set to negative value to disable this.
+
+`HMD Target List - Max Number of Entries` sets max number of HMD Target List entries (set to negative value to disable the limit).
+
+`HMD Target List - Entry Format String` sets HMD Target List entry format string.
+
+Available parameters:
+`{name}` - unit name;  
+`{code}` - unit code;  
+`{distance}` - distance to unit;  
+`{grid}` - unit grid location;  
+`{lased}` - lased status: [L] - lased by player, L - lased by ally;  
+`{missiles}` - number of missiles attacking unit;  
+`{tti}` - smallest time-to-impact.  
+
+\n is newline.
+
+`HMD Target List - Update Period` sets HMD Target List update period (in seconds).
+
 #### HUD Center Direction
 
 This small component adds an arrow pointing to HUD center.
@@ -754,6 +795,8 @@ If `UI Adjustments - Center On Jump Map` is enabled, pressing `Jump Map` key whe
 If `UI Adjustments - Airbase Overlay - Always Display Glidepath` is enabled, airbase overlay will display glidepath and runway borders even for aircraft with vertical landing, like helicopters and VTOLs (restart the game to apply changes).
 
 If `UI Adjustments - Airbase Overlay - Ignore Runway Limits` is enabled, runway landing speed and size limits will be ignored when airbase overlay selects which runway to display glidepath and borders for (restart the game to apply changes). Enabling this setting will, for example, display glidepath and runway borders when landing on K92 or Dustbowl in Ifrit.
+
+If `UI Adjustments - Show Arm Delay` is enabled, bomb arm delay will be shown beside ToF value both in CCIP and CCRP modes (restart the game to apply changes).
 
 If `UI Adjustments - Display NOAutopilot GCAS Chevron on HMD` is enabled, [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod/) Ground Collision Avoidance System (GCAS) Chevron will be displayed on HMD instead of HUD (restart the game to apply changes).
 

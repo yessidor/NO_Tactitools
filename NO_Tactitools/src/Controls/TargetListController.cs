@@ -43,6 +43,9 @@ class TargetListControllerPlugin {
 
             TargetListControllerComponent.InternalState.mtsSavedTargets = new List<Unit> ();
 
+            MissileCacheComponent.Init();
+            TargetListControllerComponent.InternalState.friendlyMissileCache = MissileCacheManager.GetCache<MissileData>("friendly");
+
             InputCatcher.RegisterNewInput(
                 Plugin.MFDNavUp,
                 Plugin.PressDelay.Value,
@@ -400,7 +403,7 @@ class TargetListControllerPlugin {
             return;
         }
 
-        var trackedTargets = AmmoConIndicatorComponent.GetTrackedTargets();
+        var trackedTargets = TargetListControllerComponent.InternalState.friendlyMissileCache.Targets.Keys.ToList();
         int targetCount = replaceTargets(trackedTargets, muteSound: true);
         string report = string.Format("Kept <b>{0}</b> tracked {1}", targetCount, singularOrPlural(targetCount, "target", "targets"));
         UIBindings.Game.DisplayToast(report, 3f);
@@ -418,7 +421,7 @@ class TargetListControllerPlugin {
         }
 
         var currentTargets = GameBindings.Player.TargetList.GetTargets(copy: false);
-        var trackedTargets = new HashSet<Unit> (AmmoConIndicatorComponent.GetTrackedTargets());
+        var trackedTargets = new HashSet<Unit> (TargetListControllerComponent.InternalState.friendlyMissileCache.Targets.Keys);
         currentTargets = currentTargets.FindAll(unit => !trackedTargets.Contains(unit));
         int targetCount = replaceTargets(currentTargets, muteSound: true);
         string report = string.Format("Kept <b>{0}</b> untracked {1}", targetCount, singularOrPlural(targetCount, "target", "targets"));
@@ -702,6 +705,7 @@ public static class TargetListControllerComponent {
     }
 
     public static class InternalState {
+        public static MissileCache<MissileData> friendlyMissileCache = null;
         public static List<Unit>[] unitRecallLists;
         public static FactionHQ playerFactionHQ;
         public static List<Unit> previousTargetList;

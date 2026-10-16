@@ -5,6 +5,7 @@ using NO_Tactitools.Core;
 namespace NO_Tactitools.UI.HMD;
 
 public class HMDCamComponent {
+    public static UIBindings.Draw.Anchors Anchor { set { field = value; UpdatePanelPlacement(); } get; } = UIBindings.Draw.Anchors.BottomLeft;
     public static Vector2 Position { set { field = value; UpdatePanelPlacement(); } get; } = Vector2.zero;
     public static Vector2 Size { set { field = value; UpdatePanelPlacement(); } get; } = Vector2.one;
     public static float Transparency {
@@ -114,6 +115,7 @@ public class HMDCamComponent {
             return;
         }
 
+        UIBindings.Draw.SetAnchor(panelTransform, Anchor);
         panelTransform.anchoredPosition = Position;
         panelTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, Size.x);
         panelTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Size.y);
