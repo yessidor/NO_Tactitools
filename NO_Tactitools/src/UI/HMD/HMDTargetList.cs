@@ -194,6 +194,11 @@ public class HMDTargetListComponent {
                 UpdateNameLength(targets);
 
                 void PopulateLabelData(LabelData labelData, Unit target, List<PlayerMissileData> playerMissileDatum = null, List<MissileData> friendlyMissileDatum = null) {
+                    if (labelData == null)
+                        throw new NullReferenceException("labelData is null");
+                    if (target == null)
+                        throw new NullReferenceException("target is null");
+
                     if (labelData.target != target) {
                         labelData.target = target;
 
@@ -306,7 +311,7 @@ public class HMDTargetListComponent {
 
                             UpdateNameLength(playerMissileCache.Targets.Keys);
                             foreach ((var missileTarget, var missileDatum) in playerMissileCache.Targets) {
-                                if (targets.Contains(missileTarget))
+                                if (missileTarget == null || targets.Contains(missileTarget))
                                     continue;
                                 var missileTargetLabelData = GetOrCreateLabelData();
                                 if (missileTargetLabelData == null)

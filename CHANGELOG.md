@@ -6,6 +6,11 @@
 
 # Changelog
 
+## 0.7.34.1
+
+  * HMD Target List
+    + NRE fix
+
 ## 0.7.34.0
 
   * HMD Target List
