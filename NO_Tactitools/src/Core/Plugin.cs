@@ -14,7 +14,7 @@ using NO_Tactitools.UI.MFD;
 using NO_Tactitools.UI.HUD;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.34.1")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.35.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -216,11 +216,15 @@ namespace NO_Tactitools.Core {
                 DecKeyName = decKeyName;
             }
         };
+        public class ThrottleKeyAxisData : KeyAxisData {
+            public Dictionary<ThrottleKeyAndEncoderAxis.Detents, ConfigEntry<ThrottleKeyAndEncoderAxis.DetentModes>> DetentModeVars;
+            public Dictionary<ThrottleKeyAndEncoderAxis.Regions, ConfigEntry<float>> RegionSensVars;
+            public ThrottleKeyAxisData (string name, string incKeyName, string decKeyName) : base(name, incKeyName, decKeyName) {}
+        };
         public static ConfigEntry<bool> keyAxesEnabled;
         public static KeyAxisData[] keyAxes;
         public static RewiredButtonConfig yprAxesResetKey;
         public static RewiredButtonConfig allAxesResetKey;
-        public static ConfigEntry<KeyAxesComponent.ConfirmAirbrakeDeploymentMode> keyAxesConfirmAirbrakeDeployment;
         public static ConfigEntry<bool> targetCamModeEnabled;
         public static RewiredInputConfig targetCamModeToggleKey;
         public class AltTargetSelection {
@@ -1434,13 +1438,13 @@ namespace NO_Tactitools.Core {
                     new ConfigurationManagerAttributes { Order = order-- }));
             // Keyboard-controlled axes
             keyAxes = new KeyAxisData[] {
-                new ("Pitch", "Down", "Up"),
-                new ("Roll", "Right", "Left"),
-                new ("Yaw", "Right", "Left"),
-                new ("Throttle", "Up", "Down"),
-                new ("Brake", "Apply", "Release"),
-                new ("CustomAxis1", "Up", "Down"),
-                new ("Zoom", "In", "Out"),
+                new KeyAxisData ("Pitch", "Down", "Up"),
+                new KeyAxisData ("Roll", "Right", "Left"),
+                new KeyAxisData ("Yaw", "Right", "Left"),
+                new ThrottleKeyAxisData ("Throttle", "Up", "Down"),
+                new KeyAxisData ("Brake", "Apply", "Release"),
+                new KeyAxisData ("CustomAxis1", "Up", "Down"),
+                new KeyAxisData ("Zoom", "In", "Out"),
             };
             keyAxesEnabled = Config.Bind("Key Axes",
                 "Key Axes - Enabled",
@@ -1545,16 +1549,45 @@ namespace NO_Tactitools.Core {
                         new ConfigurationManagerAttributes {
                             Order = order--
                         }));
+
+                if (name == "Throttle") {
+                    var throttleVars = (ThrottleKeyAxisData)vars;
+
+                    throttleVars.DetentModeVars = new ();
+                    foreach (var detent in (ThrottleKeyAndEncoderAxis.Detents[])Enum.GetValues(typeof(ThrottleKeyAndEncoderAxis.Detents))) {
+                        throttleVars.DetentModeVars[detent] =
+                            Config.Bind("Key Axes",
+                                $"Key Axes - {name} - Detent Modes - {detent}",
+                                detent switch {
+                                    ThrottleKeyAndEncoderAxis.Detents.BrakeDry => ThrottleKeyAndEncoderAxis.DetentModes.Dec,
+                                    ThrottleKeyAndEncoderAxis.Detents.MilAfterburner => ThrottleKeyAndEncoderAxis.DetentModes.Inc,
+                                    _ => ThrottleKeyAndEncoderAxis.DetentModes.None,
+                                },
+                                new ConfigDescription(
+                                    "Throttle detent mode. Inc - throttle will stop at detent while increasing; Dec - while decreasing; Both - while both increasing and decreasing; None - detent is deactivated.",
+                                    null,
+                                    new ConfigurationManagerAttributes { Order = order-- }));
+                    }
+
+                    throttleVars.RegionSensVars = new ();
+                    foreach (var region in (ThrottleKeyAndEncoderAxis.Regions[])Enum.GetValues(typeof(ThrottleKeyAndEncoderAxis.Regions))) {
+                        Plugin.Log($"{region}");
+                        throttleVars.RegionSensVars[region] =
+                            Config.Bind("Key Axes",
+                                $"Key Axes - {name} - Region Sens - {region}",
+                                region switch {
+                                    ThrottleKeyAndEncoderAxis.Regions.Afterburner => 0.5f,
+                                    _ => 1.0f,
+                                },
+                                new ConfigDescription(
+                                    "Throttle region sensitivity multiplier.",
+                                    new AcceptableValueRange<float>(0f, 10f),
+                                    new ConfigurationManagerAttributes { Order = order-- }));
+                    }
+                }
             }
             yprAxesResetKey = new RewiredButtonConfig(Config, "Key Axes", "Key Axes - Yaw Pitch Roll Axes Reset Key", "Short press resets yaw, long press resets pitch and roll.", order--);
             allAxesResetKey = new RewiredButtonConfig(Config, "Key Axes", "Key Axes - All Axes Reset Key", "Short press resets all axes.", order--);
-            keyAxesConfirmAirbrakeDeployment = Config.Bind("Key Axes",
-                "Key Axes - Confirm Airbrake Deployment",
-                KeyAxesComponent.ConfirmAirbrakeDeploymentMode.Press, 
-                new ConfigDescription(
-                    "If set to 'Press', airbrake deployment must be confirmed by releasing and pressing 'Decrease Throttle' key when throttle is zero. If set to 'Hold', airbrake will be engaged while throttle is zero and 'Decrease Throttle` key is held.",
-                    null,
-                    new ConfigurationManagerAttributes { Order = order-- }));
             // Target Cam Mode
             order = 100;
             targetCamModeEnabled = Config.Bind("Target Cam Mode",
@@ -3832,7 +3865,7 @@ namespace NO_Tactitools.Core {
                     }));
             HMDTargetList.EntryFormatString = Config.Bind("HMD Target List",
                 "HMD Target List - Entry Format String",
-                "{lased}|{missiles}|{tti}|{code}|{name}|{distance}|{grid}",
+                "{jammed}|{lased}|{missiles}|{tti}|{code}|{name}|{distance}|{grid}",
                 new ConfigDescription(
                     """
                     HMD Target List entry format string.
@@ -3841,6 +3874,7 @@ namespace NO_Tactitools.Core {
                     {code} - unit code;
                     {distance} - distance to unit;
                     {grid} - unit grid location;
+                    {jammed} - jammed status: [J] - jammed by player, J - jammed by ally;
                     {lased} - lased status: [L] - lased by player, L - lased by ally;
                     {missiles} - number of missiles attacking unit;
                     {tti} - smallest time-to-impact.

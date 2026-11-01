@@ -588,9 +588,17 @@ public class EMWSComponent {
         }
     }
 
-    [HarmonyPatch(typeof(UnitMapIcon), "UnitMapIcon_UpdateColor")]
+    [HarmonyPatch]
     public class OnUnitMapIcon_UpdateColor {
-        public static void Postfix(ref UnitMapIcon __instance, ref bool ___isSelected) {
+        [HarmonyTargetMethods]
+        private static IEnumerable<MethodInfo> TargetMethods() {
+            var unitMapIconUpdateColorInfo = AccessTools.Method(typeof(UnitMapIcon), "UpdateColor");
+            var unitMapIcon_UpdateColorInfo = AccessTools.Method(typeof(UnitMapIcon), "UnitMapIcon_UpdateColor");
+            yield return unitMapIconUpdateColorInfo != null ? unitMapIconUpdateColorInfo : unitMapIcon_UpdateColorInfo;
+        }
+
+        [HarmonyPostfix]
+        private static void Postfix(ref UnitMapIcon __instance, ref bool ___isSelected) {
             if (___isSelected)
                return;
             var missile = __instance.unit as Missile;

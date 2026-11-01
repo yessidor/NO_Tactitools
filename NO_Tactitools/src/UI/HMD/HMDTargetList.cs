@@ -120,8 +120,6 @@ public class HMDTargetListComponent {
                 containerTransform.SetParent(combatHUD.transform, true);
                 containerTransform.anchoredPosition = Position;
                 containerTransform.localScale = Vector3.one;
-                //TODO Remove
-                //containerTransform.localScale = new Vector3 (1.0f / containerTransform.lossyScale.x, 1.0f / containerTransform.lossyScale.y, 1.0f / containerTransform.lossyScale.z);
                 Anchor = Anchor;
 
                 var background = container.AddComponent<Image>();
@@ -218,7 +216,6 @@ public class HMDTargetListComponent {
                         }
 
                         labelData.color = color;
-                        labelData.label.SetColor(color);
                     }
 
                     strings["{name}"] = labelData.name.PadRight(nameLength);
@@ -243,6 +240,30 @@ public class HMDTargetListComponent {
                     }
 
                     strings["{lased}"] = hq == null ? "" : (hq.IsTargetLased(target) ? ((lasedTargets != null && lasedTargets.Contains(target)) ? "[L]" : " L ") : "   ");
+
+                    var jammed = 0;
+                    if (target.radar is Radar radar && radar.IsJammed()) {
+                        jammed = 1;
+                        var activeWeaponStation = GameBindings.Player.Aircraft.Weapons.GetActiveStation();
+                        if (activeWeaponStation != null) {
+                            var weapons = activeWeaponStation.Weapons;
+                            foreach (var weapon in weapons) {
+                                /* FIXME Not actually correct:
+                                   will report target as jammed by player if player tries to jam target, but cannot "reach" it (due to distance) and at the same time
+                                   someone successfully jams the target */
+                                if (weapon is JammingPod && weapon.GetTarget() == target) {
+                                    jammed = 2;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    strings["{jammed}"] = jammed switch {
+                        1 => " J ",
+                        2 => "[J]",
+                        _ => "   ",
+                    };
 
                     float tti = -1f;
                     if (playerMissileDatum != null || playerMissileCache.Targets.TryGetValue(target, out playerMissileDatum)) {
@@ -275,9 +296,8 @@ public class HMDTargetListComponent {
                     labelData.label.SetText(MakeString(EntryFormatString));
 
                     var flashing = FlashBeforeImpactTime > 0 && tti > 0 && tti < FlashBeforeImpactTime;
-                    if (!flashing && labelData.flashing)
-                        labelData.label.SetColor(labelData.color);
                     labelData.flashing = flashing;
+                    labelData.label.SetColor(labelData.color);
                 }
 
                 foreach (var target in targets) {
@@ -304,9 +324,11 @@ public class HMDTargetListComponent {
                     if (drawMissileTargets && i < MaxNumEntries - 1) {
                         var spacerLabelData = GetOrCreateLabelData();
                         if (spacerLabelData != null) {
-                            spacerLabelData.label.SetColor(MissileTargetsLabelColor);
                             spacerLabelData.label.SetText("---MISSILE TARGETS---");
                             spacerLabelData.label.GetRectTransform().SetAsLastSibling();
+                            spacerLabelData.label.SetColor(MissileTargetsLabelColor);
+                            spacerLabelData.color = MissileTargetsLabelColor;
+                            spacerLabelData.target = null;
                             spacerLabelData.flashing = false;
 
                             UpdateNameLength(playerMissileCache.Targets.Keys);
@@ -325,7 +347,9 @@ public class HMDTargetListComponent {
 
                 if (i < labelDatum.Count) {
                     for (int j = i; j < labelDatum.Count; j++) {
-                        labelDatum[j].label.Destroy();
+                        var label = labelDatum[j].label;
+                        label.GetGameObject().SetActive(false);
+                        label.Destroy();
                     }
                     labelDatum.RemoveRange(i, labelDatum.Count - i);
                 }

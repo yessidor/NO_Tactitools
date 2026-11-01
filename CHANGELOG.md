@@ -6,6 +6,18 @@
 
 # Changelog
 
+## 0.7.35.0
+
+  * HMD Target List
+    + added jammed status for target
+    + fixed target labels incorrectly using spacer label color
+    + fixed sticking spacer label
+  * Key Axes
+    + implemented detents for throttle axis
+    + removed "Hold" airbrake activation mode
+
+  Updated to NO 0.34.6.
+
 ## 0.7.34.1
 
   * HMD Target List

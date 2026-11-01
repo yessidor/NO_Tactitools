@@ -1162,9 +1162,22 @@ Pressing `Decrease` key will decrease axis value, pressing `Increase` will incre
 
 Short press on key bound to `Key Axes - Yaw Pitch Roll Axes Reset Key` resets `yaw` axis to `Default value`, long press resets `yaw`, `pitch`, and `roll` axes. Short press on `All Axes Reset Key` resets all axes to their default values.
 
-###### Throttle Axis: confirming airbrake deployment
+###### Throttle Axis detents
 
-If `Key Axes - Confirm Airbrake Deployment` is set to `Press`, airbrake deployment must be confirmed by releasing and pressing 'Decrease Throttle' key when throttle is zero. If set to `Hold`, airbrake will be engaged while throttle is zero and `Decrease Throttle` key is held, and disengaged after the key has been released. Input from bound axis is processed similarly: negative axis relative value is treated as pressing 'Decrease Throttle', zero or positive value - as releasing the key.
+Throttle axis has extra settings for detents. A detent separates two throttle regions.
+
+Possible regions are: `Brake`, `Dry`, `Mil`, `Afterburner`. A plane may have just `Dry` region (like Cricket), or `Brake` and `Dry` regions (like Compass), or all of them (like Ifrit). `Key Axes - Throttle - Region Sens - {region}` sets throttle sensitivity multiplier for that region. 
+
+Possible detents are: `BrakeDry`, `DryMil`, `MilAfterburner`.
+
+Each detent may be in one of four modes: `None`, `Inc`, `Dec`, `Both`.
+
+ + `None` - detent is deactivated;
+ + `Inc` - throttle will stop at this detent while increasing;
+ + `Dec` - throttle will stop at this detent while decreasing;
+ + `Both` - throttle will stop at this detent while increasing or decreasing;
+
+After throttle has stopped at detent, release and press corresponding key (`Decrease` or `Increase`) again to continue changing throttle value.
 
 ##### Axis response curves
 

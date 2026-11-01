@@ -613,7 +613,6 @@ public class GameBindings {
 
         public class TargetList {
             private static readonly TraverseCache<CombatHUD, List<Unit>> _targetListCache = new("targetList");
-            private static readonly TraverseCache<CombatHUD, Dictionary<Unit, HUDUnitMarker>> _markerLookupCache = new("markerLookup");
             private static readonly TraverseCache<CombatHUD, AudioClip> _selectSoundCache = new("selectSound");
             
             public static void AddTargets(List<Unit> units, bool muteSound = false) {
@@ -622,49 +621,82 @@ public class GameBindings {
                        which in turn calls SceneSingleton<TargetListSelector>.i.CheckExclusions(unit).
                        So the map icon won't be selected if its unit does not pass current target filters. 
                        So a hook with a flag is added to bypass filters and select map icon anyway. */
-                    CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
-                    Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
-                    List<Unit> currentTargets = [.. units];
-                    currentTargets.Reverse();
-                    foreach (Unit t_unit in currentTargets) {
-                        if (markerLookup.TryGetValue(t_unit, out var marker)) {
-                            try {
-                                checkExclusionsResult = false;
-                                marker.SelectMarker();
-                                GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(t_unit);
-                            }
-                            finally { checkExclusionsResult = null; }
+                    checkExclusionsResult = false;
+
+                    var combatHUD = UIBindings.Game.GetCombatHUDComponent();
+                    if (combatHUD == null) {
+                        Plugin.Log("GameBindings.Player.TargetList.AddTargets(): combatHUD is null");
+                        return;
+                    }
+                    var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+                    if (aircraft == null) {
+                        Plugin.Log("GameBindings.Player.TargetList.AddTargets(): aircraft is null");
+                        return;
+                    }
+                    var weaponManager = aircraft.weaponManager;
+                    if (weaponManager == null) {
+                        Plugin.Log("GameBindings.Player.TargetList.AddTargets(): weaponManager is null");
+                        return;
+                    }
+                    var targetList = weaponManager.GetTargetList();
+
+                    for (int i = units.Count-1; i >= 0; i--) {
+                        var unit = units[i];
+                        if (combatHUD.TryGetMarker(unit, out var marker)) {
+                            marker.SelectMarker();
+                            targetList.Insert(0, unit);
                         }
                     }
+                    weaponManager.TargetListChanged();
+
                     if (!muteSound) {
-                        AudioClip selectSound = _selectSoundCache.GetValue(currentCombatHUD);
+                        AudioClip selectSound = _selectSoundCache.GetValue(combatHUD);
                         SoundManager.PlayInterfaceOneShot(selectSound);
                     }
                 }
                 catch (NullReferenceException e) {
                     Plugin.Log("GameBindings.Player.TargetList.AddTargets(): " + e.ToString());
                 }
+                finally {
+                    checkExclusionsResult = null;
+                }
             }
 
             public static void AddTarget(Unit unit, bool muteSound = false) {
                 try {
-                    CombatHUD currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
-                    Dictionary<Unit, HUDUnitMarker> markerLookup = _markerLookupCache.GetValue(currentCombatHUD);
-                    if (markerLookup.TryGetValue(unit, out var marker)) {
-                        try {
-                            checkExclusionsResult = false;
-                            marker.SelectMarker();
-                            GameBindings.Player.Aircraft.GetAircraft().weaponManager.AddTargetList(unit);
-                        }
-                        finally { checkExclusionsResult = null; }
+                    checkExclusionsResult = false;
+
+                    var combatHUD = UIBindings.Game.GetCombatHUDComponent();
+                    if (combatHUD == null) {
+                        Plugin.Log("GameBindings.Player.TargetList.AddTarget(): combatHUD is null");
+                        return;
                     }
+                    var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+                    if (aircraft == null) {
+                        Plugin.Log("GameBindings.Player.TargetList.AddTarget(): aircraft is null");
+                        return;
+                    }
+                    var weaponManager = aircraft.weaponManager;
+                    if (weaponManager == null) {
+                        Plugin.Log("GameBindings.Player.TargetList.AddTarget(): weaponManager is null");
+                        return;
+                    }
+
+                    if (combatHUD.TryGetMarker(unit, out var marker)) {
+                        marker.SelectMarker();
+                        weaponManager.AddTargetList(unit);
+                    }
+
                     if (!muteSound) {
-                        AudioClip selectSound = _selectSoundCache.GetValue(currentCombatHUD);
+                        AudioClip selectSound = _selectSoundCache.GetValue(combatHUD);
                         SoundManager.PlayInterfaceOneShot(selectSound);
                     }
                 }
                 catch (NullReferenceException e) {
                     Plugin.Log("GameBindings.Player.TargetList.AddTarget(): " + e.ToString());
+                }
+                finally {
+                    checkExclusionsResult = null;
                 }
             }
 

@@ -81,7 +81,6 @@ public class UIAdjustmentsPlugin {
                 Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.NOAutopilotGCASChevron.OnFlightHudUpdate));
             }
 
-
             var bindings = new List<BindingHelper.Binding> {
                 new (typeof(UIAdjustmentsComponent), "TargetMarkerFontSize", Plugin.UIAdjustments.TargetMarkerFontSize),
                 new (typeof(UIAdjustmentsComponent), "ToolTipFontSize", Plugin.UIAdjustments.ToolTipFontSize),
@@ -537,16 +536,20 @@ class UIAdjustmentsComponent {
         [HarmonyPatch(typeof(UnitMapIcon), "OnSelectIcon")]
         public class OnUnitMapIconOnSelectIcon {
             public static void Postfix(UnitMapIcon __instance) {
-                __instance.UnitMapIcon_UpdateColor();
+                updateColorInfo.Invoke(__instance, null);
             }
         }
 
         [HarmonyPatch(typeof(UnitMapIcon), "OnDeselectIcon")]
         public class OnUnitMapIconOnDeselectIcon {
             public static void Postfix(UnitMapIcon __instance) {
-                __instance.UnitMapIcon_UpdateColor();
+                updateColorInfo.Invoke(__instance, null);
             }
         }
+
+        static MethodInfo unitMapIconUpdateColorInfo = AccessTools.Method(typeof(UnitMapIcon), "UpdateColor");
+        static MethodInfo unitMapIcon_UpdateColorInfo = AccessTools.Method(typeof(UnitMapIcon), "UnitMapIcon_UpdateColor");
+        static MethodInfo updateColorInfo = unitMapIconUpdateColorInfo != null ? unitMapIconUpdateColorInfo : unitMapIcon_UpdateColorInfo;
     }
 
     //[NO 0.34] Fix for sticky RearmerDisplay info on HMD

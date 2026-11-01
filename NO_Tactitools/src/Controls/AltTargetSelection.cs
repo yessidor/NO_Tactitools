@@ -134,6 +134,16 @@ class AltTargetSelectionComponent {
         public HUDUnitMarker marker;
         public float worldDistance;
         public float screenDistance;
+
+        public MarkerData(HUDUnitMarker marker, float worldDistance, float screenDistance) {
+            this.marker = marker;
+            this.worldDistance = worldDistance;
+            this.screenDistance = screenDistance;
+        }
+
+        public static MarkerData CreateSq(HUDUnitMarker marker, float worldDistanceSquared, float screenDistanceSquared) {
+            return new MarkerData(marker, Mathf.Sqrt(worldDistanceSquared), Mathf.Sqrt(screenDistanceSquared));
+        }
     };
 
     private static List<MarkerData> PickMarkers(IEnumerable<HUDUnitMarker> markers, bool pickActive, bool paint) {
@@ -172,13 +182,13 @@ class AltTargetSelectionComponent {
 
         var targetDesignatorPosition = combatHUD.targetDesignator.gameObject.transform.position;
 
-        HUDUnitMarker markerUnselected = null;
-        var screenDistanceSquaredUnselected = float.PositiveInfinity;
-        var worldDistanceSquaredUnselected = float.PositiveInfinity;
+        HUDUnitMarker unselectedMarker = null;
+        var unselectedScreenDistanceSquared = float.PositiveInfinity;
+        var unselectedWorldDistanceSquared = float.PositiveInfinity;
 
-        HUDUnitMarker markerSelected = null;
-        var screenDistanceSquaredSelected = float.PositiveInfinity;
-        var worldDistanceSquaredSelected = float.PositiveInfinity;
+        HUDUnitMarker selectedMarker = null;
+        var selectedScreenDistanceSquared = float.PositiveInfinity;
+        var selectedWorldDistanceSquared = float.PositiveInfinity;
 
         foreach (var marker in markers) {
             if (!marker.image.enabled)
@@ -190,30 +200,30 @@ class AltTargetSelectionComponent {
             if (!hq.TryGetKnownPosition(marker.unit, out var worldUnitPosition))
                 continue;
             var worldDistanceSquared = FastMath.SquareDistance(worldCameraPosition, worldUnitPosition);
-            if (MaxDistance != 0f && worldDistanceSquared > worldDistanceSquaredThreshold)
-                continue;
 
             if (!marker.selected) {
-                if (paint)
-                    result.Add(new MarkerData { marker = marker, worldDistance = Mathf.Sqrt(worldDistanceSquared), screenDistance = Mathf.Sqrt(screenDistanceSquared) });
-                else if (ShouldSelect(worldDistanceSquared, worldDistanceSquaredUnselected, screenDistanceSquared, screenDistanceSquaredUnselected)) {
-                    markerUnselected = marker;
-                    worldDistanceSquaredUnselected = worldDistanceSquared;
-                    screenDistanceSquaredUnselected = screenDistanceSquared;
+                if (MaxDistance <= 0f || worldDistanceSquared <= worldDistanceSquaredThreshold) {
+                    if (paint)
+                        result.Add(MarkerData.CreateSq(marker, worldDistanceSquared, screenDistanceSquared));
+                    else if (ShouldSelect(worldDistanceSquared, unselectedWorldDistanceSquared, screenDistanceSquared, unselectedScreenDistanceSquared)) {
+                        unselectedMarker = marker;
+                        unselectedWorldDistanceSquared = worldDistanceSquared;
+                        unselectedScreenDistanceSquared = screenDistanceSquared;
+                    }
                 }
             }
-            else if (pickActive && ShouldSelect(worldDistanceSquared, worldDistanceSquaredSelected, screenDistanceSquared, screenDistanceSquaredSelected)) {
-                markerSelected = marker;
-                worldDistanceSquaredSelected = worldDistanceSquared;
-                screenDistanceSquaredSelected = screenDistanceSquared;
+            else if (pickActive && ShouldSelect(worldDistanceSquared, selectedWorldDistanceSquared, screenDistanceSquared, selectedScreenDistanceSquared)) {
+                selectedMarker = marker;
+                selectedWorldDistanceSquared = worldDistanceSquared;
+                selectedScreenDistanceSquared = screenDistanceSquared;
             }
         }
 
         if (!paint) {
-            if (markerUnselected != null)
-                result.Add(new MarkerData { marker = markerUnselected, worldDistance = Mathf.Sqrt(worldDistanceSquaredUnselected), screenDistance = Mathf.Sqrt(screenDistanceSquaredUnselected) });
-            else if (pickActive && markerSelected != null)
-                result.Add(new MarkerData { marker = markerSelected, worldDistance = Mathf.Sqrt(worldDistanceSquaredSelected), screenDistance = Mathf.Sqrt(screenDistanceSquaredSelected) });
+            if (unselectedMarker != null)
+                result.Add(MarkerData.CreateSq(unselectedMarker, unselectedWorldDistanceSquared, unselectedScreenDistanceSquared));
+            else if (pickActive && selectedMarker != null)
+                result.Add(MarkerData.CreateSq(selectedMarker, selectedWorldDistanceSquared, selectedScreenDistanceSquared));
         }
 
         return result;

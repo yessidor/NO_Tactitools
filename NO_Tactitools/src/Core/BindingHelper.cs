@@ -178,6 +178,14 @@ public class BindingHelper {
             SettingChangedEvent = ConfigVariable.GetType().GetEvent(settingChangedEventName);
             SettingChangedCallback = settingChangedCallback;
         }
+
+        public Binding(object configVariable, string settingChangedEventName = "SettingChanged", Action<object> settingChangedCallback = null) {
+            TargetObject = null;
+            Member = null;
+            ConfigVariable = configVariable;
+            SettingChangedEvent = ConfigVariable.GetType().GetEvent(settingChangedEventName);
+            SettingChangedCallback = settingChangedCallback;
+        }
     }
 
     public static void ApplyBindings(params Binding[] bindings) {
@@ -196,11 +204,11 @@ public class BindingHelper {
         //Set initial value
         var valueProperty = binding.ConfigVariable.GetType().GetProperty("Value");
         object initialValue = valueProperty?.GetValue(binding.ConfigVariable);
-        binding.Member.SetValue(binding.TargetObject, initialValue);
 
         //Create and subscribe handler
         var handler = CreateHandler(binding);
         binding.SettingChangedEvent?.AddMethod?.Invoke(binding.ConfigVariable, new object[] { handler });
+        handler(null, null);
     }
 
     private static MemberAccessor CreateAccessor(Type type, string memberName) {
@@ -274,7 +282,8 @@ public class BindingHelper {
 
         return (sender, args) => {
             object newValue = valueProperty?.GetValue(configVariable);
-            member.SetValue(obj, newValue);
+            if (member != null)
+                member.SetValue(obj, newValue);
             if (settingChangedCallback != null)
                 settingChangedCallback(newValue);
         };

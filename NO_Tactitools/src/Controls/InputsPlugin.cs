@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 using Rewired;
 using NuclearOption.UI;
 using NO_Tactitools.Core;
@@ -106,7 +107,7 @@ public class KeyAndEncoderAxis {
         encoderInitialDelta += delta;
     }
 
-    public float Compute() {
+    public virtual float Compute() {
         var timeDelta = 0.0f;
         var now = Time.unscaledTime;
         if (prevTime == null)
@@ -187,7 +188,7 @@ public class KeyAndEncoderAxis {
                     }
 
                     if (accumulatedDelta != 0.0f) {
-                        var newAccumulated = accumulated + accumulatedDelta;
+                        var newAccumulated = accumulated + accumulatedDelta * GetAccumulatedDeltaMultiplier();
                         var newResult = StaticCurve.Calc(newAccumulated);
                         var clampedNewResult = Math.Clamp(newResult, Min, Max);
                         if (newResult == clampedNewResult) {
@@ -208,7 +209,7 @@ public class KeyAndEncoderAxis {
                     keyIntermediate = 0.0f;
                     encoderInitial = 0.0f;
                     encoderIntermediate = 0.0f;
-                    var accumulatedDelta = -Mathf.Sign(accumulated) * timeDelta * DecaySpeed;
+                    var accumulatedDelta = -Mathf.Sign(accumulated) * timeDelta * DecaySpeed * GetAccumulatedDeltaMultiplier();
                     if (Math.Abs(accumulated) < Math.Abs(accumulatedDelta)) {
                         accumulated = 0.0f;
                         result = StaticCurve.Y0;
@@ -234,21 +235,188 @@ public class KeyAndEncoderAxis {
         return (float)result_;
     }
 
+    protected virtual float GetAccumulatedDeltaMultiplier() { return 1.0f; }
+
     private readonly float accumulatedLimit = 10.0f;
     private readonly int accumulatedSteps = 100;
-    private float? prevTime = null;
-    private float lastInputTime = 0.0f;
+    protected float? prevTime = null;
+    protected float lastInputTime = 0.0f;
     private float keyInitial = 0.0f;
     private float keyIntermediate = 0.0f;
     private float encoderInitialDelta = 0.0f;
     private float encoderInitial = 0.0f;
     private float encoderIntermediate = 0.0f;
     private float accumulated = 0.0f;
-    private float result = 0.0f;
+    protected float result = 0.0f;
     private float? result_ = null;
     private enum State { idle, paused, accumulating, decaying };
     private State state = State.idle;
 };
+
+
+public class ThrottleKeyAndEncoderAxis : KeyAndEncoderAxis {
+    public enum Regions { Brake, Dry, Mil, Afterburner };
+    public enum Detents { BrakeDry, DryMil, MilAfterburner };
+    public enum DetentModes { None, Inc, Dec, Both  };
+
+    public void SetDetentMode(Detents detent, DetentModes mode) {
+        detentModes[detent] = mode;
+    }
+
+    public void SetRegionSens(Regions region, float sens) {
+        regionSens[region] = sens;
+    }
+
+    public override float Compute() {
+        var newFrame = Time.unscaledTime != prevTime;
+        var result = base.Compute();
+        if (!newFrame)
+            return result;
+
+        var resultDelta = result - prevResult;
+        var change =
+            (prevResultDelta == 0 && resultDelta > 0) ? 1 :
+            (prevResultDelta == 0 && resultDelta < 0) ? -1 :
+            0;
+        var updateResult = false;
+
+        if (throttleState == ThrottleStates.InRange) {
+            foreach ((var detent, var val) in detents) {
+                if (Mathf.Sign(result - val) != Mathf.Sign(prevResult - val) && detentModes.TryGetValue(detent, out var stop)) {
+                    var s = Mathf.Sign(resultDelta);
+                    if (stop == DetentModes.Both || (stop == DetentModes.Inc && s > 0) || (stop == DetentModes.Dec && s < 0)) {
+                        throttleState = ThrottleStates.AtDetent;
+                        detentResult = result = val;
+                        updateResult = true;
+                        break;
+                    }
+                }
+            }
+        }
+        else if (throttleState == ThrottleStates.AtDetent) {
+            if (change != 0) {
+                throttleState = ThrottleStates.InRange;
+                result += change * 0.0001f; //Nudge the result value in the direction of change to move it from the border
+                updateResult = true;
+            }
+            else {
+                result = detentResult;
+                updateResult = true;
+            }
+        }
+
+        prevResult = result;
+        prevResultDelta = resultDelta;
+
+        if (updateResult)
+            SetResult(result);
+
+        return result;
+    }
+
+    public ThrottleKeyAndEncoderAxis(Harmony harmony) : base() {
+        if (this_ == null) {
+            harmony.PatchAll(typeof(OnThrottleGaugeInitialize));
+            this_ = this;
+        }
+        else
+            throw new Exception ("ThrottleKeyAndEncoderAxis was already created");
+    }
+
+    protected override float GetAccumulatedDeltaMultiplier() {
+        var region = detents.ContainsKey(Detents.MilAfterburner) ? Regions.Afterburner : Regions.Dry;
+        foreach ((var detent, var region2) in detentToRegion) {
+            if (detents.TryGetValue(detent, out var detentValue) && result < detentValue) {
+                region = region2;
+                break;
+            }
+        }
+        return regionSens.TryGetValue(region, out var multiplier) ? multiplier : 1.0f;
+    }
+
+    [HarmonyPatch(typeof(ThrottleGauge), "Initialize")]
+    private static class OnThrottleGaugeInitialize {
+        public static void Postfix(ThrottleGauge __instance) {
+            LogThrottleGaugeInfo(__instance);
+            FillThrottleData(__instance);
+        }
+    }
+
+    private static void LogThrottleGaugeInfo(ThrottleGauge throttleGauge) {
+        var regions = (object[])throttleRegionsInfo.GetValue(throttleGauge);
+        Plugin.Log("Throttle regions");
+        foreach (var region in regions) {
+            Plugin.Log($"name: {(nameInfo.GetValue(region))}; start:{((float)startInfo.GetValue(region)):F4}; end:{((float)endInfo.GetValue(region)):F4}");
+        }
+        Plugin.Log("================");
+        var airbrake = (bool)airbrakeInfo.GetValue(throttleGauge);
+        var afterburner = (bool)afterburnerInfo.GetValue(throttleGauge);
+        Plugin.Log($"airbrake:{airbrake}; afterburner:{afterburner}");
+        var throttleLabel = (TextMeshProUGUI)throttleLabelInfo.GetValue(throttleGauge);
+        Plugin.Log($"throttleLabel:{throttleLabel.text}");
+    }
+
+    private static void FillThrottleData(ThrottleGauge throttleGauge) {
+        detents.Clear();
+        var throttleLabel = (TextMeshProUGUI)throttleLabelInfo.GetValue(throttleGauge);
+        if (throttleLabel.text != "THROTTLE")
+            return;
+        var regions = (object[])throttleRegionsInfo.GetValue(throttleGauge);
+        var airbrake = (bool)airbrakeInfo.GetValue(throttleGauge);
+        if (regions.Length == 0) {
+            if (airbrake)
+                detents[Detents.BrakeDry] = this_.Min + 0.001f;
+        }
+        else {
+            foreach (var region in regions) {
+                var name = (string)nameInfo.GetValue(region);
+                name = name.Trim().ToUpper();
+                Detents? detent = name switch {
+                    "DRY" => Detents.BrakeDry,
+                    "MIL" => Detents.DryMil,
+                    "AFTERBURNER" => Detents.MilAfterburner,
+                    _ => null,
+                };
+                if (detent != null) {
+                    var start = (float)startInfo.GetValue(region);
+                    detents[(Detents)detent] = Mathf.Lerp(this_.Min, this_.Max, start);
+                }
+            }
+        }
+
+        Plugin.Log("Throttle region borders:");
+        foreach ((var border, var value) in detents)
+            Plugin.Log($"border:{border}, value:{value}");
+    }
+
+
+    private static (Detents, Regions)[] detentToRegion = new [] {
+        (Detents.BrakeDry, Regions.Brake),
+        (Detents.DryMil, Regions.Dry),
+        (Detents.MilAfterburner, Regions.Mil),
+    };
+
+    private static ThrottleKeyAndEncoderAxis this_ = null;
+    private static Dictionary<Detents, float> detents = new ();
+
+    private static FieldInfo throttleRegionsInfo = AccessTools.Field(typeof(ThrottleGauge), "throttleRegions");
+    private static FieldInfo currentRegionInfo = AccessTools.Field(typeof(ThrottleGauge), "currentRegion");
+    private static FieldInfo airbrakeInfo = AccessTools.Field(typeof(ThrottleGauge), "airbrake");
+    private static FieldInfo afterburnerInfo = AccessTools.Field(typeof(ThrottleGauge), "afterburner");
+    private static FieldInfo throttleLabelInfo = AccessTools.Field(typeof(ThrottleGauge), "throttleLabel");
+    private static Type ThrottleRegionType = typeof(ThrottleGauge).GetNestedType("ThrottleRegion", BindingFlags.NonPublic);
+    private static FieldInfo nameInfo = AccessTools.Field(ThrottleRegionType, "name");
+    private static FieldInfo startInfo = AccessTools.Field(ThrottleRegionType, "start");
+    private static FieldInfo endInfo = AccessTools.Field(ThrottleRegionType, "end");
+
+    private enum ThrottleStates { InRange, AtDetent };
+    private ThrottleStates throttleState = ThrottleStates.InRange;
+    private Dictionary<Detents, DetentModes> detentModes = new ();
+    private Dictionary<Regions, float> regionSens = new ();
+    private float detentResult = 0f;
+    private float prevResult = 0f;
+    private float prevResultDelta = 0f;
+}
 
 
 [HarmonyPatch(typeof(MainMenu), "Start")]
@@ -986,12 +1154,17 @@ public class KeyAxesComponent {
         if (!initialized) {
             Plugin.Log("[KA] Initializing Key axes component");
 
-            var harmony = new Harmony("yessidor.no_tactitools_plus.key_axes");
+            harmony = new Harmony("yessidor.no_tactitools_plus.key_axes");
             harmony.PatchAll(typeof(OnPilotPlayerStatePlayersControls));
             harmony.PatchAll(typeof(OnPlayerGetAxis));
             harmony.PatchAll(typeof(OnPlayerGetAxisPrev));
             harmony.PatchAll(typeof(OnPlayerGetAxisRaw));
             harmony.PatchAll(typeof(OnPlayerGetAxisRawPrev));
+
+            axisData = axisNames.ToDictionary(
+                name => name,
+                name => new AxisData (axis: name == "Throttle" ? new ThrottleKeyAndEncoderAxis(harmony) : null)
+            );
 
             var bindings = new List<BindingHelper.Binding> ();
             for (int i = 0; i < axisNames.Length; i++) {
@@ -1032,9 +1205,25 @@ public class KeyAxesComponent {
 
                 vars.InitialValue.Value = Math.Clamp(vars.InitialValue.Value, kaxis.Min, kaxis.Max);
                 kaxis.SetResult(vars.InitialValue.Value);
-            }
 
-            bindings.Add(new BindingHelper.Binding (typeof(KeyAxesComponent), "ConfirmAirbrakeDeployment", Plugin.keyAxesConfirmAirbrakeDeployment));
+                if (name == "Throttle") {
+                    var throttleAxis = (ThrottleKeyAndEncoderAxis)kaxis;
+                    var throttleVars = (Plugin.ThrottleKeyAxisData)vars;
+
+                    foreach ((var detent_, var detentModeVar_) in throttleVars.DetentModeVars) {
+                        var detent = detent_;
+                        var detentModeVar = detentModeVar_;
+                        var settingChangedCallback = (object obj) => { throttleAxis.SetDetentMode(detent, (ThrottleKeyAndEncoderAxis.DetentModes)obj); };
+                        bindings.Add(new BindingHelper.Binding (configVariable: detentModeVar, settingChangedCallback: settingChangedCallback));
+                    }
+
+                    foreach ((var region_, var regionSensVar_) in throttleVars.RegionSensVars) {
+                        var region = region_;
+                        var regionSensVar = regionSensVar_;
+                        bindings.Add(new BindingHelper.Binding (configVariable: regionSensVar, settingChangedCallback: (object obj) => { throttleAxis.SetRegionSens(region, (float)obj); }));
+                    }
+                }
+            }
 
             BindingHelper.ApplyBindings(bindings);
 
@@ -1125,72 +1314,19 @@ public class KeyAxesComponent {
         }
     }
 
-    public enum ConfirmAirbrakeDeploymentMode { None, Press, Hold };
-    public static ConfirmAirbrakeDeploymentMode ConfirmAirbrakeDeployment = ConfirmAirbrakeDeploymentMode.Press;
-
     private static bool initialized = false;
-    private static string[] axisNames = new string [] { "Pitch", "Roll", "Yaw", "Throttle", "Brake", "Custom Axis 1", "Zoom View" };
-    private static Dictionary<string, AxisData> axisData = axisNames.ToDictionary(name => name, name => new AxisData ());
+    private static Harmony harmony = null;
 
-    private enum AirBrakeState { Retracted, WaitingForRelease, WaitingForPress, Deployed };
-    private static AirBrakeState airBrakeState = AirBrakeState.Retracted;
-    private static readonly float throttleDelta = 0.001f;
-    private static bool prevDecKeyPressed = false;
-    private static float prevEncoderDelta = 0f;
+    private static string[] axisNames = new string [] { "Pitch", "Roll", "Yaw", "Throttle", "Brake", "Custom Axis 1", "Zoom View" };
+    private static Dictionary<string, AxisData> axisData;
 
     private static void ProcessAxisData(string actionName, AxisData data) {
         var time = Time.unscaledTime;
 
         if (data.time != time) {
             var raw = data.axis.Compute();
-            var hasChanged = raw != data.raw;
-            if (actionName == "Throttle") {
-                var axis = data.axis;
-                var adjustedThrottle = axis.Min + throttleDelta;
-                if (ConfirmAirbrakeDeployment == ConfirmAirbrakeDeploymentMode.Press) {
-                    if (axis.IncKeyPressed || (airBrakeState != AirBrakeState.WaitingForRelease && axis.EncoderDelta > 0)) {
-                        airBrakeState = AirBrakeState.Retracted;
-                        prevDecKeyPressed = false;
-                    }
-                    else if (airBrakeState == AirBrakeState.Retracted) {
-                        if ((axis.DecKeyPressed || axis.EncoderDelta <= 0) && raw == axis.Min) {
-                            raw = adjustedThrottle;
-                            hasChanged = true;
-                            airBrakeState = AirBrakeState.WaitingForRelease;
-                        }
-                    }
-                    else if (airBrakeState == AirBrakeState.WaitingForRelease) {
-                        if ((prevDecKeyPressed && !axis.DecKeyPressed) || (prevEncoderDelta < 0 && axis.EncoderDelta >= 0)) {
-                            airBrakeState = AirBrakeState.WaitingForPress;
-                        }
-                        raw = adjustedThrottle;
-                        hasChanged = true;
-                    }
-                    else if (airBrakeState == AirBrakeState.WaitingForPress) {
-                        if ((!prevDecKeyPressed && axis.DecKeyPressed) || axis.EncoderDelta < 0) {
-                            raw = axis.Min;
-                            airBrakeState = AirBrakeState.Deployed;
-                        }
-                        else {
-                            raw = adjustedThrottle;
-                        }
-                        hasChanged = true;
-                    }
-                    else if (airBrakeState == AirBrakeState.Deployed) {
-                        raw = axis.Min;
-                        hasChanged = true;
-                    }
-                }
-                else if (ConfirmAirbrakeDeployment == ConfirmAirbrakeDeploymentMode.Hold) {
-                    if ((!axis.DecKeyPressed || axis.EncoderDelta >= 0) && raw == data.axis.Min) {
-                        raw = adjustedThrottle;
-                        hasChanged = true;
-                    }
-                }
-
-                prevDecKeyPressed = axis.DecKeyPressed;
-                prevEncoderDelta = axis.EncoderDelta;
-            }
+            var currentDeltaRaw = raw - data.raw;
+            var hasChanged = currentDeltaRaw != 0;
 
             if (hasChanged) {
                 data.time = time;
