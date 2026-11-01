@@ -331,16 +331,6 @@ Likewise, `AA Units Icon Recolor` component now has `Unit Names` setting with th
   - Press SUPPR to clear the assignement
 - That's it !
 
-## Compatibility
-
-### Compatible mods
-
-- **QoL** (qol_1.1.6.1b3)
-- **FQ-106** Kestrel (fq106_2.0.2)
-- **Vanilla Icons PLUS** (VanillaIconsPLUS_1.5.1)
-- **NOAutopilot** (NOAutopilot v4.17.1)
-- **ThirdPersonHud** (ThirdPersonHud v1.2.2)
-
 ## Common issues
 
 ### I've activated/deactivated a feature but I don't see any change ingame
@@ -1192,11 +1182,17 @@ This component adds output from key (and encoder) controlled virtual axes to out
 
 ## Compatibility
 
-NOTT+ 0.7.33.0 was tested under Nuclear Option 0.34.2.
+### Nuclear Option
+
+|NOTT+|Nuclear Option|
+|-----|--------------|
+|0.7.33.0|0.34.2|
+|0.7.34.1|0.34.2|
+|0.7.35.1|0.34.6|
 
 ### NOAutopilot
 
-Compatible with [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod) mod by qwerty1423 (5.5.3).
+Compatible with [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod) mod by qwerty1423 (5.6.0 and 6.0.0).
 
 ### NO_Optimisation mod by Appulcake
 

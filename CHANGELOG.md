@@ -6,6 +6,11 @@
 
 # Changelog
 
+## 0.7.35.1
+
+  * Autopilot Menu
+    + adapted for NOAutopilot 6.0.0
+
 ## 0.7.35.0
 
   * HMD Target List

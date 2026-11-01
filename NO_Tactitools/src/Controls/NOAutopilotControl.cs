@@ -1,6 +1,7 @@
 using BepInEx.Bootstrap;
 using HarmonyLib;
 using System;
+using System.Reflection;
 using UnityEngine;
 using NOAutopilot.Core; // Reference from .csproj
 using Plugin = NO_Tactitools.Core.Plugin;
@@ -385,7 +386,7 @@ public class NOAutopilotComponent {
             } else {
                 InternalState.stagedSpeed = GameBindings.Units.ConvertSpeed_ToDisplay(APData.TargetSpeed);
             }
-            InternalState.stagedCourse = APData.TargetCourse;
+            InternalState.stagedCourse = (float)InternalState.targetCourseWrapperInfo.GetValue(null);
         }
 
         public static void Update() {
@@ -416,7 +417,7 @@ public class NOAutopilotComponent {
                 Vector3 flatVel = Vector3.ProjectOnPlane(GameBindings.Player.Aircraft.GetAircraft().rb.velocity, Vector3.up);
                 InternalState.currentCourse = Quaternion.LookRotation(flatVel).eulerAngles.y;
             }
-            InternalState.targetCourse = APData.TargetCourse;
+            InternalState.targetCourse = (float)InternalState.targetCourseWrapperInfo.GetValue(null);
 
             // System States
             InternalState.apEnabled = APData.Enabled;
@@ -526,6 +527,13 @@ public class NOAutopilotComponent {
         // Nav Mode
         public static bool navEnabled;
         public static bool extremeThrottleEnabled;
+
+        // Compatibility
+        // NOAutopilot 5.6.0 has TargetCourse, 6.0.0 renames it to TargetTrack
+        // Using reflection for compatibility with both versions
+        public static FieldInfo targetCourseInfo = AccessTools.Field(typeof(APData), "TargetCourse");
+        public static FieldInfo targetTrackInfo = AccessTools.Field(typeof(APData), "TargetTrack");
+        public static FieldInfo targetCourseWrapperInfo = targetCourseInfo != null ? targetCourseInfo : targetTrackInfo;
     }
 
     private static class DisplayEngine {
@@ -1085,7 +1093,7 @@ public class NOAutopilotComponent {
                 APData.TargetSpeed = InternalState.stagedSpeed < 0 ? -1f : GameBindings.Units.ConvertSpeed_FromDisplay(InternalState.stagedSpeed);
             }
 
-            APData.TargetCourse = InternalState.stagedCourse;
+            InternalState.targetCourseWrapperInfo.SetValue(null, InternalState.stagedCourse);
             if (autoEngage && !APData.Enabled) {
                 APData.Enabled = true;
             }
