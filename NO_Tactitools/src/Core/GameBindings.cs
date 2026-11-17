@@ -165,49 +165,65 @@ public class GameBindings {
                 private static readonly TraverseCache<CountermeasureManager, IList> _countermeasureStationsCache = new("countermeasureStations");
                 private static readonly TraverseCache<RadarJammer, PowerSupply> _powerSupplyCache = new("powerSupply");
                 private static readonly TraverseCache<object, int> _irStationAmmoCache = new("ammo");
+                private static readonly TraverseCache<object, int> _chaffStationAmmoCache = new("ammo");
+                private static readonly FieldInfo _stationDisplayNameInfo = AccessTools.Field(typeof(CountermeasureManager).GetNestedType("CountermeasureStation", BindingFlags.NonPublic), "displayName");
 
                 private static global::Aircraft _aircraft = null;
+
                 private class StationData {
-                    public TraverseCache<object, IList> countermeasuresCache = new ("countermeasures");
                     public object station;
                     public int index;
+                    public string name;
 
-                    public StationData (object station, int index) {
+                    public StationData (object station, int index, string name) {
                         this.station = station;
                         this.index = index;
+                        this.name = name;
                     }
 
                     public object GetFirstCountermeasure() {
                         var countermeasuresList = countermeasuresCache.GetValue(station);
-                        return countermeasuresList[0];
+                        return countermeasuresList.Count > 0 ? countermeasuresList[0] : null;
                     }
+
+                    private TraverseCache<object, IList> countermeasuresCache = new ("countermeasures");
                 };
-                private static Dictionary<Type, StationData> _stationData = new ();
+
+                private static Dictionary<Type, StationData> _stationDataByType = new ();
+                private static Dictionary<string, StationData> _stationDataByName = new ();
 
                 private static void UpdateStations() {
                     var aircraft = GetAircraft();
-                    if (aircraft != _aircraft) {
-                        _stationData.Clear();
-                        _aircraft = aircraft;
+                    if (aircraft == _aircraft)
+                        return;
 
-                        if (aircraft == null)
-                            return;
+                    _stationDataByType.Clear();
+                    _stationDataByName.Clear();
+                    _aircraft = aircraft;
 
-                        TraverseCache<object, IList> countermeasuresCache = new ("countermeasures");
-                        IList stationList = GetStationsList();
-                        if (stationList != null) {
-                            for (int i = 0; i < stationList.Count; i++) {
-                                var station = stationList[i];
-                                if (station != null) {
-                                    IList countermeasures = countermeasuresCache.GetValue(station);
-                                    if (countermeasures.Count > 0) {
-                                        var firstCountermeasure = countermeasures[0];
-                                        if (firstCountermeasure != null) {
-                                            var firstCountermeasureType = firstCountermeasure.GetType();
-                                            _stationData[firstCountermeasureType] = new StationData (station, i);
-                                        }
-                                    }
-                                }
+                    if (aircraft == null)
+                        return;
+
+                    TraverseCache<object, IList> countermeasuresCache = new ("countermeasures");
+                    IList stationList = GetStationsList();
+
+                    if (stationList == null)
+                        return;
+
+                    for (int i = 0; i < stationList.Count; i++) {
+                        var station = stationList[i];
+                        if (station == null)
+                            continue;
+
+                        IList countermeasures = countermeasuresCache.GetValue(station);
+                        if (countermeasures.Count > 0) {
+                            var firstCountermeasure = countermeasures[0];
+                            if (firstCountermeasure != null) {
+                                var name = (string)_stationDisplayNameInfo.GetValue(station);
+                                var firstCountermeasureType = firstCountermeasure.GetType();
+                                var stationData = new StationData (station, i, name);
+                                _stationDataByType[firstCountermeasureType] = stationData;
+                                _stationDataByName[name] = stationData;
                             }
                         }
                     }
@@ -215,7 +231,15 @@ public class GameBindings {
 
                 private static StationData GetStationDataByType(Type type) {
                     UpdateStations();
-                    if (_stationData.TryGetValue(type, out var stationData))
+                    if (_stationDataByType.TryGetValue(type, out var stationData))
+                        return stationData;
+                    else
+                        return null;
+                }
+
+                private static StationData GetStationDataByName(string name) {
+                    UpdateStations();
+                    if (_stationDataByName.TryGetValue(name, out var stationData))
                         return stationData;
                     else
                         return null;
@@ -245,6 +269,14 @@ public class GameBindings {
 
                 private static int GetStationIndexByType(Type type) {
                     return GetStationDataByType(type)?.index ?? -1;
+                }
+
+                public static object GetStationByName(string name) {
+                    return GetStationDataByName(name)?.station;
+                }
+
+                public static int GetStationIndexByName(string name) {
+                    return GetStationDataByName(name)?.index ?? -1;
                 }
 
                 public static int GetCurrentIndex() {
@@ -338,7 +370,7 @@ public class GameBindings {
                         object ChaffStation = GetStationDataByType(typeof(ChaffEjector))?.station;
                         if (ChaffStation == null)
                             return 0;
-                        int count = _irStationAmmoCache.GetValue(ChaffStation);
+                        int count = _chaffStationAmmoCache.GetValue(ChaffStation);
                         return count;
                     }
                     catch (NullReferenceException e) { Plugin.Log(e.ToString()); return 0; }
@@ -420,6 +452,27 @@ public class GameBindings {
                 public static void SetChaff() {
                     try {
                         SetCurrentIndex(GetChaffStationIndex());
+                    }
+                    catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
+                }
+
+                public static bool HasCountermeasureByName(string name) {
+                    return _stationDataByName.ContainsKey(name);
+                }
+
+                public static bool IsCountermeasureSelectedByName(string name) {
+                    try {
+                        int stationIndex = GetStationIndexByName(name);
+                        return stationIndex != -1 && stationIndex == GetCurrentIndex();
+                    }
+                    catch (NullReferenceException e) { Plugin.Log(e.ToString()); return false; }
+
+                }
+
+                public static void SetCountermeasureByName(string name) {
+                    try {
+                        int stationIndex = GetStationIndexByName(name);
+                        SetCurrentIndex(stationIndex);
                     }
                     catch (NullReferenceException e) { Plugin.Log(e.ToString()); }
                 }

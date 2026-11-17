@@ -314,8 +314,8 @@ public class HMDTargetListComponent {
 
                 if (ShowMissileTargets) {
                     var drawMissileTargets = false;
-                    foreach (var mt in playerMissileCache.Targets.Keys) {
-                        if (!targets.Contains(mt)) {
+                    foreach (var missileTarget in playerMissileCache.Targets.Keys) {
+                        if (missileTarget != null && !targets.Contains(missileTarget)) {
                             drawMissileTargets = true;
                             break;
                         }

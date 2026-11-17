@@ -14,7 +14,7 @@ using NO_Tactitools.UI.MFD;
 using NO_Tactitools.UI.HUD;
 
 namespace NO_Tactitools.Core {
-    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.35.1")]
+    [BepInPlugin("com.yessidor.NO_Tactitools-plus", "NOTT-plus", "0.7.36.0")]
     public class Plugin : BaseUnityPlugin {
         public static Harmony harmony;
         public class Modifiers {
@@ -44,11 +44,16 @@ namespace NO_Tactitools.Core {
         public static ConfigEntry<bool> tlcExtraEntryCheckboxFunctions;
         public static ConfigEntry<bool> tlcHighlightActiveEntry;
         public static ConfigEntry<bool> interceptionVectorEnabled;
-        public static ConfigEntry<bool> countermeasureControlsEnabled;
-        public static ConfigEntry<bool> countermeasureControlsActivate;
-        public static RewiredInputConfig countermeasureControlsFlare;
-        public static RewiredInputConfig countermeasureControlsJammer;
-        public static RewiredInputConfig countermeasureControlsChaff;
+        public class CountermeasureControls {
+            public static ConfigEntry<bool> Enabled;
+            public static ConfigEntry<bool> Activate;
+            public class CountermeasureData {
+                public ConfigEntry<string> Name;
+                public RewiredInputConfig Key;
+            };
+            public static ConfigEntry<int> CountermeasuresNum;
+            public static List<CountermeasureData> CountermeasureDatum;
+        };
         public class AmmoConIndicator {
             public static ConfigEntry<bool> Enabled;
             public static ConfigEntry<bool> ColorHMDMarker;
@@ -292,6 +297,10 @@ namespace NO_Tactitools.Core {
                 public static ConfigEntry<bool> IgnoreRunwayLimits;
             }
             public static ConfigEntry<bool> ShowArmDelay;
+            public class ZoomInertiaAdjustment {
+                public static ConfigEntry<bool> Enabled;
+                public static ConfigEntry<float> ZoomInertia;
+            }
             public static ConfigEntry<bool> NOAutopilotGCASChevron;
         };
         public class SensitivityFix {
@@ -684,27 +693,64 @@ namespace NO_Tactitools.Core {
                         Order = order--
                     }));
             // Countermeasure Controls settings
-            countermeasureControlsEnabled = Config.Bind("Countermeasures",
+            order = 100;
+            CountermeasureControls.Enabled = Config.Bind("Countermeasures",
                 "Countermeasure Controls - Enabled",
                 true,
                 new ConfigDescription(
                     "Enable or disable the Countermeasure Controls feature.",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = 4
+                        Order = order--
                     }));
-            countermeasureControlsActivate = Config.Bind("Countermeasures",
+            CountermeasureControls.Activate = Config.Bind("Countermeasures",
                 "Countermeasure Controls - Activate",
                 true,
                 new ConfigDescription(
                     "Activate selected countermeasure on bound key press and deactivate it on key release.",
                     null,
                     new ConfigurationManagerAttributes {
-                        Order = 3
+                        Order = order--
                     }));
-            countermeasureControlsFlare = new RewiredInputConfig(Config, "Countermeasures", "Countermeasure Controls - Flares", "Input you want to assign for selecting Flares", 2);
-            countermeasureControlsJammer = new RewiredInputConfig(Config, "Countermeasures", "Countermeasure Controls - Jammer", "Input you want to assign for selecting Jammer", 0);
-            countermeasureControlsChaff = new RewiredInputConfig(Config, "Countermeasures", "Countermeasure Controls - Chaff", "Input you want to assign for selecting Chaff", 0);
+            CountermeasureControls.CountermeasuresNum = Config.Bind("Countermeasures",
+                "Countermeasure Controls - Number",
+                -1,
+                new ConfigDescription(
+                    "Number of countermeasures (restart the game to apply changes). Set to -1 and restart to ininialize default countermeasures.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = order-- }));
+            if (CountermeasureControls.CountermeasuresNum.Value == -1) {
+                CountermeasureControls.CountermeasuresNum.Value = 2;
+            }
+            string DefaultCountermeasureName(int i) {
+                return i switch {
+                    0 => "IR Flares",
+                    1 => "Radar ECM",
+                    _ => "",
+                };
+            }
+            CountermeasureControls.CountermeasureDatum = new ();
+            for (int i = 0; i < CountermeasureControls.CountermeasuresNum.Value; i++) {
+                var data = new CountermeasureControls.CountermeasureData {
+                    Name = Config.Bind(
+                            "Countermeasures",
+                            $"Countermeasure Controls - {i} - Name",
+                            DefaultCountermeasureName(i),
+                            new ConfigDescription(
+                                "Countermeasure name.",
+                                null,
+                                new ConfigurationManagerAttributes { Order = order-- })
+                            ),
+                    Key = new RewiredInputConfig(
+                        Config,
+                        "Countermeasures",
+                        $"Countermeasure Controls - {i} - Key",
+                        "Key and modifiers combination assigned to this countermeasure.",
+                        order--
+                        )
+                };
+                CountermeasureControls.CountermeasureDatum.Add(data);
+            }
             // Weapon Switcher settings
             order = 100;
             WeaponSwitcher.Enabled = Config.Bind("Advanced Slot Selection",
@@ -2090,6 +2136,25 @@ namespace NO_Tactitools.Core {
                     "Show bomb arm delay beside ToF value (restart the game to apply changes).",
                     null,
                     new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.ZoomInertiaAdjustment.Enabled = Config.Bind("UI Adjustments",
+                "UI Adjustments - Zoom Inertia Adjustment - Enabled",
+                false,
+                new ConfigDescription(
+                    "Enable cockpit camera zoom inertia adjustment (restart the game to apply changes).",
+                    null,
+                    new ConfigurationManagerAttributes {
+                        Order = order--
+                    }));
+            UIAdjustments.ZoomInertiaAdjustment.ZoomInertia = Config.Bind("UI Adjustments",
+                "UI Adjustments - Zoom Inertia Adjustment - Zoom Inertia",
+                0.8f,
+                new ConfigDescription(
+                    "Cockpit camera zoom inertia value (0 - no inertia, 1 - infinite inertia, zoom won't change; vanilla is 0.8).",
+                    new AcceptableValueRange<float>(0.0f, 1.0f),
+                    new ConfigurationManagerAttributes {
+                        ShowRangeAsPercent = false, 
                         Order = order--
                     }));
             UIAdjustments.NOAutopilotGCASChevron = Config.Bind("UI Adjustments",
@@ -3913,7 +3978,7 @@ namespace NO_Tactitools.Core {
             }
             TargetListControllerPlugin.switchCurrentTarget = tlcSwitchCurrentTargetEnabled.Value;
             // Patch Countermeasure Controls
-            if (countermeasureControlsEnabled.Value) {
+            if (CountermeasureControls.Enabled.Value) {
                 Log($"Countermeasure Controls is enabled, patching...");
                 harmony.PatchAll(typeof(CountermeasureControlsPlugin));
             }
@@ -4045,8 +4110,17 @@ namespace NO_Tactitools.Core {
             }
             // MOD COMPAT PATCHES
             if (NOAutopilotControl.Enabled.Value) {
-                Log($"Autopilot Menu is enabled, patching...");
-                harmony.PatchAll(typeof(NOAutopilotControlPlugin));
+                Log($"Autopilot Menu is enabled");
+
+                /* Had to check for NOAutopilot presence here, because check in NOAutopilotControlPlugin.Postfix() essentially did nothing:
+                   it generated FileNotFoundException if NOAutopilotControl.Enabled.Value == true, but NOAutopilot was not loaded. */
+                var autopilotModGUID = "com.qwerty1423.NOAutopilot";
+                if (BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(autopilotModGUID)) {
+                    Log($"NOAutopilot loaded, patching...");
+                    harmony.PatchAll(typeof(NOAutopilotControlPlugin));
+                }
+                else
+                    Log($"NOAutopilot not found. Autopilot controls disabled");
             }
             // VIRTUAL JOYSTICK EXTENDER PATCHES
             if (VirtualJoystickExtender.Enabled.Value) {

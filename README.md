@@ -525,7 +525,7 @@ If `Weapon Manager Extensions - Keep Firing` is disabled, will fire only one sal
 
 ##### Attack only lased targets
 
-If `Weapon Manager Extensions - Attack Only Lased Targets` is enabled, laser guided weapons will launch deliverables only at lased targets in the target list. Restart the game to apply changes.
+If `Weapon Manager Extensions - Attack Only Lased Targets` is enabled, laser-guided missile will launched at selected target only when it is lased and there is a line of sight to it. Restart the game to apply changes.
 
 ##### Toggle jammer
 
@@ -559,7 +559,7 @@ This component stores Map Options state (a window opened by by **"MAP"** button 
 
 #### Ammo Conservation Indicator extensions
 
-This feature of `Ammo Conservation Indicator` component allows to recolor HMD markers of selected targets that are being tracked by deliverables or lased. MFD box markers of selected targets can also be painted with a different color if those targets are being tracked. In addition to that, it's possible to turn of the dot markers under MFD boxes of tracked targets.
+This feature of `Ammo Conservation Indicator` component allows to recolor HMD markers of selected targets that are being tracked by deliverables or both lased and has LOS. MFD box markers of selected targets can also be painted with a different color if those targets are being tracked. In addition to that, it's possible to turn of the dot markers under MFD boxes of tracked targets.
 
 Feature state is controlled by `Ammo Conservation Indicator - HMD Markers Color - Enabled` setting. Colors are controlled by color settings under `Ammo Conservation Indicator` section.
 
@@ -774,19 +774,23 @@ All these fixes require to restart the game after enabling or disabling to apply
 
 `UI Adjustments - Fix HUDCargoState HUDFixedUpdate` fixes NRE in HUDCargoState.HUDFixedUpdate() (restart the game to apply changes).  
 
-##### Other
-
-`UI Adjustments - Disable Ally Info` disables ally aircraft info feature added in NO 0.34.  
-
-If `UI Adjustments - Colorize Player-related Messages` is enabled, player name and names of player-owned munitions and vehicles in message feed will be colorized with `All Clear` color (restart the game to apply changes). (restart the game to apply changes).
-
-If `UI Adjustments - Center On Jump Map` is enabled, pressing `Jump Map` key when map is maximized and players aircraft is spawned will center map on cursor coordinates (restart the game to apply changes).
+##### Airbase Overlay
 
 If `UI Adjustments - Airbase Overlay - Always Display Glidepath` is enabled, airbase overlay will display glidepath and runway borders even for aircraft with vertical landing, like helicopters and VTOLs (restart the game to apply changes).
 
 If `UI Adjustments - Airbase Overlay - Ignore Runway Limits` is enabled, runway landing speed and size limits will be ignored when airbase overlay selects which runway to display glidepath and borders for (restart the game to apply changes). Enabling this setting will, for example, display glidepath and runway borders when landing on K92 or Dustbowl in Ifrit.
 
+##### Other
+
+`UI Adjustments - Disable Ally Info` disables ally aircraft info feature added in NO 0.34 (restart the game to apply changes).
+
+If `UI Adjustments - Colorize Player-related Messages` is enabled, player name and names of player-owned munitions and vehicles in message feed will be colorized with `All Clear` color (restart the game to apply changes).
+
+If `UI Adjustments - Center On Jump Map` is enabled, pressing `Jump Map` key when map is maximized and players aircraft is spawned will center map on cursor coordinates (restart the game to apply changes).
+
 If `UI Adjustments - Show Arm Delay` is enabled, bomb arm delay will be shown beside ToF value both in CCIP and CCRP modes (restart the game to apply changes).
+
+Enabling `UI Adjustments - Zoom Inertia Adjustment - Enabled` allows to adjust cockpit camera zoom inertia (restart the game to apply changes). The value of inertia is set by `UI Adjustments - Zoom Inertia Adjustment - Zoom Inertia` (0 - no inertia, 1 - infinite inertia, zoom won't change; vanilla is 0.8).
 
 If `UI Adjustments - Display NOAutopilot GCAS Chevron on HMD` is enabled, [NOAutopilot](https://github.com/qwerty1423/no-autopilot-mod/) Ground Collision Avoidance System (GCAS) Chevron will be displayed on HMD instead of HUD (restart the game to apply changes).
 
@@ -1029,11 +1033,15 @@ This components allows to control cockpit camera with keys.
 
 #### Countermeasure Controls extensions
 
-This feature extends `Countermeasure Controls` component by adding support for chaff (used in Primeva 2082) and enabling to actually bind countermeasure activation to a key.
+This feature extends `Countermeasure Controls` component: it allows to bind selecting (and activating) of arbitrary countermeasures to keys.
 
 `Countermeasure Controls - Enabled` controls the state of the component (restart the game to apply changes).
 
-Keys bound to `Countermeasure Controls - Flares`, `Countermeasure Controls - Jammer`, and `Countermeasure Controls - Chaff` control corresponding countermeasures. If `Countermeasure Controls - Activate` is enabled, the selected countermeasure will be activated upon key press and deactivated on key release; if this setting is disabled, the key press will just switch to the bound countermeasure.
+`Countermeasure Controls - Number` sets the number of countermeasures (restart the game to apply changes). Set to -1 and restart to ininialize default countermeasures (named "IR Flares" and "Radar ECM").
+
+For each countermeasure `Countermeasure Controls - # - Name` sets the countermeasure name, and `Countermeasure Controls - # - Key` sets the key and modifiers combination assigned to this countermeasure.
+
+If `Countermeasure Controls - Activate` is enabled, the bound countermeasure will be selected and then activated by key press and deactivated on key release; if this setting is disabled, the key press will just switch to the bound countermeasure.
 
 #### Virtual Joystick Extender
 

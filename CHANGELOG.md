@@ -6,6 +6,24 @@
 
 # Changelog
 
+## 0.7.36.0
+
+  * Autopilot Menu
+    + fixed: now should initialize correctly if Autopilot Menu is enabled, but NOAutopilot mod is missing
+  * Weapon Manager Extensions
+    + optimized firing laser-guided weapons:
+      - no more delays between missiles in salvo
+      - checking for LOS to target before launching a missile
+  * Ammo Conservation Indicator
+    + optimized
+    + colorizing marker of lased target only if there is a LOS to target
+  * HMD Target List
+    + another fix for stale "MISSILE TARGETS" label
+  * UI Adjustments
+    + added ZoomInertia setting
+  * Countermeasure Control
+    + implemented binding countermeasure by its name
+
 ## 0.7.35.1
 
   * Autopilot Menu

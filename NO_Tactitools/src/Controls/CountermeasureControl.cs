@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using BepInEx.Configuration;
 using NO_Tactitools.Core;
 
 namespace NO_Tactitools.Controls;
@@ -13,27 +14,19 @@ class CountermeasureControlsPlugin {
         if (!initialized) {
             Plugin.Log($"[CC] Countermeasure Controls plugin starting !");
 
-            InputCatcher.RegisterNewInput(
-                Plugin.countermeasureControlsFlare,
-                0.001f,
-                onPress: HandleOnPressFlare,
-                onReleased: HandleOnReleased
+            foreach (var countermeasureData in Plugin.CountermeasureControls.CountermeasureDatum) {
+                var nameVar = countermeasureData.Name;
+                var key = countermeasureData.Key;
+                InputCatcher.RegisterNewInput(
+                    key,
+                    0.001f,
+                    onPress: () => HandleOnPress(nameVar),
+                    onReleased: HandleOnReleased
                 );
-            InputCatcher.RegisterNewInput(
-                Plugin.countermeasureControlsJammer,
-                0.001f,
-                onPress: HandleOnPressJammer,
-                onReleased: HandleOnReleased
-                );
-            InputCatcher.RegisterNewInput(
-                Plugin.countermeasureControlsChaff,
-                0.001f,
-                onPress: HandleOnPressChaff,
-                onReleased: HandleOnReleased
-                );
+            }
 
             BindingHelper.Binding[] bindings = new BindingHelper.Binding[] {
-                new (typeof(CountermeasureControlsPlugin), "Activate", Plugin.countermeasureControlsActivate)
+                new (typeof(CountermeasureControlsPlugin), "Activate", Plugin.CountermeasureControls.Activate)
             };
             BindingHelper.ApplyBindings(bindings);
 
@@ -68,6 +61,17 @@ class CountermeasureControlsPlugin {
             bool set = GameBindings.Player.Aircraft.Countermeasures.GetCurrentIndex() == GameBindings.Player.Aircraft.Countermeasures.GetChaffStationIndex();
             if (!set)
                 GameBindings.Player.Aircraft.Countermeasures.SetChaff();
+            if (Activate)
+                GameBindings.Player.Aircraft.Countermeasures.SetState(true);
+        }
+    }
+
+    private static void HandleOnPress(ConfigEntry<string> nameVar) {
+        var name = nameVar.Value;
+        if (GameBindings.Player.Aircraft.Countermeasures.HasCountermeasureByName(name)) {
+            var index = GameBindings.Player.Aircraft.Countermeasures.GetStationIndexByName(name);
+            if (GameBindings.Player.Aircraft.Countermeasures.GetCurrentIndex() != index)
+                GameBindings.Player.Aircraft.Countermeasures.SetCurrentIndex(index);
             if (Activate)
                 GameBindings.Player.Aircraft.Countermeasures.SetState(true);
         }

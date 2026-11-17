@@ -77,6 +77,9 @@ public class UIAdjustmentsPlugin {
             if (Plugin.UIAdjustments.ShowArmDelay.Value == true) {
                 Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.ShowArmDelay.OnHUDBombingStateUpdateWeaponDisplay));
             }
+            if (Plugin.UIAdjustments.ZoomInertiaAdjustment.Enabled.Value == true) {
+                Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.ZoomInertiaAdjustment.CameraCockpitStateUpdateState));
+            }
             if (Plugin.UIAdjustments.NOAutopilotGCASChevron.Value == true) {
                 Plugin.harmony.PatchAll(typeof(UIAdjustmentsComponent.NOAutopilotGCASChevron.OnFlightHudUpdate));
             }
@@ -92,6 +95,7 @@ public class UIAdjustmentsPlugin {
                 new (typeof(UIAdjustmentsComponent), "WingAngleGaugeFontSize", Plugin.UIAdjustments.WingAngleGaugeFontSize),
                 new (typeof(UIAdjustmentsComponent), "NozzleGaugeFontSize", Plugin.UIAdjustments.NozzleGaugeFontSize),
                 new (typeof(UIAdjustmentsComponent), "NotchIndicatorLabelFontSize", Plugin.UIAdjustments.NotchIndicatorLabelFontSize),
+                new (typeof(UIAdjustmentsComponent.ZoomInertiaAdjustment), "ZoomInertia", Plugin.UIAdjustments.ZoomInertiaAdjustment.ZoomInertia),
             };
             BindingHelper.ApplyBindings(bindings);
 
@@ -980,6 +984,56 @@ class UIAdjustmentsComponent {
         private static TraverseCache<MissileSeeker, float> armDelayCache = new ("armDelay");
         private static WeaponStation weaponStation = null;
         private static string armDelayText = "";
+    }
+
+    public class ZoomInertiaAdjustment {
+        public static float ZoomInertia {
+            get;
+            set {
+                field = value;
+                zoomInertia = 1.0f - value;
+            }
+        } = 0.0f;
+        private static float zoomInertia = 1.0f;
+
+        [HarmonyPatch(typeof(CameraCockpitState), "UpdateState")]
+        public class CameraCockpitStateUpdateState {
+            static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
+                var zoomSpeedField = AccessTools.Field(typeof(ZoomInertiaAdjustment), "zoomInertia");
+                var mainCameraField = AccessTools.Field(typeof(CameraStateManager), "mainCamera");
+                var fovGetter = AccessTools.PropertyGetter(typeof(Camera), "fieldOfView");
+                var lerpMethod = AccessTools.Method(typeof(Mathf), "Lerp", new Type[] { typeof(float), typeof(float), typeof(float) });
+                var fovSetter = AccessTools.PropertySetter(typeof(Camera), "fieldOfView");
+
+                var anyArg = new CodeMatch(i => 
+                    i.opcode == OpCodes.Ldarg_0 || i.opcode == OpCodes.Ldarg_1 || 
+                    i.opcode == OpCodes.Ldarg_2 || i.opcode == OpCodes.Ldarg_3 || 
+                    i.opcode == OpCodes.Ldarg_S || i.opcode == OpCodes.Ldarg);
+
+                var anyLocal = new CodeMatch(i => 
+                    i.opcode == OpCodes.Ldloc_0 || i.opcode == OpCodes.Ldloc_1 || 
+                    i.opcode == OpCodes.Ldloc_2 || i.opcode == OpCodes.Ldloc_3 || 
+                    i.opcode == OpCodes.Ldloc_S || i.opcode == OpCodes.Ldloc);
+
+                var matcher = new CodeMatcher(instructions);
+
+                var sequence = new CodeMatch[] {
+                    anyArg,
+                    new CodeMatch(OpCodes.Ldfld, mainCameraField),
+                    new CodeMatch(OpCodes.Callvirt, fovGetter),
+                    anyLocal,
+                    new CodeMatch(i => i.opcode == OpCodes.Ldc_R4),
+                    new CodeMatch(OpCodes.Call, lerpMethod),
+                    new CodeMatch(OpCodes.Callvirt, fovSetter)
+                };
+
+                matcher.MatchStartForward(sequence)
+                   .Advance(4) 
+                   .Set(OpCodes.Ldsfld, zoomSpeedField);
+
+                return matcher.InstructionEnumeration();
+            }
+        }
     }
 
     public class NOAutopilotGCASChevron {

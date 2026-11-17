@@ -57,6 +57,8 @@ class AmmoConIndicatorComponent {
         static public MissileCache<MissileData> friendlyMissileCache = null;
         //markers of tracked targets
         static public HashSet<HUDUnitMarker> trackedMarkers = new ();
+        //colors of target markers
+        static public Dictionary<HUDUnitMarker, Color> targetMarkersColors = new ();
         //marker of active target (whether it's tracked by missile or not)
         static public HUDUnitMarker activeMarker = null;
 
@@ -100,11 +102,21 @@ class AmmoConIndicatorComponent {
             }
 
             Dictionary<Unit, HUDUnitMarker> markerLookup = null;
+            FactionHQ hq = null;
+            Vector3 position = Vector3.zero;
             if (InternalState.ColorHMDMarker) {
                 var currentCombatHUD = UIBindings.Game.GetCombatHUDComponent();
                 markerLookup = InternalState._markerLookupCache.GetValue(currentCombatHUD);
                 InternalState.trackedMarkers.Clear();
+                InternalState.targetMarkersColors.Clear();
                 InternalState.activeMarker = null;
+
+                var aircraft = GameBindings.Player.Aircraft.GetAircraft();
+                var currentWeaponStation = GameBindings.Player.Aircraft.Weapons.GetActiveStation();
+                if (aircraft != null && currentWeaponStation != null && currentWeaponStation.WeaponInfo.laserGuided) {
+                    hq = GameBindings.GameState.GetCurrentFactionHQ();
+                    position = aircraft.transform.position;
+                }
             }
 
             //'targetIcons' is indexed by i, so have to walk 'targets' list
@@ -136,34 +148,21 @@ class AmmoConIndicatorComponent {
                 if (InternalState.ColorHMDMarker && markerLookup.TryGetValue(target, out var marker)) {
                     if (i == 0)
                         InternalState.activeMarker = marker;
-                    if (isTracked) {
+                    if (isTracked)
                         InternalState.trackedMarkers.Add(marker);
-                    }
+
+                    Color color =
+                        isTracked ? InternalState.HMDTrackedMarkerColor :
+                        (hq != null && target.LineOfSight(position, 1000f) && hq.IsTargetLased(target)) ? InternalState.HMDLasedMarkerColor :
+                        InternalState.HMDDefaultMarkerColor;
+                    InternalState.targetMarkersColors[marker] = color;
                 }
             }
         }
 
         public static void UpdateMarkerColor(HUDUnitMarker marker) {
-            if (InternalState.ColorHMDMarker) {
-                Color? color = null;
-                if (InternalState.trackedMarkers.Contains(marker))
-                    color = InternalState.HMDTrackedMarkerColor;
-                else if (marker.selected) {
-                    if (InternalState.ColorHMDLasedMarker) {
-                        var currentWeaponStation = GameBindings.Player.Aircraft.Weapons.GetActiveStation();
-                        if (currentWeaponStation != null && currentWeaponStation.WeaponInfo.laserGuided) {
-                            var hq = GameBindings.GameState.GetCurrentFactionHQ();
-                            if (hq.IsTargetLased(marker.unit))
-                                color = InternalState.HMDLasedMarkerColor;
-                        }
-                    }
-                    //not 'else if' !
-                    if (color == null)
-                        color = InternalState.HMDDefaultMarkerColor;
-                }
-                if (color != null)
-                    marker.image.color = (Color)color;
-            }
+            if (InternalState.ColorHMDMarker && InternalState.targetMarkersColors.TryGetValue(marker, out var color))
+                marker.image.color = (Color)color;
         }
     }
 

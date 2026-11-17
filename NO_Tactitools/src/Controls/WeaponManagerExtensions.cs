@@ -24,6 +24,7 @@ public class WeaponManagerExtensionsComponent {
 
                 if (Plugin.WeaponManagerExtensions.AttackOnlyLasedTargets.Value) {
                     Plugin.harmony.PatchAll(typeof(WeaponManagerExtensionsComponent.OnWeaponStationLaunchMount));
+                    Plugin.harmony.PatchAll(typeof(WeaponManagerExtensionsComponent.OnWeaponManagerSalvoFire));
                     Plugin.Log($"[WME] Attack Only Lased Targets feature enabled");
                 }
 
@@ -125,13 +126,30 @@ public class WeaponManagerExtensionsComponent {
 
     [HarmonyPatch(typeof(WeaponStation), "LaunchMount")]
     public class OnWeaponStationLaunchMount {
-        static bool Prefix(ref WeaponStation __instance, Unit owner, Unit target) {
+        static bool Prefix(WeaponStation __instance, Unit owner, Unit target) {
             if (__instance.WeaponInfo.laserGuided && owner == GameBindings.Player.Aircraft.GetAircraft()) {
                 var hq = GameBindings.GameState.GetCurrentFactionHQ();
                 //allowing to dumbfire laser-guided missiles
-                return target == null || hq.IsTargetLased(target);
+                return target == null || (target.LineOfSight(owner.transform.position, 1000f) && hq.IsTargetLased(target));
             }
             return true;
+        }
+    }
+
+    /* WeaponManager.SalvoFire() iterates over targets by calling currentWeaponStation.LaunchMount() for each target and waiting.
+       So if WeaponStation.LaunchMount() does not fire for laser-guided weapon at unlased target, delay still remains.
+       To avoid this, if laser-guided weapon is firing salvo, unlased targets are filtered out first. */
+    [HarmonyPatch(typeof(WeaponManager), "SalvoFire")]
+    public class OnWeaponManagerSalvoFire {
+        static void Prefix(WeaponManager __instance, ref List<Unit> targets, Aircraft ___aircraft) {
+            var currentWeaponStation = __instance.currentWeaponStation;
+            if (currentWeaponStation == null)
+                return;
+            if (currentWeaponStation.WeaponInfo.laserGuided && ___aircraft == GameBindings.Player.Aircraft.GetAircraft()) {
+                var hq = GameBindings.GameState.GetCurrentFactionHQ();
+                var lasedTargets = targets.FindAll(target => hq.IsTargetLased(target));
+                targets = lasedTargets;
+            }
         }
     }
 

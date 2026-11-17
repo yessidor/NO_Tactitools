@@ -207,7 +207,6 @@ public class WeaponDisplayComponent {
                 "AB-4 Alkyon" or
                 "FastBomber1" or
                 "VT-7 Vagrant" or
-                "FQ-106 Kestrel" or
                 "MiG-15" => true,
                 _ => false
             };
@@ -216,10 +215,10 @@ public class WeaponDisplayComponent {
 
     static class DisplayEngine {
         static public void Init() {
+            InternalState.weaponDisplay = null;
             if (!InternalState.isDisabled && InternalState.isAircraftRecognized) {
                 // In reality, this checks if the player's plane has spawned
                 try {
-                    InternalState.weaponDisplay = null;
                     InternalState.weaponDisplay = new WeaponDisplay();
                 }
                 catch (NotImplementedException e) {
@@ -613,7 +612,6 @@ public class WeaponDisplayComponent {
                     weaponAmmoFont = 40;
                     imageScaleFactor = 0.75f;
                     break;
-                case "FQ-106 Kestrel":
                 default:
                     flarePos = new Vector2(0, -40);
                     jammerPos = new Vector2(0, -80);

@@ -12,75 +12,75 @@ namespace NO_Tactitools.Controls;
 [HarmonyPatch(typeof(MainMenu), "Start")]
 public static class NOAutopilotControlPlugin {
     private static bool initialized = false;
-    private const string AutopilotModGUID = "com.qwerty1423.NOAutopilot";
-    public static bool IsAutopilotModLoaded = false;
+
     public static void Postfix() {
         if (!initialized) {
-            Plugin.Log($"[AP] NOAutopilotControl checking dependencies...");
-            if (Chainloader.PluginInfos.ContainsKey(AutopilotModGUID)) IsAutopilotModLoaded = true;
-            Plugin.Log($"[AP] NOAutopilotControl dependency check complete. IsAutopilotModLoaded: {IsAutopilotModLoaded.ToString()}");
-            if (IsAutopilotModLoaded) {
-                Plugin.Log("[AP] Found 'no-autopilot-mod'. Enabling Autopilot controls.");
-                Plugin.harmony.PatchAll(typeof(NOAutopilotComponent.OnPlatformStart));
-                Plugin.harmony.PatchAll(typeof(NOAutopilotComponent.OnPlatformUpdate));
-                InputCatcher.RegisterNewInput(
-                    Plugin.MFDNavToggle,
-                    Plugin.PressDelay.Value,
-                    onRelease:ToggleMenu,
-                    onLongPress: () => { }
-                );
-                InputCatcher.RegisterNewInput(
-                    Plugin.MFDNavEnter,
-                    999f, // High threshold so OnHold keeps running indefinitely
-                    onShortPress: SelectActionShort,
-                    onHold: SelectActionHold
-                );
-                InputCatcher.RegisterNewInput(
-                    Plugin.MFDNavUp,
-                    999f, // High threshold so OnHold keeps running
-                    onShortPress: NavigateUpShort,
-                    onHold: NavigateUpHold
-                );
-                InputCatcher.RegisterNewInput(
-                    Plugin.MFDNavDown,
-                    999f, // High threshold so OnHold keeps running
-                    onShortPress: NavigateDownShort,
-                    onHold: NavigateDownHold
-                );
-                InputCatcher.RegisterNewInput(
-                    Plugin.MFDNavLeft,
-                    999f,
-                    onShortPress: NavigateLeftShort,
-                    onHold: NavigateLeftHold
-                );
-                InputCatcher.RegisterNewInput(
-                    Plugin.MFDNavRight,
-                    999f,
-                    onShortPress: NavigateRightShort,
-                    onHold: NavigateRightHold
-                );
+            Plugin.Log("[AP] Found 'no-autopilot-mod'. Enabling Autopilot controls.");
 
-                var bindings = new BindingHelper.Binding[] {
-                    new (typeof(NOAutopilotComponent.InternalState), "sendToHMD", Plugin.NOAutopilotControl.SendToHMD),
-                    new (NOAutopilotComponent.InternalState.sendToHMDForEntries, "Entries", Plugin.NOAutopilotControl.SendToHMDFor),
-                    new (typeof(NOAutopilotComponent.InternalState), "mfdMainColor", Plugin.NOAutopilotControl.MFDMainColor),
-                    new (typeof(NOAutopilotComponent.InternalState), "hmdMainColor", Plugin.NOAutopilotControl.HMDMainColor),
-                    new (typeof(NOAutopilotComponent.InternalState), "hmdFontSize", Plugin.NOAutopilotControl.HMDFontSize),
-                    new (typeof(NOAutopilotComponent.InternalState), "hmdHorizontalOffset", Plugin.NOAutopilotControl.HMDPositionX),
-                    new (typeof(NOAutopilotComponent.InternalState), "hmdVerticalOffset", Plugin.NOAutopilotControl.HMDPositionY),
-                    new (typeof(NOAutopilotComponent.InternalState), "altIncrement", Plugin.NOAutopilotControl.AltIncrement),
-                    new (typeof(NOAutopilotComponent.InternalState), "climbIncrement", Plugin.NOAutopilotControl.ClimbIncrement),
-                    new (typeof(NOAutopilotComponent.InternalState), "speedIncrement", Plugin.NOAutopilotControl.SpeedIncrement),
-                    new (typeof(NOAutopilotComponent.InternalState), "machSpeedIncrement", Plugin.NOAutopilotControl.MachSpeedIncrement),
-                    new (typeof(NOAutopilotComponent.InternalState), "rollIncrement", Plugin.NOAutopilotControl.RollIncrement),
-                    new (typeof(NOAutopilotComponent.InternalState), "courseIncrement", Plugin.NOAutopilotControl.CourseIncrement),
-                    new (typeof(NOAutopilotComponent.InternalState), "pressDelay", Plugin.PressDelay),
-                };
-                BindingHelper.ApplyBindings(bindings);
-            }
-            else {
-                Plugin.Log("[AP] 'no-autopilot-mod' not found. Autopilot controls disabled.");
-            }
+            // Compatibility
+            // NOAutopilot 5.6.0 has TargetCourse, 6.0.0 renames it to TargetTrack
+            // Using reflection for compatibility with both versions
+            FieldInfo targetCourseInfo = AccessTools.Field(typeof(APData), "TargetCourse");
+            FieldInfo targetTrackInfo = AccessTools.Field(typeof(APData), "TargetTrack");
+            NOAutopilotComponent.InternalState.targetCourseWrapperInfo = targetCourseInfo != null ? targetCourseInfo : targetTrackInfo;
+
+            Plugin.harmony.PatchAll(typeof(NOAutopilotComponent.OnPlatformStart));
+            Plugin.harmony.PatchAll(typeof(NOAutopilotComponent.OnPlatformUpdate));
+
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavToggle,
+                Plugin.PressDelay.Value,
+                onRelease:ToggleMenu,
+                onLongPress: () => { }
+            );
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavEnter,
+                999f, // High threshold so OnHold keeps running indefinitely
+                onShortPress: SelectActionShort,
+                onHold: SelectActionHold
+            );
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavUp,
+                999f, // High threshold so OnHold keeps running
+                onShortPress: NavigateUpShort,
+                onHold: NavigateUpHold
+            );
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavDown,
+                999f, // High threshold so OnHold keeps running
+                onShortPress: NavigateDownShort,
+                onHold: NavigateDownHold
+            );
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavLeft,
+                999f,
+                onShortPress: NavigateLeftShort,
+                onHold: NavigateLeftHold
+            );
+            InputCatcher.RegisterNewInput(
+                Plugin.MFDNavRight,
+                999f,
+                onShortPress: NavigateRightShort,
+                onHold: NavigateRightHold
+            );
+
+            var bindings = new BindingHelper.Binding[] {
+                new (typeof(NOAutopilotComponent.InternalState), "sendToHMD", Plugin.NOAutopilotControl.SendToHMD),
+                new (NOAutopilotComponent.InternalState.sendToHMDForEntries, "Entries", Plugin.NOAutopilotControl.SendToHMDFor),
+                new (typeof(NOAutopilotComponent.InternalState), "mfdMainColor", Plugin.NOAutopilotControl.MFDMainColor),
+                new (typeof(NOAutopilotComponent.InternalState), "hmdMainColor", Plugin.NOAutopilotControl.HMDMainColor),
+                new (typeof(NOAutopilotComponent.InternalState), "hmdFontSize", Plugin.NOAutopilotControl.HMDFontSize),
+                new (typeof(NOAutopilotComponent.InternalState), "hmdHorizontalOffset", Plugin.NOAutopilotControl.HMDPositionX),
+                new (typeof(NOAutopilotComponent.InternalState), "hmdVerticalOffset", Plugin.NOAutopilotControl.HMDPositionY),
+                new (typeof(NOAutopilotComponent.InternalState), "altIncrement", Plugin.NOAutopilotControl.AltIncrement),
+                new (typeof(NOAutopilotComponent.InternalState), "climbIncrement", Plugin.NOAutopilotControl.ClimbIncrement),
+                new (typeof(NOAutopilotComponent.InternalState), "speedIncrement", Plugin.NOAutopilotControl.SpeedIncrement),
+                new (typeof(NOAutopilotComponent.InternalState), "machSpeedIncrement", Plugin.NOAutopilotControl.MachSpeedIncrement),
+                new (typeof(NOAutopilotComponent.InternalState), "rollIncrement", Plugin.NOAutopilotControl.RollIncrement),
+                new (typeof(NOAutopilotComponent.InternalState), "courseIncrement", Plugin.NOAutopilotControl.CourseIncrement),
+                new (typeof(NOAutopilotComponent.InternalState), "pressDelay", Plugin.PressDelay),
+            };
+            BindingHelper.ApplyBindings(bindings);
 
             initialized = true;
         }
@@ -529,11 +529,7 @@ public class NOAutopilotComponent {
         public static bool extremeThrottleEnabled;
 
         // Compatibility
-        // NOAutopilot 5.6.0 has TargetCourse, 6.0.0 renames it to TargetTrack
-        // Using reflection for compatibility with both versions
-        public static FieldInfo targetCourseInfo = AccessTools.Field(typeof(APData), "TargetCourse");
-        public static FieldInfo targetTrackInfo = AccessTools.Field(typeof(APData), "TargetTrack");
-        public static FieldInfo targetCourseWrapperInfo = targetCourseInfo != null ? targetCourseInfo : targetTrackInfo;
+        public static FieldInfo targetCourseWrapperInfo;
     }
 
     private static class DisplayEngine {
